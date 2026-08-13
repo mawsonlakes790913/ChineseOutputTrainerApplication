@@ -2,16 +2,43 @@
 
 ## 1. 概要
 
-Chinese Output Trainer で使用する主要エンティティと、そのリレーションを示す。
+Chinese Output Forge で使用する主要エンティティと、そのリレーションを示す。
 
-本システムでは、ユーザー情報は簡体中文・繁體中文で共通とする一方、
+本システムでは、以下の主要データを管理する。
 
+- User
 - Question
 - Favorite
 - StudyHistory
 - AiGeneratedQuestion
 
-は簡体中文用と繁體中文用でそれぞれ分離して管理する。
+大陸普通話と台湾華語は、単なる簡体字・繁体字の違いとして扱うのではなく、**それぞれ異なる問題データとして管理する**。
+
+ただし、両者のデータ構造は共通しているため、
+
+```text
+SIMPLIFIED_QUESTION
+TRADITIONAL_QUESTION
+```
+
+のようにテーブル自体を分離するのではなく、
+
+```text
+QUESTION
+```
+
+として共通管理する。
+
+QUESTIONに学習対象言語を識別する `language_variant` を持たせ、
+
+```text
+MAINLAND
+TAIWAN
+```
+
+によって大陸普通話と台湾華語を区別する。
+
+Favorite、StudyHistory、AiGeneratedQuestionについても、大陸普通話用・台湾華語用には分離せず共通テーブルとして管理する。
 
 AI生成問題は通常のマスタ問題とは別エンティティとし、生成したユーザーにのみ紐づく個人用データとして管理する。
 
@@ -22,23 +49,14 @@ AI生成問題は通常のマスタ問題とは別エンティティとし、生
 ```mermaid
 erDiagram
 
-    USER ||--o{ SIMPLIFIED_FAVORITE : has
-    SIMPLIFIED_QUESTION ||--o{ SIMPLIFIED_FAVORITE : has
+    USER ||--o{ FAVORITE : has
+    QUESTION ||--o{ FAVORITE : has
 
-    USER ||--o{ TRADITIONAL_FAVORITE : has
-    TRADITIONAL_QUESTION ||--o{ TRADITIONAL_FAVORITE : has
+    USER ||--o{ STUDY_HISTORY : has
+    QUESTION ||--o{ STUDY_HISTORY : has
 
-    USER ||--o{ SIMPLIFIED_STUDY_HISTORY : has
-    SIMPLIFIED_QUESTION ||--o{ SIMPLIFIED_STUDY_HISTORY : has
-
-    USER ||--o{ TRADITIONAL_STUDY_HISTORY : has
-    TRADITIONAL_QUESTION ||--o{ TRADITIONAL_STUDY_HISTORY : has
-
-    USER ||--o{ SIMPLIFIED_AI_GENERATED_QUESTION : owns
-    SIMPLIFIED_QUESTION ||--o{ SIMPLIFIED_AI_GENERATED_QUESTION : generates
-
-    USER ||--o{ TRADITIONAL_AI_GENERATED_QUESTION : owns
-    TRADITIONAL_QUESTION ||--o{ TRADITIONAL_AI_GENERATED_QUESTION : generates
+    USER ||--o{ AI_GENERATED_QUESTION : owns
+    QUESTION ||--o{ AI_GENERATED_QUESTION : generates
 
 
     USER {
@@ -48,8 +66,9 @@ erDiagram
     }
 
 
-    SIMPLIFIED_QUESTION {
+    QUESTION {
         bigint question_id PK
+        string language_variant
         text japanese_text
         text chinese_text
         text alternative_answer
@@ -62,33 +81,13 @@ erDiagram
     }
 
 
-    TRADITIONAL_QUESTION {
-        bigint question_id PK
-        text japanese_text
-        text chinese_text
-        text alternative_answer
-        string condition
-        string difficulty
-        boolean allow_ai_variation
-        text template
-        string subject_type
-        string verb_variation
-    }
-
-
-    SIMPLIFIED_FAVORITE {
+    FAVORITE {
         string user_id PK, FK
         bigint question_id PK, FK
     }
 
 
-    TRADITIONAL_FAVORITE {
-        string user_id PK, FK
-        bigint question_id PK, FK
-    }
-
-
-    SIMPLIFIED_STUDY_HISTORY {
+    STUDY_HISTORY {
         string user_id PK, FK
         bigint question_id PK, FK
         string evaluation
@@ -97,28 +96,7 @@ erDiagram
     }
 
 
-    TRADITIONAL_STUDY_HISTORY {
-        string user_id PK, FK
-        bigint question_id PK, FK
-        string evaluation
-        datetime first_studied_at
-        datetime evaluation_updated_at
-    }
-
-
-    SIMPLIFIED_AI_GENERATED_QUESTION {
-        bigint generated_question_id PK
-        string user_id FK
-        bigint source_question_id FK
-        text japanese_text
-        text chinese_text
-        string evaluation
-        datetime created_at
-        datetime evaluation_updated_at
-    }
-
-
-    TRADITIONAL_AI_GENERATED_QUESTION {
+    AI_GENERATED_QUESTION {
         bigint generated_question_id PK
         string user_id FK
         bigint source_question_id FK
@@ -132,191 +110,282 @@ erDiagram
 
 ---
 
-## 3. 簡体中文側のリレーション
+## 3. 全体のリレーション
 
-簡体中文側では、以下の4種類のエンティティを中心に構成する。
+本システムでは、Questionを大陸普通話・台湾華語で分離せず、共通のマスタ問題として管理する。
 
-```text
-USER
-  │
-  ├── SIMPLIFIED_FAVORITE
-  │        │
-  │        └── SIMPLIFIED_QUESTION
-  │
-  ├── SIMPLIFIED_STUDY_HISTORY
-  │        │
-  │        └── SIMPLIFIED_QUESTION
-  │
-  └── SIMPLIFIED_AI_GENERATED_QUESTION
-           │
-           └── SIMPLIFIED_QUESTION
-                （生成元）
-```
-
-### User と SimplifiedFavorite
-
-1対多の関係とする。
-
-1人のユーザーは複数の簡体中文問題をお気に入り登録できる。
-
-SimplifiedFavoriteには、お気に入り登録された問題のみレコードを保持する。
-
----
-
-### SimplifiedQuestion と SimplifiedFavorite
-
-1対多の関係とする。
-
-1つの簡体中文問題は、複数のユーザーからお気に入り登録される可能性がある。
-
-そのため、UserとSimplifiedQuestionはSimplifiedFavoriteを介して多対多の関係となる。
-
----
-
-### User と SimplifiedStudyHistory
-
-1対多の関係とする。
-
-1人のユーザーは複数の簡体中文マスタ問題について学習履歴を持つことができる。
-
----
-
-### SimplifiedQuestion と SimplifiedStudyHistory
-
-1対多の関係とする。
-
-1つの簡体中文マスタ問題は複数ユーザーによって学習される。
-
-そのため、UserとSimplifiedQuestionはSimplifiedStudyHistoryを介して多対多の関係となる。
-
----
-
-### User と SimplifiedAiGeneratedQuestion
-
-1対多の関係とする。
-
-1人のユーザーは複数の簡体中文AI生成問題を所有できる。
-
-AI生成問題には必ず `user_id` を保持し、そのユーザー専用の問題として管理する。
-
-他のユーザーからは参照・出題しない。
-
----
-
-### SimplifiedQuestion と SimplifiedAiGeneratedQuestion
-
-1対多の関係とする。
-
-1つのマスタ問題を基に、複数のAI生成問題が作成される可能性がある。
-
-`source_question_id` によって生成元となったSimplifiedQuestionを参照する。
-
----
-
-## 4. 繁體中文側のリレーション
-
-繁體中文側についても、簡体中文側と同じ構造を採用する。
+全体の関係は以下のようになる。
 
 ```text
 USER
   │
-  ├── TRADITIONAL_FAVORITE
-  │        │
-  │        └── TRADITIONAL_QUESTION
+  ├── FAVORITE
+  │       │
+  │       └── QUESTION
   │
-  ├── TRADITIONAL_STUDY_HISTORY
-  │        │
-  │        └── TRADITIONAL_QUESTION
+  ├── STUDY_HISTORY
+  │       │
+  │       └── QUESTION
   │
-  └── TRADITIONAL_AI_GENERATED_QUESTION
-           │
-           └── TRADITIONAL_QUESTION
-                （生成元）
+  └── AI_GENERATED_QUESTION
+          │
+          └── QUESTION
+              （生成元）
 ```
 
-### User と TraditionalFavorite
+QUESTIONには、
 
-1対多の関係とする。
+```text
+language_variant
+```
 
-1人のユーザーは複数の繁體中文問題をお気に入り登録できる。
+を持たせ、
 
----
+```text
+MAINLAND
+TAIWAN
+```
 
-### TraditionalQuestion と TraditionalFavorite
+によって学習対象言語を識別する。
 
-1対多の関係とする。
-
-1つの繁體中文問題は複数ユーザーからお気に入り登録される可能性がある。
-
-UserとTraditionalQuestionはTraditionalFavoriteを介して多対多の関係となる。
-
----
-
-### User と TraditionalStudyHistory
-
-1対多の関係とする。
-
-1人のユーザーは複数の繁體中文マスタ問題について学習履歴を持つことができる。
+そのため、FavoriteやStudyHistoryなどに学習対象言語を重複して保持する必要はなく、関連するQuestionを参照することで判定できる。
 
 ---
 
-### TraditionalQuestion と TraditionalStudyHistory
+## 4. Questionと学習対象言語
 
-1対多の関係とする。
+Questionは、大陸普通話・台湾華語双方のマスタ問題を管理する。
 
-1つの繁體中文マスタ問題は複数ユーザーによって学習される。
+例えば以下のように保存する。
 
-UserとTraditionalQuestionはTraditionalStudyHistoryを介して多対多の関係となる。
+```text
+QUESTION
+------------------------------------------------
+question_id       = 100
+language_variant  = MAINLAND
+chinese_text      = 大陸普通話の問題
+------------------------------------------------
+
+QUESTION
+------------------------------------------------
+question_id       = 101
+language_variant  = TAIWAN
+chinese_text      = 台湾華語の問題
+------------------------------------------------
+```
+
+大陸普通話と台湾華語は同じQUESTIONテーブルに保存するが、**問題データとしては独立して扱う。**
+
+したがって、
+
+```text
+MAINLANDの問題100
+=
+TAIWANの問題100
+```
+
+のような対応関係は持たせない。
+
+問題IDはQUESTION全体で一意とする。
+
+通常学習や復習では、現在設定されている学習対象言語に応じてQUESTIONを絞り込む。
+
+例えば大陸普通話の場合は、
+
+```text
+language_variant = MAINLAND
+```
+
+台湾華語の場合は、
+
+```text
+language_variant = TAIWAN
+```
+
+の問題を対象とする。
 
 ---
 
-### User と TraditionalAiGeneratedQuestion
+## 5. UserとFavorite
 
-1対多の関係とする。
+### リレーション
 
-1人のユーザーは複数の繁體中文AI生成問題を所有できる。
+UserとFavoriteは1対多の関係とする。
 
-AI生成問題は生成したユーザーにのみ紐づく個人用データとする。
+```text
+USER
+  │
+  │ 1:N
+  ↓
+FAVORITE
+```
+
+1人のユーザーは複数の問題をお気に入り登録できる。
+
+Favoriteには、お気に入り登録された問題のみレコードを保持する。
 
 ---
 
-### TraditionalQuestion と TraditionalAiGeneratedQuestion
+### QuestionとFavorite
 
-1対多の関係とする。
+QuestionとFavoriteも1対多の関係とする。
 
-1つの繁體中文マスタ問題から、複数のAI生成問題が作成される可能性がある。
+```text
+QUESTION
+   │
+   │ 1:N
+   ↓
+FAVORITE
+```
 
-`source_question_id` によって生成元となったTraditionalQuestionを参照する。
+1つのマスタ問題は複数ユーザーからお気に入り登録される可能性がある。
+
+そのため、UserとQuestionはFavoriteを介して多対多の関係となる。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+FAVORITE
+  ↑
+  │ N:1
+QUESTION
+```
+
+Favoriteの主キーは、
+
+```text
+(user_id, question_id)
+```
+
+の複合主キーとする。
+
+Favorite自身には `language_variant` を保持しない。
+
+```text
+FAVORITE
+    ↓
+QUESTION
+    ↓
+language_variant
+```
+
+と参照することで、そのお気に入りが大陸普通話・台湾華語のどちらに属するか判定する。
 
 ---
 
-## 5. AI生成問題の位置付け
+## 6. UserとStudyHistory
+
+### リレーション
+
+UserとStudyHistoryは1対多の関係とする。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+STUDY_HISTORY
+```
+
+1人のユーザーは複数のマスタ問題について学習履歴を持つことができる。
+
+---
+
+### QuestionとStudyHistory
+
+QuestionとStudyHistoryも1対多の関係とする。
+
+```text
+QUESTION
+   │
+   │ 1:N
+   ↓
+STUDY_HISTORY
+```
+
+1つのマスタ問題は複数ユーザーによって学習される。
+
+そのため、UserとQuestionはStudyHistoryを介して多対多の関係となる。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+STUDY_HISTORY
+  ↑
+  │ N:1
+QUESTION
+```
+
+StudyHistoryの主キーは、
+
+```text
+(user_id, question_id)
+```
+
+の複合主キーとする。
+
+同一ユーザー・同一問題について1レコードを保持し、
+
+- `evaluation`
+- `first_studied_at`
+- `evaluation_updated_at`
+
+を管理する。
+
+StudyHistory自身には `language_variant` を保持しない。
+
+```text
+STUDY_HISTORY
+      ↓
+   QUESTION
+      ↓
+language_variant
+```
+
+と参照することで、その学習履歴が大陸普通話・台湾華語のどちらに属するか判定する。
+
+---
+
+## 7. AI生成問題の位置付け
 
 AI生成問題はマスタ問題とは明確に分離する。
 
 ```text
-SIMPLIFIED_QUESTION
-        │
-        │ AI生成
-        ↓
-SIMPLIFIED_AI_GENERATED_QUESTION
-        ↑
-        │ owns
-       USER
+QUESTION
+   │
+   │ AI生成
+   ↓
+AI_GENERATED_QUESTION
+   ↑
+   │ owns
+ USER
 ```
 
-繁體中文側も同様とする。
+QUESTIONには、
 
 ```text
-TRADITIONAL_QUESTION
-        │
-        │ AI生成
-        ↓
-TRADITIONAL_AI_GENERATED_QUESTION
-        ↑
-        │ owns
-       USER
+language_variant
 ```
+
+が存在するため、生成元となったQuestionからAI生成問題の学習対象言語を判定できる。
+
+例えば、
+
+```text
+AI_GENERATED_QUESTION
+        ↓
+source_question_id
+        ↓
+QUESTION
+        ↓
+language_variant = TAIWAN
+```
+
+であれば、そのAI生成問題は台湾華語の問題として扱う。
 
 AI生成問題は以下の条件を満たす場合のみDBへ保存する。
 
@@ -325,18 +394,64 @@ AI生成問題は以下の条件を満たす場合のみDBへ保存する。
 
 理解度が与えられなかった問題は永続化しない。
 
-また、AI生成問題を以下のマスタテーブルへ追加することはしない。
-
-```text
-SIMPLIFIED_QUESTION
-TRADITIONAL_QUESTION
-```
+また、AI生成問題をマスタ問題であるQUESTIONへ追加することはしない。
 
 これにより、特定ユーザー向けに生成された問題が他ユーザーの通常学習へ混入することを防ぐ。
 
 ---
 
-## 6. AI生成問題とStudyHistoryの違い
+## 8. UserとAiGeneratedQuestion
+
+UserとAiGeneratedQuestionは1対多の関係とする。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATED_QUESTION
+```
+
+1人のユーザーは複数のAI生成問題を所有できる。
+
+AI生成問題には必ず `user_id` を保持し、そのユーザー専用の問題として管理する。
+
+他のユーザーからは参照・出題しない。
+
+---
+
+## 9. QuestionとAiGeneratedQuestion
+
+QuestionとAiGeneratedQuestionは1対多の関係とする。
+
+```text
+QUESTION
+   │
+   │ 1:N
+   ↓
+AI_GENERATED_QUESTION
+```
+
+1つのマスタ問題を基に、複数のAI生成問題が作成される可能性がある。
+
+AiGeneratedQuestionは、
+
+```text
+source_question_id
+```
+
+によって生成元となったQuestionを参照する。
+
+これにより、
+
+- どのマスタ問題から生成されたか
+- 大陸普通話・台湾華語のどちらの問題か
+
+を判定できる。
+
+---
+
+## 10. AI生成問題とStudyHistoryの違い
 
 マスタ問題では、問題そのものが全ユーザーで共有される。
 
@@ -360,7 +475,7 @@ USER
 AI_GENERATED_QUESTION
 ```
 
-そのため、AI生成問題については別途StudyHistoryテーブルを作成せず、AI生成問題自身に、
+そのため、AI生成問題については別途StudyHistoryを作成せず、AI生成問題自身に、
 
 - `evaluation`
 - `created_at`
@@ -370,7 +485,62 @@ AI_GENERATED_QUESTION
 
 ---
 
-## 7. AiSettingについて
+## 11. 大陸普通話・台湾華語の管理
+
+大陸普通話と台湾華語は、**論理的には異なる問題データとして扱うが、物理的なテーブルは共通化する。**
+
+旧設計では、
+
+```text
+SIMPLIFIED_QUESTION
+TRADITIONAL_QUESTION
+
+SIMPLIFIED_FAVORITE
+TRADITIONAL_FAVORITE
+
+SIMPLIFIED_STUDY_HISTORY
+TRADITIONAL_STUDY_HISTORY
+
+SIMPLIFIED_AI_GENERATED_QUESTION
+TRADITIONAL_AI_GENERATED_QUESTION
+```
+
+のように、それぞれ別テーブルとして管理することを想定していた。
+
+新しい設計では、これらを、
+
+```text
+QUESTION
+FAVORITE
+STUDY_HISTORY
+AI_GENERATED_QUESTION
+```
+
+へ統合する。
+
+大陸普通話・台湾華語の識別は、QUESTIONの、
+
+```text
+language_variant
+```
+
+によって行う。
+
+```text
+QUESTION
+   │
+   ├── MAINLAND
+   │     └── 大陸普通話
+   │
+   └── TAIWAN
+         └── 台湾華語
+```
+
+この設計により、データ構造の重複を避けながら、大陸普通話・台湾華語の問題を独立して管理できる。
+
+---
+
+## 12. AiSettingについて
 
 AI問題生成に関する共通設定としてAiSettingを想定するが、現時点ではDBテーブルとして管理することを確定していない。
 
@@ -378,8 +548,8 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 
 - 使用するAIモデル
 - 共通プロンプト
-- 簡体中文向け追加プロンプト
-- 繁體中文向け追加プロンプト
+- 大陸普通話向けLanguage Profile
+- 台湾華語向けLanguage Profile
 - その他AI生成共通設定
 
 これらは、
@@ -396,17 +566,28 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 
 ---
 
-## 8. 設計上の補足
+## 13. 設計上の補足
 
-- USERは簡体中文・繁體中文で共通とする。
-- 簡体中文側と繁體中文側の問題データは完全に分離する。
-- SIMPLIFIED_QUESTIONとTRADITIONAL_QUESTIONの問題IDに対応関係は持たせない。
-- Favoriteはお気に入り登録された場合のみレコードを作成する。
-- StudyHistoryはユーザーとマスタ問題の組み合わせごとに1レコードを保持する。
-- StudyHistoryには最新の理解度を保持する。
+- USERは大陸普通話・台湾華語で共通とする。
+- 大陸普通話と台湾華語は異なる問題データとして扱う。
+- QUESTIONは大陸普通話・台湾華語で分離しない。
+- QUESTIONに `language_variant` を持たせる。
+- `language_variant` は `MAINLAND / TAIWAN` を想定する。
+- QUESTIONの問題IDは全体で一意とする。
+- 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
+- FAVORITEは大陸普通話・台湾華語で分離しない。
+- FAVORITEはお気に入り登録された場合のみレコードを作成する。
+- FAVORITEの学習対象言語はQUESTIONから判定する。
+- STUDY_HISTORYは大陸普通話・台湾華語で分離しない。
+- STUDY_HISTORYはユーザーとマスタ問題の組み合わせごとに1レコードを保持する。
+- STUDY_HISTORYには最新の理解度を保持する。
+- STUDY_HISTORYの学習対象言語はQUESTIONから判定する。
+- AI_GENERATED_QUESTIONは大陸普通話・台湾華語で分離しない。
 - AI生成問題は理解度を与えられた場合のみ保存する。
 - AI生成問題には必ず所有ユーザーを設定する。
-- AI生成問題は通常学習用のQuestionテーブルへ追加しない。
+- AI生成問題は通常学習用のQUESTIONへ追加しない。
 - AI生成問題は生成したユーザー自身の復習でのみ再利用する。
-- AI生成問題は生成元となったマスタ問題を外部キーで保持する。
+- AI生成問題は生成元となったQUESTIONを外部キーで保持する。
+- AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
+- AiSettingは保存方式が確定するまでER図には含めない。

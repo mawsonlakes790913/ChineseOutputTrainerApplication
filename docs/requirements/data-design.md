@@ -4,30 +4,54 @@
 
 ### 目的
 
-Chinese Output Trainer において、
+Chinese Output Forge において、
 
 - ユーザー情報
-- 簡体中文（普通話）の問題情報
-- 繁體中文（台湾華語・國語）の問題情報
-- 簡体中文・繁體中文それぞれのお気に入り情報
-- 簡体中文・繁體中文それぞれの学習履歴
+- 大陸普通話・台湾華語の問題情報
+- お気に入り情報
+- 学習履歴
 - AI生成問題
 - AI問題生成に必要な制御情報
 
 を管理するためのデータ構造を定義する。
 
-本システムでは、簡体中文（普通話）と繁體中文（台湾華語・國語）を単なる文字体系の違いとして扱わず、**それぞれ独立した問題データ群として管理する**。
+本システムでは、大陸普通話と台湾華語（國語）を単なる文字体系の違いとして扱わず、**それぞれ異なる問題データとして管理する**。
 
-そのため、
+普通話と台湾華語では、
 
-- Question
-- Favorite
-- StudyHistory
-- AiGeneratedQuestion
+- 使用される文字
+- 語彙
+- 言い回し
+- 慣用表現
+- 自然な模範解答
+- 別解
+- AI生成テンプレート
+- AI生成時に使用すべき語彙・表現
 
-については、簡体中文用と繁體中文用でそれぞれ別のエンティティを持つ。
+などが異なる場合があるためである。
 
-一方、ユーザー情報は共通とし、1つのユーザーアカウントから両方の学習機能を利用できるものとする。
+ただし、両者のデータ構造は共通しているため、普通話用・台湾華語用で別々のエンティティやテーブルを作成するのではなく、**共通のエンティティ・テーブルで管理する**。
+
+各問題に学習対象言語を識別する属性を持たせることで、
+
+- 大陸普通話
+- 台湾華語
+
+を区別する。
+
+概念的には以下の構造となる。
+
+```text
+Question
+│
+├── MAINLAND
+│   └── 大陸普通話向け問題
+│
+└── TAIWAN
+    └── 台湾華語向け問題
+```
+
+そのため、問題データ自体は独立しているが、保存するデータ構造は共通となる。
 
 また、AIによって生成された問題は、通常学習で利用するマスタ問題とは明確に分離する。
 
@@ -42,15 +66,13 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 | エンティティ | 説明 |
 | --- | --- |
 | User | ユーザー情報・認証・権限 |
-| SimplifiedQuestion | 簡体中文（普通話）のマスタ問題 |
-| TraditionalQuestion | 繁體中文（台湾華語・國語）のマスタ問題 |
-| SimplifiedFavorite | 簡体中文マスタ問題のお気に入り情報 |
-| TraditionalFavorite | 繁體中文マスタ問題のお気に入り情報 |
-| SimplifiedStudyHistory | 簡体中文マスタ問題の学習履歴・理解度 |
-| TraditionalStudyHistory | 繁體中文マスタ問題の学習履歴・理解度 |
-| SimplifiedAiGeneratedQuestion | ユーザー専用の簡体中文AI生成問題 |
-| TraditionalAiGeneratedQuestion | ユーザー専用の繁體中文AI生成問題 |
+| Question | 大陸普通話・台湾華語のマスタ問題 |
+| Favorite | マスタ問題のお気に入り情報 |
+| StudyHistory | マスタ問題の学習履歴・理解度 |
+| AiGeneratedQuestion | ユーザー専用のAI生成問題 |
 | AiSetting | AI問題生成に関する共通設定 |
+
+大陸普通話・台湾華語の違いによってエンティティを分離せず、必要なエンティティに学習対象言語を識別する情報を持たせる。
 
 ---
 
@@ -77,32 +99,37 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 
 #### 補足
 
-Userは簡体中文・繁體中文で共通とする。
+Userは大陸普通話・台湾華語で共通とする。
 
 1つのユーザーが、
 
-- 簡体中文マスタ問題の学習履歴
-- 繁體中文マスタ問題の学習履歴
-- 簡体中文マスタ問題のお気に入り
-- 繁體中文マスタ問題のお気に入り
-- 簡体中文のAI生成問題
-- 繁體中文のAI生成問題
+- 大陸普通話の学習履歴
+- 台湾華語の学習履歴
+- 大陸普通話のお気に入り
+- 台湾華語のお気に入り
+- 大陸普通話のAI生成問題
+- 台湾華語のAI生成問題
 
-をそれぞれ独立して持つ。
+を利用できる。
+
+ただし、これらを言語ごとに別テーブルで管理するのではなく、関連するQuestion等を通じて学習対象言語を識別する。
 
 ---
 
-### SimplifiedQuestion
+### Question
 
-簡体中文（普通話）の通常学習およびAI生成の基となるマスタ問題を管理する。
+通常学習およびAI生成の基となるマスタ問題を管理する。
+
+大陸普通話・台湾華語の双方を共通のQuestionで管理する。
 
 #### 保持情報
 
 ##### 基本情報
 
 - 問題ID
+- 学習対象言語
 - 日本語文
-- 簡体中文の模範解答
+- 中国語の模範解答
 - 別解（任意）
 - 条件
 - 難易度
@@ -115,50 +142,56 @@ Userは簡体中文・繁體中文で共通とする。
 - 動詞生成タイプ
 - その他AI生成に必要となる制御情報
 
-#### 補足
+#### 学習対象言語
 
-簡体中文問題は、普通話で一般的に使用される語彙・言い回しを基準とする。
+各Questionには、その問題がどちらの中国語を対象としているかを識別する情報を持たせる。
 
-TraditionalQuestionとは独立した問題群として扱い、同一ID間に意味的な対応関係が存在することを前提としない。
+想定する値：
 
-通常学習ではSimplifiedQuestionに登録された問題のみを出題する。
+| 値 | 意味 |
+| --- | --- |
+| `MAINLAND` | 大陸普通話 |
+| `TAIWAN` | 台湾華語（國語） |
 
-AIによって生成された問題をSimplifiedQuestionへ追加することはしない。
-
----
-
-### TraditionalQuestion
-
-繁體中文（台湾華語・國語）の通常学習およびAI生成の基となるマスタ問題を管理する。
-
-#### 保持情報
-
-##### 基本情報
-
-- 問題ID
-- 日本語文
-- 繁體中文の模範解答
-- 別解（任意）
-- 条件
-- 難易度
-
-##### AI生成情報
-
-- AI生成可否
-- AI生成用テンプレート
-- 主語生成タイプ
-- 動詞生成タイプ
-- その他AI生成に必要となる制御情報
+名称については実装時にEnum等として定義する。
 
 #### 補足
 
-繁體中文問題は、台湾で一般的に使用される台湾華語（國語）の語彙・言い回しを基準とする。
+`MAINLAND` の問題は、中国大陸で一般的に使用される普通話の語彙・言い回しを基準とする。
 
-SimplifiedQuestionとは独立した問題群として扱う。
+`TAIWAN` の問題は、台湾で一般的に使用される台湾華語（國語）の語彙・言い回しを基準とする。
 
-通常学習ではTraditionalQuestionに登録された問題のみを出題する。
+両者は同一のQuestionテーブルに保存するが、**問題データとしては独立して扱う。**
 
-AIによって生成された問題をTraditionalQuestionへ追加することはしない。
+例えば、
+
+```text
+Question ID = 100
+language_variant = MAINLAND
+```
+
+と、
+
+```text
+Question ID = 101
+language_variant = TAIWAN
+```
+
+の間に意味的な対応関係が存在することを前提としない。
+
+つまり、
+
+```text
+大陸普通話の問題100
+=
+台湾華語の問題100
+```
+
+という対応関係は持たせない。
+
+通常学習では、現在設定されている学習対象言語に対応するQuestionのみを取得する。
+
+AIによって生成された問題をQuestionへ追加することはしない。
 
 ---
 
@@ -270,14 +303,14 @@ AIは原則として `{{...}}` で囲まれた部分のみを変更し、それ�
 
 ## 5. お気に入り
 
-### SimplifiedFavorite
+### Favorite
 
-簡体中文のマスタ問題に対するユーザーのお気に入り登録を管理する。
+マスタ問題に対するユーザーのお気に入り登録を管理する。
 
 #### 保持情報
 
 - ユーザーID
-- 簡体中文問題ID
+- 問題ID
 
 #### 主キー
 
@@ -287,53 +320,46 @@ AIは原則として `{{...}}` で囲まれた部分のみを変更し、それ�
 
 複合主キーとする。
 
-#### 補足
-
-- UserとSimplifiedQuestionの中間エンティティとなる。
-- お気に入り登録された問題のみレコードを保持する。
-- お気に入り未登録の場合はレコードを作成しない。
-- お気に入り解除時は対象レコードを削除する。
-- 繁體中文側のお気に入り状態とは独立して管理する。
-
----
-
-### TraditionalFavorite
-
-繁體中文のマスタ問題に対するユーザーのお気に入り登録を管理する。
-
-#### 保持情報
-
-- ユーザーID
-- 繁體中文問題ID
-
-#### 主キー
+#### 外部キー
 
 ```text
-(user_id, question_id)
+user_id     → User
+question_id → Question
 ```
-
-複合主キーとする。
 
 #### 補足
 
-- UserとTraditionalQuestionの中間エンティティとなる。
+- UserとQuestionの中間エンティティとなる。
 - お気に入り登録された問題のみレコードを保持する。
 - お気に入り未登録の場合はレコードを作成しない。
 - お気に入り解除時は対象レコードを削除する。
-- 簡体中文側のお気に入り状態とは独立して管理する。
+- Favorite自身に学習対象言語を保持する必要はない。
+- `question_id` からQuestionを参照することで、その問題が大陸普通話・台湾華語のどちらなのか判定できる。
+
+例えば、
+
+```text
+Favorite
+    ↓
+Question
+    ↓
+language_variant = TAIWAN
+```
+
+であれば、台湾華語の問題に対するお気に入りであることが分かる。
 
 ---
 
 ## 6. マスタ問題の学習履歴
 
-### SimplifiedStudyHistory
+### StudyHistory
 
-簡体中文マスタ問題に対するユーザーの学習履歴および理解度を管理する。
+マスタ問題に対するユーザーの学習履歴および理解度を管理する。
 
 #### 保持情報
 
 - ユーザーID
-- 簡体中文問題ID
+- 問題ID
 - 評価
 - 初回学習日時
 - 評価更新日時
@@ -354,51 +380,36 @@ AIは原則として `{{...}}` で囲まれた部分のみを変更し、それ�
 
 複合主キーとする。
 
-#### 補足
-
-同一ユーザー・同一問題について1レコードを保持し、最新の理解度を管理する。
-
-簡体中文側の学習履歴は繁體中文側とは完全に独立して管理する。
-
-復習では、本テーブルに保存された評価をもとに対象問題を絞り込む。
-
----
-
-### TraditionalStudyHistory
-
-繁體中文マスタ問題に対するユーザーの学習履歴および理解度を管理する。
-
-#### 保持情報
-
-- ユーザーID
-- 繁體中文問題ID
-- 評価
-- 初回学習日時
-- 評価更新日時
-
-#### 評価
-
-以下の3段階を基本とする。
-
-- `HARD`
-- `GOOD`
-- `EASY`
-
-#### 主キー
+#### 外部キー
 
 ```text
-(user_id, question_id)
+user_id     → User
+question_id → Question
 ```
-
-複合主キーとする。
 
 #### 補足
 
 同一ユーザー・同一問題について1レコードを保持し、最新の理解度を管理する。
 
-繁體中文側の学習履歴は簡体中文側とは完全に独立して管理する。
+StudyHistory自身に学習対象言語を保持する必要はない。
 
-復習では、本テーブルに保存された評価をもとに対象問題を絞り込む。
+Questionを参照することで、その履歴が大陸普通話・台湾華語のどちらに属するかを判定できる。
+
+概念的には、
+
+```text
+StudyHistory
+      ↓
+   Question
+      ↓
+language_variant
+```
+
+という関係になる。
+
+したがって、大陸普通話と台湾華語の学習履歴は物理的には同じStudyHistoryテーブルに保存されるが、論理的には独立した学習履歴として扱うことができる。
+
+復習では、本テーブルに保存された評価とQuestionの学習対象言語をもとに対象問題を絞り込む。
 
 ---
 
@@ -426,17 +437,19 @@ AI生成問題は通常学習用のQuestionテーブルへ追加しないため�
 
 ---
 
-### SimplifiedAiGeneratedQuestion
+### AiGeneratedQuestion
 
-簡体中文のAI生成学習で生成され、ユーザーから理解度を与えられた問題を管理する。
+AI生成学習で生成され、ユーザーから理解度を与えられた問題を管理する。
+
+大陸普通話・台湾華語のAI生成問題を共通のエンティティ・テーブルで管理する。
 
 #### 保持情報
 
 - AI生成問題ID
 - ユーザーID
-- 生成元となった簡体中文マスタ問題ID
+- 生成元となったマスタ問題ID
 - 日本語問題文
-- 簡体中文の模範解答
+- 中国語の模範解答
 - 評価
 - 作成日時
 - 評価更新日時
@@ -447,45 +460,28 @@ AI生成問題は通常学習用のQuestionテーブルへ追加しないため�
 
 #### 外部キー
 
-- `user_id` → User
-- `source_question_id` → SimplifiedQuestion
+```text
+user_id            → User
+source_question_id → Question
+```
 
-#### 補足
+#### 学習対象言語
 
-- AIが問題を生成しただけではレコードを作成しない。
-- ユーザーが理解度を選択した時点で初めて保存する。
-- 保存された問題は `user_id` のユーザーのみ利用できる。
-- 他のユーザーから参照・出題されることはない。
-- 通常学習では使用しない。
-- 復習メニューからAI生成問題を対象として選択した場合に再出題できる。
-- 評価を変更した場合は同一レコードの評価を更新する。
-- 生成された問題そのものを保存するため、再度同じ文章を復習できる。
+基本的には、
 
----
+```text
+AiGeneratedQuestion
+        ↓
+source_question_id
+        ↓
+Question
+        ↓
+language_variant
+```
 
-### TraditionalAiGeneratedQuestion
+という関係から、AI生成問題が大陸普通話・台湾華語のどちらに属するかを判定できる。
 
-繁體中文のAI生成学習で生成され、ユーザーから理解度を与えられた問題を管理する。
-
-#### 保持情報
-
-- AI生成問題ID
-- ユーザーID
-- 生成元となった繁體中文マスタ問題ID
-- 日本語問題文
-- 繁體中文の模範解答
-- 評価
-- 作成日時
-- 評価更新日時
-
-#### 主キー
-
-- AI生成問題ID
-
-#### 外部キー
-
-- `user_id` → User
-- `source_question_id` → TraditionalQuestion
+ただし、生成時点の学習対象言語をAI生成問題自身にも保存するかについては、詳細設計時に検討する。
 
 #### 補足
 
@@ -505,7 +501,13 @@ AI生成問題は通常学習用のQuestionテーブルへ追加しないため�
 AI生成問題の保存は以下の流れとする。
 
 ```text
-マスタQuestionからAI生成
+現在の学習対象言語を取得
+        ↓
+対応するマスタQuestionを取得
+        ↓
+対応するLanguage Profileを使用
+        ↓
+AI生成
         ↓
 AI生成問題をユーザーへ表示
         ↓
@@ -539,9 +541,16 @@ DBには保存しない
 以下のテーブルで管理する。
 
 ```text
-SimplifiedQuestion
-TraditionalQuestion
+Question
 ```
+
+Questionには、
+
+```text
+language_variant
+```
+
+を持たせ、大陸普通話・台湾華語を識別する。
 
 マスタ問題は管理者が登録・編集する、アプリケーション共通の公式問題である。
 
@@ -560,8 +569,7 @@ TraditionalQuestion
 以下のテーブルで管理する。
 
 ```text
-SimplifiedAiGeneratedQuestion
-TraditionalAiGeneratedQuestion
+AiGeneratedQuestion
 ```
 
 AI生成問題は特定ユーザーのAI学習によって生成された個人用問題である。
@@ -593,21 +601,53 @@ AI生成問題は特定ユーザーのAI学習によって生成された個人�
 □ AI生成問題
 ```
 
+### マスタ問題
+
 マスタ問題を選択した場合は、
 
-- SimplifiedStudyHistory
-- TraditionalStudyHistory
+```text
+StudyHistory
+    ↓
+Question
+```
 
 を利用して対象問題を取得する。
 
+その際、現在設定されている学習対象言語に応じて、
+
+```text
+Question.language_variant
+```
+
+で対象を絞り込む。
+
+例えば大陸普通話モードでは、
+
+```text
+language_variant = MAINLAND
+```
+
+台湾華語モードでは、
+
+```text
+language_variant = TAIWAN
+```
+
+の問題を対象とする。
+
+### AI生成問題
+
 AI生成問題を選択した場合は、
 
-- SimplifiedAiGeneratedQuestion
-- TraditionalAiGeneratedQuestion
+```text
+AiGeneratedQuestion
+```
 
-から、ログインユーザー自身の問題のみを取得する。
+からログインユーザー自身の問題のみを取得する。
 
-さらに、
+さらに生成元Questionを参照し、現在の学習対象言語に対応する問題を対象とする。
+
+これらに、
 
 - 難易度
 - 理解度
@@ -620,9 +660,9 @@ AI生成問題を選択した場合は、
 
 ---
 
-## 11. 簡体中文・繁體中文の分離方針
+## 11. 大陸普通話・台湾華語の管理方針
 
-本システムでは、簡体中文と繁體中文を別の問題データセットとして扱う。
+本システムでは、大陸普通話と台湾華語を**異なる問題データとして扱う。**
 
 これは、
 
@@ -632,7 +672,7 @@ AI生成問題を選択した場合は、
 
 という単純な文字変換を行うためではない。
 
-普通話と台湾華語では、
+大陸普通話と台湾華語では、
 
 - 使用される文字
 - 単語
@@ -645,14 +685,85 @@ AI生成問題を選択した場合は、
 
 などが異なる場合がある。
 
-そのため、マスタ問題について、
+したがって、問題データそのものはそれぞれ独立して登録する。
+
+一方、両者のデータ構造は共通しているため、
 
 ```text
 SimplifiedQuestion
 TraditionalQuestion
 ```
 
-を別々に管理する。
+のように別々のエンティティ・テーブルを作成するのではなく、
+
+```text
+Question
+```
+
+へ統合する。
+
+Questionに、
+
+```text
+language_variant
+```
+
+を持たせ、
+
+```text
+MAINLAND
+TAIWAN
+```
+
+によって学習対象を識別する。
+
+概念的には、
+
+```text
+Question
+│
+├── ID 1
+│   ├── language_variant = MAINLAND
+│   └── 大陸普通話の問題
+│
+├── ID 2
+│   ├── language_variant = MAINLAND
+│   └── 大陸普通話の問題
+│
+├── ID 3
+│   ├── language_variant = TAIWAN
+│   └── 台湾華語の問題
+│
+└── ID 4
+    ├── language_variant = TAIWAN
+    └── 台湾華語の問題
+```
+
+となる。
+
+大陸普通話と台湾華語で問題ID体系を分離しない。
+
+Question全体で一意の問題IDを使用する。
+
+また、大陸普通話と台湾華語の問題に意味的な対応関係が存在することを前提としない。
+
+例えば、
+
+```text
+Question ID = 100
+language_variant = MAINLAND
+```
+
+と、
+
+```text
+Question ID = 101
+language_variant = TAIWAN
+```
+
+が同じ意味・文法・構文を扱っているとは限らない。
+
+### お気に入り
 
 お気に入りについても、
 
@@ -661,7 +772,17 @@ SimplifiedFavorite
 TraditionalFavorite
 ```
 
-に分離する。
+には分離せず、
+
+```text
+Favorite
+```
+
+として共通管理する。
+
+FavoriteからQuestionを参照することで学習対象言語を判定する。
+
+### 学習履歴
 
 学習履歴についても、
 
@@ -670,7 +791,17 @@ SimplifiedStudyHistory
 TraditionalStudyHistory
 ```
 
-に分離する。
+には分離せず、
+
+```text
+StudyHistory
+```
+
+として共通管理する。
+
+StudyHistoryからQuestionを参照することで学習対象言語を判定する。
+
+### AI生成問題
 
 AI生成問題についても、
 
@@ -679,23 +810,23 @@ SimplifiedAiGeneratedQuestion
 TraditionalAiGeneratedQuestion
 ```
 
-に分離する。
-
-例えば、
+には分離せず、
 
 ```text
-SimplifiedQuestion.question_id = 100
+AiGeneratedQuestion
 ```
 
-と、
+として共通管理する。
 
-```text
-TraditionalQuestion.question_id = 100
-```
+生成元となったQuestionを参照することで、どちらの学習対象言語から生成された問題なのかを判定する。
 
-に意味的な対応関係が存在することは保証しない。
+### 基本方針
 
-両者は完全に独立した問題ID体系として扱う。
+したがって、本システムでは、
+
+**「大陸普通話と台湾華語のデータは論理的には分離するが、データ構造は共通化する」**
+
+ことを基本方針とする。
 
 ---
 
@@ -707,18 +838,46 @@ AI問題生成に関するアプリケーション共通設定を管理する。
 
 - 使用するAIモデル
 - 共通プロンプト
-- 簡体中文向け追加プロンプト
-- 繁體中文向け追加プロンプト
+- 大陸普通話向けLanguage Profile
+- 台湾華語向けLanguage Profile
 - その他AI生成に関する共通設定
+
+### Language Profile
+
+学習対象言語によってAI生成時に使用する言語条件を切り替える。
+
+概念的には、
+
+```text
+Language Profile
+
+MAINLAND
+├── 簡体字
+├── 大陸普通話
+├── 大陸で一般的な語彙
+└── 大陸で自然な表現
+
+TAIWAN
+├── 繁體字
+├── 台湾華語（國語）
+├── 台湾で一般的な語彙
+└── 台湾で自然な表現
+```
+
+のような設定を想定する。
 
 ### 補足
 
-問題単位のAI生成条件は、
+問題単位のAI生成条件はQuestionが保持する。
 
-- SimplifiedQuestion
-- TraditionalQuestion
+例えば、
 
-が保持する。
+- AI生成可否
+- AI生成用テンプレート
+- 主語生成タイプ
+- 動詞生成タイプ
+
+などである。
 
 AiSettingは、問題個別ではなくアプリケーション全体で共有するAI設定を管理する。
 
@@ -735,75 +894,234 @@ AiSettingは、問題個別ではなくアプリケーション全体で共有�
 
 ## 13. リレーション概要
 
-### 簡体中文側
+### User と Favorite
 
-- User と SimplifiedFavorite は 1対多  
-  1人のユーザーは複数の簡体中文マスタ問題をお気に入り登録できる。
+User と Favorite は1対多。
 
-- SimplifiedQuestion と SimplifiedFavorite は 1対多  
-  1つの簡体中文マスタ問題は複数ユーザーからお気に入り登録される可能性がある。
+1人のユーザーは複数のマスタ問題をお気に入り登録できる。
 
-- User と SimplifiedStudyHistory は 1対多  
-  1人のユーザーは複数の簡体中文マスタ問題について学習履歴を持つ。
+### Question と Favorite
 
-- SimplifiedQuestion と SimplifiedStudyHistory は 1対多  
-  1つの簡体中文マスタ問題は複数ユーザーによって学習される。
+Question と Favorite は1対多。
 
-- User と SimplifiedQuestion は SimplifiedFavorite を介して多対多の関係を持つ。
+1つのマスタ問題は複数ユーザーからお気に入り登録される可能性がある。
 
-- User と SimplifiedQuestion は SimplifiedStudyHistory を介して多対多の関係を持つ。
+したがって、
 
-- User と SimplifiedAiGeneratedQuestion は 1対多  
-  1人のユーザーは複数のAI生成問題を所有できる。
+```text
+User
+ ↓ 1:N
+Favorite
+ ↑ N:1
+Question
+```
 
-- SimplifiedQuestion と SimplifiedAiGeneratedQuestion は 1対多  
-  1つのマスタ問題から複数のAI生成問題が作成される可能性がある。
+となる。
 
----
-
-### 繁體中文側
-
-- User と TraditionalFavorite は 1対多  
-  1人のユーザーは複数の繁體中文マスタ問題をお気に入り登録できる。
-
-- TraditionalQuestion と TraditionalFavorite は 1対多  
-  1つの繁體中文マスタ問題は複数ユーザーからお気に入り登録される可能性がある。
-
-- User と TraditionalStudyHistory は 1対多  
-  1人のユーザーは複数の繁體中文マスタ問題について学習履歴を持つ。
-
-- TraditionalQuestion と TraditionalStudyHistory は 1対多  
-  1つの繁體中文マスタ問題は複数ユーザーによって学習される。
-
-- User と TraditionalQuestion は TraditionalFavorite を介して多対多の関係を持つ。
-
-- User と TraditionalQuestion は TraditionalStudyHistory を介して多対多の関係を持つ。
-
-- User と TraditionalAiGeneratedQuestion は 1対多  
-  1人のユーザーは複数のAI生成問題を所有できる。
-
-- TraditionalQuestion と TraditionalAiGeneratedQuestion は 1対多  
-  1つのマスタ問題から複数のAI生成問題が作成される可能性がある。
+User と Question はFavoriteを介して多対多の関係を持つ。
 
 ---
 
-## 14. 設計方針
+### User と StudyHistory
 
-- Userは簡体中文・繁體中文で共通とする。
+User と StudyHistory は1対多。
+
+1人のユーザーは複数のマスタ問題について学習履歴を持つ。
+
+### Question と StudyHistory
+
+Question と StudyHistory は1対多。
+
+1つのマスタ問題は複数ユーザーによって学習される。
+
+したがって、
+
+```text
+User
+ ↓ 1:N
+StudyHistory
+ ↑ N:1
+Question
+```
+
+となる。
+
+User と Question はStudyHistoryを介して多対多の関係を持つ。
+
+---
+
+### User と AiGeneratedQuestion
+
+User と AiGeneratedQuestion は1対多。
+
+1人のユーザーは複数のAI生成問題を所有できる。
+
+### Question と AiGeneratedQuestion
+
+Question と AiGeneratedQuestion は1対多。
+
+1つのマスタ問題から複数のAI生成問題が作成される可能性がある。
+
+```text
+User
+ ↓ 1:N
+AiGeneratedQuestion
+ ↑ N:1
+Question
+```
+
+AiGeneratedQuestionは生成元となったQuestionを保持する。
+
+---
+
+## 14. データ構造概要
+
+全体の関係は概念的に以下のようになる。
+
+```text
+                         User
+                          │
+              ┌───────────┼────────────┐
+              │           │            │
+              ▼           ▼            ▼
+          Favorite   StudyHistory   AiGeneratedQuestion
+              │           │            │
+              │           │            │
+              ▼           ▼            ▼
+                         Question
+                            │
+                            ▼
+                    language_variant
+                       ┌────┴────┐
+                       │         │
+                  MAINLAND     TAIWAN
+```
+
+Questionを中心として、大陸普通話・台湾華語の学習データを共通構造で管理する。
+
+---
+
+## 15. 学習対象言語とデータ取得
+
+本システムでは、ユーザーが現在選択している学習対象言語に応じて取得するデータを切り替える。
+
+例えば、
+
+```text
+現在の学習対象
+MAINLAND
+```
+
+の場合、
+
+```text
+Question
+WHERE language_variant = MAINLAND
+```
+
+に相当する条件で問題を取得する。
+
+台湾華語の場合は、
+
+```text
+Question
+WHERE language_variant = TAIWAN
+```
+
+に相当する条件で取得する。
+
+この条件は、
+
+- 通常学習
+- 復習
+- AI生成学習
+- ユーザー用問題一覧
+
+などで共通して利用する。
+
+管理者用問題一覧では、両方の問題を表示・検索できるものとする。
+
+---
+
+## 16. サイト表記言語との関係
+
+本システムでは、
+
+- 学習対象言語
+- サイト表記言語
+
+を別の設定として扱う。
+
+学習対象言語はQuestion等の取得条件に影響する。
+
+一方、サイト表記言語は、
+
+- ボタン
+- メニュー
+- 説明文
+- エラーメッセージ
+
+などのUI表示に使用する。
+
+サイト表記言語として以下を想定する。
+
+- 日本語
+- English
+- 简体中文
+- 繁體中文
+
+サイト表記言語を変更しても、
+
+```text
+Question.language_variant
+```
+
+には影響を与えない。
+
+例えば、
+
+```text
+サイト表記言語 = 日本語
+学習対象言語 = TAIWAN
+```
+
+や、
+
+```text
+サイト表記言語 = 简体中文
+学習対象言語 = TAIWAN
+```
+
+といった組み合わせを可能とする。
+
+サイト表記言語の設定をどのように永続化するかについては、詳細設計時に決定する。
+
+---
+
+## 17. 設計方針
+
+- Userは大陸普通話・台湾華語で共通とする。
 - Userには `USER / ADMIN` の権限を持たせる。
-- 簡体中文と繁體中文のQuestionは完全に分離する。
-- Favoriteも簡体中文・繁體中文で分離する。
-- StudyHistoryも簡体中文・繁體中文で分離する。
-- AiGeneratedQuestionも簡体中文・繁體中文で分離する。
-- 簡体中文と繁體中文の問題IDに対応関係を持たせない。
+- 大陸普通話と台湾華語は異なる問題データとして扱う。
+- 大陸普通話と台湾華語でQuestionエンティティ・テーブルを分離しない。
+- Questionに学習対象言語を識別する属性を持たせる。
+- 学習対象言語として `MAINLAND / TAIWAN` を想定する。
+- 大陸普通話と台湾華語の問題に意味的な対応関係が存在することを前提としない。
+- 問題IDはQuestion全体で一意とする。
+- Favoriteは大陸普通話・台湾華語で分離しない。
+- Favoriteの学習対象言語は関連するQuestionから判定する。
 - Favoriteはお気に入り登録された問題のみレコードを保持する。
 - お気に入り解除時はFavoriteレコードを削除する。
+- StudyHistoryは大陸普通話・台湾華語で分離しない。
+- StudyHistoryの学習対象言語は関連するQuestionから判定する。
 - マスタ問題の学習履歴はユーザーごとに保存する。
 - StudyHistoryには各マスタ問題の最新評価を保持する。
 - 評価は `HARD / GOOD / EASY` を基本とする。
+- AiGeneratedQuestionは大陸普通話・台湾華語で分離しない。
 - AI生成問題は生成しただけではDBへ保存しない。
 - AI生成問題はユーザーが理解度を与えた場合に限り保存する。
 - AI生成問題は必ず生成したユーザーと関連付ける。
+- AI生成問題は生成元となったQuestionと関連付ける。
 - AI生成問題は他ユーザーから参照できないようにする。
 - AI生成問題をマスタQuestionへ追加しない。
 - AI生成問題は通常学習では使用しない。
@@ -812,4 +1130,6 @@ AiSettingは、問題個別ではなくアプリケーション全体で共有�
 - AI生成では、人間が定義したテンプレートおよび生成制御情報を使用する。
 - AI生成制御情報は問題単位で管理する。
 - AI共通設定は問題単位の設定から分離する。
-- 管理者は簡体中文・繁體中文双方のマスタ問題およびAI生成設定を管理できる。
+- AI生成時には現在の学習対象言語に対応するLanguage Profileを使用する。
+- 管理者は大陸普通話・台湾華語双方のマスタ問題およびAI生成設定を管理できる。
+- 学習対象言語とサイト表記言語は独立した設定として扱う。
