@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <!-- 共通CSS読み込み -->
+    <link rel="stylesheet"
+          th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+
+    <!-- 共通JS読み込み -->
+    <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"
+            defer></script>
+            
+    <title>Layout</title>
+</head>
+<body>
+
+    <!-- ヘッダー -->
+    <header layout:replace="~{layout/header :: header-contents}"></header>
+
+    <!-- コンテンツ -->
+	<main class="container mt-4">
+	    <div layout:fragment="content"></div>
+	</main>
+</body>
+</html>
