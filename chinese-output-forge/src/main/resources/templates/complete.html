@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <meta charset="UTF-8">
+
+    <title th:text="#{complete.pageTitle}">
+        Complete | Chinese Output Forge
+    </title>
+
+    <link rel="stylesheet"
+          th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+</head>
+
+<body>
+
+<div class="text-center"
+     layout:fragment="content">
+
+    <h1 th:text="#{complete.title}">
+        お疲れさまでした！
+    </h1>
+
+    <p th:text="#{complete.message}">
+        この調子でトレーニングを続けていきましょう。
+    </p>
+
+
+    <div class="d-flex flex-column align-items-center gap-2 mt-3">
+
+        <!-- Top -->
+        <a th:href="@{/}"
+           class="btn btn-secondary"
+           th:text="#{common.backToTop}">
+            Topに戻る
+        </a>
+
+        <!-- 通常学習 -->
+        <a th:href="@{/practice/menu}"
+           class="btn btn-primary"
+           th:text="#{complete.backToPractice}">
+            通常学習メニューに戻る
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>
