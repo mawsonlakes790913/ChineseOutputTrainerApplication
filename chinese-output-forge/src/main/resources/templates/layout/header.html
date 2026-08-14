@@ -18,7 +18,71 @@
 	    		<span th:text="#{header.greeting.guest}">
 	                こんにちは、ゲストさん
 	            </span>	
-          	
+				<div class="d-flex align-items-center gap-2">
+				    <span th:text="#{header.studyLanguage}">
+				        学習言語
+				    </span>	
+					<!-- 学習対象言語 -->
+				    <div class="dropdown">
+				
+				        <!-- 現在の学習言語 -->
+				        <button class="btn btn-outline-light dropdown-toggle"
+				                type="button"
+				                data-bs-toggle="dropdown"
+				                aria-expanded="false">
+				
+				            <span th:if="${session.languageVariant == null
+				                         || session.languageVariant.name() == 'MAINLAND'}">
+				                🇨🇳 普通话
+				            </span>
+				
+				            <span th:if="${session.languageVariant != null
+				                         && session.languageVariant.name() == 'TAIWAN'}">
+				                🇹🇼 國語
+				            </span>
+				
+				        </button>
+				
+				        <ul class="dropdown-menu dropdown-menu-end">
+				
+				            <!-- MAINLAND -->
+				            <li>
+				                <span th:if="${session.languageVariant == null
+				                             || session.languageVariant.name() == 'MAINLAND'}"
+				                      class="dropdown-item disabled">
+				                    ✓ 🇨🇳 普通话
+				                </span>
+				
+				                <a th:if="${session.languageVariant != null
+				                          && session.languageVariant.name() != 'MAINLAND'}"
+				                   class="dropdown-item language-variant-link"
+				                   th:href="@{/language-variant(languageVariant='MAINLAND')}"
+				                   th:data-confirm-message="#{header.studyLanguage.confirmMainland}">
+				                    🇨🇳 普通话
+				                </a>
+				            </li>
+				
+				            <!-- TAIWAN -->
+				            <li>
+				                <span th:if="${session.languageVariant != null
+				                             && session.languageVariant.name() == 'TAIWAN'}"
+				                      class="dropdown-item disabled">
+				                    ✓ 🇹🇼 國語
+				                </span>
+				
+				                <a th:if="${session.languageVariant == null
+				                          || session.languageVariant.name() != 'TAIWAN'}"
+				                   class="dropdown-item language-variant-link"
+				                   th:href="@{/language-variant(languageVariant='TAIWAN')}"
+				                   th:data-confirm-message="#{header.studyLanguage.confirmTaiwan}">
+				                    🇹🇼 國語
+				                </a>
+				            </li>
+				
+				        </ul>
+				
+				    </div>	    
+				</div>            	
 
 	            <!-- 表示言語切り替え -->
 	            <div class="dropdown">
