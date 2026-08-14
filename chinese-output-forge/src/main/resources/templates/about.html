@@ -5,7 +5,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>このアプリについて</title>
+    <title th:text="#{about.title}">このアプリについて</title>
 
     <link rel="stylesheet"
           th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
@@ -17,14 +17,16 @@
 
     <div class="container mt-4 mb-5">
 
-        <h1 class="mb-4">
+        <h1 class="mb-4"
+        	th:text="#{about.title}">
             このアプリについて
         </h1>
 
         <div class="text-center">
 
             <a th:href="@{/}"
-               class="btn btn-secondary">
+               class="btn btn-secondary"
+               th:text="#{about.backToTop}">
                 Topへ戻る
             </a>
 

@@ -13,9 +13,11 @@
 <body>
 	<div layout:fragment="content" class="container text-center mt-5">
 	
-	    <h1 class="mb-3">瞬間中国語作文</h1>
+	    <h1 class="mb-3"
+	    	th:text="#{home.title}">瞬間中国語作文</h1>
 	
-	    <p class="text-muted">
+	    <p class="text-muted"
+	    	th:text="#{home.welcome}">
 	        中国語トレーニングアプリへようこそ
 	    </p>
 	    
@@ -28,7 +30,8 @@
 
 	        <!-- チュートリアル -->
 	        <a th:href="@{/about}"
-	           class="btn btn-secondary">
+	           class="btn btn-secondary"
+	           th:text="#{home.about}">
 	             このアプリについて
 	        </a>	
 	

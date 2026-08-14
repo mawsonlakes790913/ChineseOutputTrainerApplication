@@ -15,11 +15,53 @@
 			    </a>
 			</h1>
 		    <div class="ms-auto d-flex gap-3 align-items-center">	
-	    		<span>
+	    		<span th:text="#{header.greeting.guest}">
 	                こんにちは、ゲストさん
-	            </span>			
+	            </span>	
+          	
+
+	            <!-- 表示言語切り替え -->
+	            <div class="dropdown">
+	                <button class="btn btn-outline-light dropdown-toggle"
+	                        type="button"
+	                        data-bs-toggle="dropdown"
+	                        aria-expanded="false">
+	                    
+	                    <span th:if="${#locale.language == 'ja'}">日本語</span>
+	                    <span th:if="${#locale.language == 'en'}">English</span>
+	                    <span th:if="${#locale.toString() == 'zh_CN'}">简体中文</span>
+	                    <span th:if="${#locale.toString() == 'zh_TW'}">繁體中文</span>
+	                </button>
+
+	                <ul class="dropdown-menu dropdown-menu-end">
+	                    <li>
+	                        <a class="dropdown-item"
+	                           th:href="@{?lang=ja}">
+	                            日本語
+	                        </a>
+	                    </li>
+	                    <li>
+	                        <a class="dropdown-item"
+	                           th:href="@{?lang=en}">
+	                            English
+	                        </a>
+	                    </li>
+	                    <li>
+	                        <a class="dropdown-item"
+	                           th:href="@{?lang=zh_CN}">
+	                            简体中文
+	                        </a>
+	                    </li>
+	                    <li>
+	                        <a class="dropdown-item"
+	                           th:href="@{?lang=zh_TW}">
+	                            繁體中文
+	                        </a>
+	                    </li>
+	                </ul>
+	            </div>	            	
 			</div>			
-	    </div>
+	    </div>	    
 	</header>
 </body>
 </html>
