@@ -108,6 +108,13 @@
 		    <artifactId>webjars-locator</artifactId>
 		    <version>0.52</version>
 		</dependency>
+		
+		<!-- Bootstrap Icons -->
+		<dependency>
+		    <groupId>org.webjars.npm</groupId>
+		    <artifactId>bootstrap-icons</artifactId>
+		    <version>1.11.3</version>
+		</dependency>		
 	</dependencies>
 
 	<build>

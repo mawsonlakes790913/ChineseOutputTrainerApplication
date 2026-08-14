@@ -15,14 +15,11 @@
 			    </a>
 			</h1>
 		    <div class="ms-auto d-flex gap-3 align-items-center">	
-	    		<span th:text="#{header.greeting.guest}">
-	                こんにちは、ゲストさん
-	            </span>	
 				<div class="d-flex align-items-center gap-2">
+					<!-- 学習対象言語 -->
 				    <span th:text="#{header.studyLanguage}">
 				        学習言語
 				    </span>	
-					<!-- 学習対象言語 -->
 				    <div class="dropdown">
 				
 				        <!-- 現在の学習言語 -->
@@ -83,47 +80,70 @@
 				
 				    </div>	    
 				</div>            	
-
-	            <!-- 表示言語切り替え -->
-	            <div class="dropdown">
-	                <button class="btn btn-outline-light dropdown-toggle"
-	                        type="button"
-	                        data-bs-toggle="dropdown"
-	                        aria-expanded="false">
-	                    
-	                    <span th:if="${#locale.language == 'ja'}">日本語</span>
-	                    <span th:if="${#locale.language == 'en'}">English</span>
-	                    <span th:if="${#locale.toString() == 'zh_CN'}">简体中文</span>
-	                    <span th:if="${#locale.toString() == 'zh_TW'}">繁體中文</span>
-	                </button>
-
-	                <ul class="dropdown-menu dropdown-menu-end">
-	                    <li>
-	                        <a class="dropdown-item"
-	                           th:href="@{?lang=ja}">
-	                            日本語
-	                        </a>
-	                    </li>
-	                    <li>
-	                        <a class="dropdown-item"
-	                           th:href="@{?lang=en}">
-	                            English
-	                        </a>
-	                    </li>
-	                    <li>
-	                        <a class="dropdown-item"
-	                           th:href="@{?lang=zh_CN}">
-	                            简体中文
-	                        </a>
-	                    </li>
-	                    <li>
-	                        <a class="dropdown-item"
-	                           th:href="@{?lang=zh_TW}">
-	                            繁體中文
-	                        </a>
-	                    </li>
-	                </ul>
-	            </div>	            	
+				<!-- ユーザーアイコン -->
+				<button type="button"
+				        class="btn p-0 text-white border-0"
+				        aria-label="ユーザー">
+				    <i class="bi bi-person-circle fs-4"></i>
+				</button>    
+				<!-- ハンバーガーアイコン -->
+				<div class="dropdown">
+				    <button type="button"
+				            class="btn p-0 text-white border-0"
+				            data-bs-toggle="dropdown"
+				            aria-expanded="false"
+				            aria-label="メニュー">
+				        <i class="bi bi-list fs-3"></i>
+				    </button>
+				
+				    <ul class="dropdown-menu dropdown-menu-end">
+				
+				        <li>
+				            <a class="dropdown-item"
+				               th:href="@{/about}"
+				               th:text="#{home.about}">
+				                このアプリについて
+				            </a>
+				        </li>
+				
+				        <li><hr class="dropdown-divider"></li>
+				
+				        <li>
+				            <span class="dropdown-header">
+				                表示言語
+				            </span>
+				        </li>
+				
+				        <li>
+				            <a class="dropdown-item"
+				               th:href="@{?lang=ja}">
+				                <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+				            </a>
+				        </li>
+				
+				        <li>
+				            <a class="dropdown-item"
+				               th:href="@{?lang=en}">
+				                <span th:if="${#locale.language == 'en'}">✓ </span>English
+				            </a>
+				        </li>
+				
+				        <li>
+				            <a class="dropdown-item"
+				               th:href="@{?lang=zh_CN}">
+				                <span th:if="${#locale.toString() == 'zh_CN'}">✓ </span>简体中文
+				            </a>
+				        </li>
+				
+				        <li>
+				            <a class="dropdown-item"
+				               th:href="@{?lang=zh_TW}">
+				                <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
+				            </a>
+				        </li>
+				
+				    </ul>
+				</div>			                   	
 			</div>			
 	    </div>	    
 	</header>
