@@ -31,6 +31,9 @@ public class PracticeController {
 	@GetMapping("/practice/menu")
 	public String getPracticeMenu(HttpSession session, Model model) {
 		
+	    // 言語切替後の戻り先
+	    model.addAttribute("languageVariantRedirect", "/practice/menu");
+		
 		// 通常問題数を取得
 		PracticeMenuDto menu = 
 				practiceService.countPracticeQuestions( (LanguageVariant) session.getAttribute("languageVariant"));

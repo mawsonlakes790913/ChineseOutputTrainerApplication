@@ -10,22 +10,35 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class LanguageVariantController {
 
-    @GetMapping("/language-variant")
-    public String changeLanguageVariant(
-            @RequestParam LanguageVariant languageVariant,
-            HttpSession session) {
-    	
-        LanguageVariant current =
-                (LanguageVariant) session.getAttribute("languageVariant");
+	@GetMapping("/language-variant")
+	public String changeLanguageVariant(
+	        @RequestParam LanguageVariant languageVariant,
+	        @RequestParam(required = false) String redirect,
+	        HttpSession session) {
 
-        // 同じ言語なら変更処理をしない
-        if (languageVariant == current) {
-            return "redirect:/";
-        }
+	    LanguageVariant current =
+	            (LanguageVariant) session.getAttribute("languageVariant");
 
-        // 学習対象言語をSessionに保存
-        session.setAttribute("languageVariant", languageVariant);
+	    // 同じ言語なら変更処理をしない
+	    if (languageVariant == current) {
+	        return redirect != null
+	                ? "redirect:" + redirect
+	                : "redirect:/";
+	    }
 
-        return "redirect:/";
-    }
-}
+	    // 中断中の通常学習データを破棄
+	    session.removeAttribute("practiceQuestions");
+	    session.removeAttribute("practiceCurrentPage");
+
+	    // 学習対象言語をSessionに保存
+	    session.setAttribute("languageVariant", languageVariant);
+
+	    // Practiceメニューから変更した場合
+	    if ("/practice/menu".equals(redirect)) {
+	        return "redirect:/practice/menu";
+	    }
+
+	    // その他のページ
+	    return "redirect:/";
+	}
+}	
