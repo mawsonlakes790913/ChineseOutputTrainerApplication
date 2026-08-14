@@ -6,9 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
+	
+	long countByLanguageVariantAndDifficulty(
+			LanguageVariant languageVariant,
+			Difficulty difficulty
+	);
 	
 	
 	@Query(value = """
