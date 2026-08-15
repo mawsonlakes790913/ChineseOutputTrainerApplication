@@ -71,6 +71,8 @@ erDiagram
         string language_variant
         text japanese_text
         text chinese_text
+        text pinyin
+        text zhuyin
         text alternative_answer
         string condition
         string difficulty
@@ -102,6 +104,8 @@ erDiagram
         bigint source_question_id FK
         text japanese_text
         text chinese_text
+        text pinyin
+        text zhuyin
         string evaluation
         datetime created_at
         datetime evaluation_updated_at
@@ -591,3 +595,41 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
 - AiSettingは保存方式が確定するまでER図には含めない。
+
+---
+
+---
+
+## 14. 開発途中で追加した設計
+
+### 14.1 拼音・注音への対応
+
+**追加日：2026年8月15日**
+
+当初のER図では、QUESTIONおよびAI_GENERATED_QUESTIONに中国語本文のみを保持し、発音表記は保持しない設計としていた。
+
+その後、学習時に中国語の発音を確認できるようにするため、QUESTIONおよびAI_GENERATED_QUESTIONに以下の属性を追加する。
+
+```text
+pinyin
+zhuyin
+```
+
+QUESTIONおよびAI_GENERATED_QUESTIONは、大陸普通話・台湾華語のどちらの問題についても拼音・注音の両方を保持する。
+
+発音表記は `language_variant` と固定的に対応させない。
+
+そのため、
+
+```text
+MAINLAND + PINYIN
+MAINLAND + ZHUYIN
+TAIWAN   + PINYIN
+TAIWAN   + ZHUYIN
+```
+
+のすべての組み合わせで発音表記を利用できる。
+
+発音表記の選択はユーザー側の設定として扱い、QUESTIONおよびAI_GENERATED_QUESTIONとの新たなリレーションは発生しない。
+
+したがって、今回の変更では既存エンティティ間のリレーションは変更せず、QUESTIONおよびAI_GENERATED_QUESTIONの保持属性のみを追加する。
