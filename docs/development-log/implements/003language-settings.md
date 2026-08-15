@@ -1,44 +1,13 @@
 # 003 言語設定機能の実装
 
-ここでは、以下の2種類の言語設定機能の土台を実装する。
+ここでは、以下の2種類の言語設定機能を実装する。
 
-- **サイト表示言語**
-  - サイト上の説明文やボタン、メニューなどに表示する言語を設定する。
-- **学習対象言語**
-  - 実際に学習する中国語を、大陸普通話または台湾華語（國語）から設定する。
+* **サイト表示言語**
 
-この2つはどちらも「言語設定」ではあるが、それぞれ独立した役割を持つ。
+  * サイト上の説明文やボタン、メニューなどに表示する言語を設定する。
+* **学習対象言語**
 
----
-
-# 1. なぜ言語設定機能を先に実装するのか
-
-## 1.1 サイト表示言語
-
-今後の開発では、多くのHTMLファイルを作成することになる。
-
-先に単一言語のみを前提として画面を作成してしまうと、後から多言語表示に対応する際、各HTMLファイルに直接記述したテキストを多言語対応の形式へ修正する必要が生じる。
-
-サイト表示言語の切り替え自体は比較的早い段階で導入できるため、
-
-**画面が増える前に多言語対応の仕組みを構築し、以降の画面を最初から多言語対応を前提として実装する。**
-
-## 1.2 学習対象言語
-
-今後、通常学習や復習などを実装する際には、DBから問題データを取得する必要がある。
-
-本アプリケーションでは、大陸普通話と台湾華語の問題を同一のQuestionテーブルで管理し、学習対象言語によって取得する問題を切り替える予定である。
-
-そのため、問題取得処理を実装する前に、
-
-- 大陸普通話
-- 台湾華語
-
-のどちらを現在の学習対象としているのかを管理する仕組みが必要になる。
-
-学習対象言語を表す値や、その選択状態を管理する仕組みを先に定義しておくことで、今後のController・Service・Repositoryなどを最初から学習対象言語の切り替えを前提として実装できる。
-
-以上の理由から、通常学習などの具体的な学習機能を実装する前に、サイト表示言語と学習対象言語を管理するための共通基盤を構築する。
+  * 実際に学習する中国語を、大陸普通話または台湾華語（國語）から設定する。
 
 ```text
 003 言語設定機能の実装
@@ -55,13 +24,13 @@
 
 ---
 
-# 2. サイト表示言語設定
+# 1. サイト表示言語設定
 
 ```bash
 git commit -m "feat: add multilingual display language switching"
 ```
 
-## 2.1 使用するフォルダ・ファイル
+## 1.1 使用するフォルダ・ファイル
 
 ```text
 src/main/java/
@@ -76,17 +45,13 @@ src/main/resources/
 └── messages_zh_TW.properties         ← 新規作成
 ```
 
-002で作成したHTMLファイルには、「このアプリについて」などの固定文言が直接記述されている。
-
-これらの文言をプロパティファイルから読み込むように変更する。
-
-言語ごとのプロパティファイルを用意することで、HTML本体を変更することなく表示言語を切り替えられるようにする。
+HTMLに直接記述していた固定文言を、言語ごとのプロパティファイルから読み込むように変更する。
 
 ---
 
-# 3. デフォルトメッセージの作成
+# 2. デフォルトメッセージの作成
 
-## 3.1 messages.properties
+## 2.1 messages.properties
 
 デフォルトの表示言語を日本語とする。
 
@@ -104,9 +69,9 @@ about.backToTop=Topへ戻る
 header.greeting.guest=こんにちは、ゲストさん
 ```
 
-`中文造句工坊` はブランド名として全言語共通にする予定なので、propertiesには移さない。
+`中文造句工坊` はブランド名として全言語共通にするため、propertiesには移さない。
 
-## 3.2 home.html
+## 2.2 home.html
 
 ```html
 <h1 class="mb-3"
@@ -130,27 +95,19 @@ header.greeting.guest=こんにちは、ゲストさん
 </div>
 ```
 
-このように、
-
 ```html
 th:text="#{キー名}"
 ```
 
-を使用することで、`messages.properties` 内の対応するメッセージを取得できる。
+によって、`messages.properties` 内の対応するメッセージを取得する。
 
 `about.html`、`header.html`についても同様に変更する。
 
-## 3.3 実行
-
-`http://localhost:8080/` にアクセスしたところ、`messages.properties` の内容が正常に表示された。
-
-これにより、デフォルトメッセージの読み込みに成功したことを確認した。
-
 ---
 
-# 4. 多言語メッセージの作成
+# 3. 多言語メッセージの作成
 
-## 4.1 messages_en.properties
+## 3.1 messages_en.properties
 
 ```properties
 # home.html
@@ -166,7 +123,7 @@ about.backToTop=Back to Top
 header.greeting.guest=Hello, Guest
 ```
 
-## 4.2 messages_zh_CN.properties
+## 3.2 messages_zh_CN.properties
 
 ```properties
 # home.html
@@ -182,7 +139,7 @@ about.backToTop=返回首页
 header.greeting.guest=你好，Guest
 ```
 
-## 4.3 messages_zh_TW.properties
+## 3.3 messages_zh_TW.properties
 
 ```properties
 # home.html
@@ -200,30 +157,32 @@ header.greeting.guest=你好，Guest
 
 ---
 
-# 5. Localeによる表示言語の切り替え
+# 4. Localeによる表示言語の切り替え
 
 Localeを使用して、4つの `messages*.properties` を切り替える。
 
-| 表示言語 | Locale | 読み込まれるファイル |
-|---|---|---|
-| 日本語 | `ja` | `messages.properties` |
-| English | `en` | `messages_en.properties` |
-| 简体中文 | `zh_CN` | `messages_zh_CN.properties` |
-| 繁體中文 | `zh_TW` | `messages_zh_TW.properties` |
+| 表示言語    | Locale  | 読み込まれるファイル                  |
+| ------- | ------- | --------------------------- |
+| 日本語     | `ja`    | `messages.properties`       |
+| English | `en`    | `messages_en.properties`    |
+| 简体中文    | `zh_CN` | `messages_zh_CN.properties` |
+| 繁體中文    | `zh_TW` | `messages_zh_TW.properties` |
 
-これに加えて、以下の仕組みを使用する。
+以下の仕組みを使用する。
 
-- **LocaleResolver**
-  - 現在どのLocaleを使用するかを管理・保持する。
-- **LocaleChangeInterceptor**
-  - `?lang=en` などのリクエストパラメータを検知してLocaleを変更する。
+* `SessionLocaleResolver`
 
-## 5.1 処理の流れ
+  * 現在のLocaleをSessionに保持する。
+* `LocaleChangeInterceptor`
+
+  * `?lang=en` などのリクエストパラメータを検知してLocaleを変更する。
+
+処理の流れは以下となる。
 
 ```text
 ユーザー
   ↓
-「繁體中文」をクリック
+表示言語を選択
   ↓
 ?lang=zh_TW
   ↓
@@ -242,9 +201,9 @@ Thymeleafの #{...} が繁體中文になる
 
 ---
 
-# 6. LocaleConfigの実装
+# 5. LocaleConfigの実装
 
-## 6.1 LocaleConfig.java
+## 5.1 LocaleConfig.java
 
 ```java
 @Configuration
@@ -280,40 +239,17 @@ public class LocaleConfig implements WebMvcConfigurer {
 }
 ```
 
-## 6.2 WebMvcConfigurerとは
-
-SpringでWebアプリケーションのLocaleを切り替える仕組みは、Spring MVCの機能として提供されている。
-
-そのSpring MVCの設定をJava Configでカスタマイズする際に、`WebMvcConfigurer` インタフェースを実装する。
-
-今回の `LocaleConfig` では、主に以下の2つのBeanを登録している。
-
-```text
-LocaleConfig
-├─ LocaleResolver
-│   └─ 現在のLocaleを管理・保持
-│
-└─ LocaleChangeInterceptor
-    └─ ?lang=○○ を検知してLocaleを変更
-```
-
-### localeResolver()
-
-`SessionLocaleResolver` は、LocaleをHTTPセッションで管理する `LocaleResolver` の実装クラスである。
+`localeResolver()` では `SessionLocaleResolver` を使用し、デフォルトLocaleを日本語に設定する。
 
 ```java
 resolver.setDefaultLocale(Locale.JAPANESE);
 ```
 
-によって、デフォルトLocaleを日本語に設定する。
-
-### localeChangeInterceptor()
+`localeChangeInterceptor()` では、表示言語変更用のリクエストパラメータを `lang` とする。
 
 ```java
 interceptor.setParamName("lang");
 ```
-
-によって、`lang` というリクエストパラメータを監視する。
 
 例えば、
 
@@ -321,66 +257,20 @@ interceptor.setParamName("lang");
 ?lang=en
 ```
 
-というリクエストが送信されると、Localeを英語へ変更する。
+というリクエストが送信されると、Localeが英語へ変更される。
 
-### addInterceptors()
-
-`addInterceptors()` は `WebMvcConfigurer` に定義されているメソッドであり、使用したいInterceptorをSpring MVCへ登録するために使用する。
+作成した `LocaleChangeInterceptor` は以下でSpring MVCへ登録する。
 
 ```java
-registry.addInterceptor(localeChangeInterceptor());
+@Override
+public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(localeChangeInterceptor());
+}
 ```
-
-によって、作成した `LocaleChangeInterceptor` を実際のHTTPリクエストで使用できるようにする。
 
 ---
 
-# 7. Interceptorとは
-
-Interceptorは、
-
-**HTTPリクエストがControllerに届く前後に共通処理を挟む仕組み**
-
-である。
-
-今回使用する `LocaleChangeInterceptor` は、リクエストに
-
-```text
-?lang=○○
-```
-
-が存在するか確認し、存在すればLocaleを変更する。
-
-## 7.1 InterceptorRegistryとは
-
-```java
-public void addInterceptors(InterceptorRegistry registry)
-```
-
-の `registry` は、Spring MVCから渡されるInterceptor登録用オブジェクトである。
-
-```text
-InterceptorRegistry → 型
-registry            → 引数名
-```
-
-今回の、
-
-```java
-registry.addInterceptor(localeChangeInterceptor());
-```
-
-では、
-
-1. `localeChangeInterceptor()` を呼び出す
-2. `LocaleChangeInterceptor` のインスタンスを取得する
-3. そのインスタンスをSpring MVCへ登録する
-
-という処理を行っている。
-
----
-
-# 8. 表示言語切り替えUIの実装
+# 6. 表示言語切り替えUIの実装
 
 当初は `header.html` に表示言語切り替え用のドロップダウンを配置した。
 
@@ -432,26 +322,15 @@ registry.addInterceptor(localeChangeInterceptor());
 </div>
 ```
 
-現在のLocaleによって、ドロップダウンの見出しも変更する。
+現在のLocaleによって、ドロップダウンの表示も変更する。
 
-日本語と英語では、
+日本語と英語は、
 
 ```text
 #locale.language
 ```
 
-を使用できる。
-
-一方、中国語の場合、
-
-```text
-zh_CN
-zh_TW
-```
-
-は `language` だけを見ると、どちらも `zh` になる。
-
-そのため、簡体中文と繁體中文を区別する場合は、
+中国語の簡体字・繁体字については、
 
 ```text
 #locale.toString()
@@ -461,11 +340,9 @@ zh_TW
 
 ---
 
-# 9. 日本語表示で発生した問題
+# 7. 表示言語の実行確認
 
-## 9.1 実行結果
-
-以下については正常に切り替わった。
+以下のURLから表示言語を切り替えられることを確認した。
 
 ```text
 http://localhost:8080/?lang=en
@@ -484,23 +361,7 @@ http://localhost:8080/?lang=zh_TW
 
 ![](../../images/0003-03.png)
 
-しかし、
-
-```text
-http://localhost:8080/?lang=ja
-```
-
-へアクセスしても、日本語ではなく英語が表示された。
-
-![](../../images/0003-04.png)
-
-## 9.2 原因
-
-Springのメッセージ解決時に、システム側のLocale（英語）へのフォールバックが発生していた。
-
-## 9.3 修正
-
-`application.yml` に以下を追加する。
+日本語Localeについては、システムLocaleへのフォールバックを無効化するため `application.yml` に以下を追加した。
 
 ```yaml
 spring:
@@ -508,59 +369,46 @@ spring:
     fallback-to-system-locale: false
 ```
 
-これによって、
-
-**システムのLocaleへフォールバックせず、指定したLocaleとデフォルトの `messages.properties` を基準にメッセージを解決する**
-
-ようにする。
-
-## 9.4 再実行
+設定後、
 
 ```text
 http://localhost:8080/?lang=ja
 ```
 
-へアクセスしたところ、正常に日本語が表示された。
+で日本語表示を確認した。
+
+![](../../images/0003-04.png)
 
 ![](../../images/0003-05.png)
 
 ---
 
-# 10. 学習対象言語設定
+# 8. 学習対象言語設定
 
 ```bash
 git commit -m "feat: add study language switching"
 ```
 
-まだ問題データ自体を実装していないため、今回はリクエストパラメータから学習対象言語を切り替え、その状態を保持する仕組みだけを実装する。
-
-サイト表示言語とは処理方法が異なる。
-
-### サイト表示言語
+学習対象言語として以下の2種類を扱う。
 
 ```text
-?lang=ja
-    ↓
-LocaleChangeInterceptor
-    ↓
-SessionLocaleResolver
+MAINLAND → 大陸普通話
+TAIWAN   → 台湾華語（國語）
 ```
 
-### 学習対象言語
+選択した学習対象言語はSessionへ保存する。
 
 ```text
 ?languageVariant=MAINLAND
     ↓
-自分たちで処理する
+LanguageVariant.MAINLAND
     ↓
-SessionにMAINLANDを保存
+Sessionに保存
 ```
-
-`LocaleChangeInterceptor` はLocaleを変更するための仕組みなので、学習対象言語には使用しない。
 
 ---
 
-# 11. 学習対象言語のファイル構成
+# 9. 学習対象言語のファイル構成
 
 ```text
 src/main/java/
@@ -577,29 +425,11 @@ src/main/resources/
         └── header.js
 ```
 
-将来的には、
-
-```text
-?languageVariant=MAINLAND
-        ↓
-LanguageVariant.MAINLAND
-        ↓
-Sessionに保存
-        ↓
-Service
-        ↓
-Repository
-        ↓
-WHERE language_variant = 'MAINLAND'
-```
-
-という流れで、学習対象言語によって取得する問題を切り替える予定である。
-
 ---
 
-# 12. LanguageVariantの実装
+# 10. LanguageVariantの実装
 
-## 12.1 LanguageVariant.java
+## 10.1 LanguageVariant.java
 
 ```java
 public enum LanguageVariant {
@@ -608,7 +438,7 @@ public enum LanguageVariant {
 }
 ```
 
-学習対象言語をEnumとして定義する。
+学習対象言語をEnumとして管理する。
 
 ```text
 MAINLAND → 大陸普通話
@@ -617,7 +447,7 @@ TAIWAN   → 台湾華語（國語）
 
 ---
 
-# 13. LanguageVariantControllerの実装
+# 11. LanguageVariantControllerの実装
 
 ```java
 @Controller
@@ -656,9 +486,9 @@ public class LanguageVariantController {
 @RequestParam LanguageVariant languageVariant
 ```
 
-によってURLの `languageVariant` パラメータを受け取り、`LanguageVariant` 型へ変換する。
+によって `languageVariant` パラメータを `LanguageVariant` 型として受け取る。
 
-その値を、
+選択された値は、
 
 ```java
 session.setAttribute("languageVariant", languageVariant);
@@ -666,50 +496,11 @@ session.setAttribute("languageVariant", languageVariant);
 
 によってSessionへ保存する。
 
----
-
-# 14. 学習言語変更後にHomeへ戻す理由
-
-例えばMAINLANDの問題を、
-
-```text
-問題1
- ↓
-問題2
- ↓
-問題3
- ↓
-問題4
-```
-
-と学習している途中で、学習対象言語をTAIWANへ変更したとする。
-
-そのまま問題4以降へ進んでしまうと、
-
-```text
-現在の設定
-TAIWAN
-
-すでに生成・取得済みの問題セット
-MAINLAND
-```
-
-という不整合が発生する可能性がある。
-
-そのため、学習対象言語を変更した場合はHome画面へ戻す。
-
-また、将来的に問題セットをSessionへ保存するようになった場合には、
-
-```java
-session.removeAttribute("studyQuestions");
-session.removeAttribute("studyCurrentPage");
-```
-
-などを追加し、現在の問題セットも破棄する予定である。
+学習対象言語を変更した後はHome画面へ戻す。
 
 ---
 
-# 15. 学習対象言語の切り替えUI
+# 12. 学習対象言語の切り替えUI
 
 `header.html` に学習対象言語のドロップダウンを追加する。
 
@@ -743,6 +534,7 @@ session.removeAttribute("studyCurrentPage");
 
             <!-- MAINLAND -->
             <li>
+
                 <span th:if="${session.languageVariant == null
                              || session.languageVariant.name() == 'MAINLAND'}"
                       class="dropdown-item disabled">
@@ -756,10 +548,12 @@ session.removeAttribute("studyCurrentPage");
                    th:data-confirm-message="#{header.studyLanguage.confirmMainland}">
                     🇨🇳 普通话
                 </a>
+
             </li>
 
             <!-- TAIWAN -->
             <li>
+
                 <span th:if="${session.languageVariant != null
                              && session.languageVariant.name() == 'TAIWAN'}"
                       class="dropdown-item disabled">
@@ -773,6 +567,7 @@ session.removeAttribute("studyCurrentPage");
                    th:data-confirm-message="#{header.studyLanguage.confirmTaiwan}">
                     🇹🇼 國語
                 </a>
+
             </li>
 
         </ul>
@@ -785,31 +580,19 @@ session.removeAttribute("studyCurrentPage");
 
 ---
 
-# 16. 学習言語変更時の確認ダイアログ
+# 13. 学習言語変更時の確認ダイアログ
 
-学習対象言語を変更すると、将来的には現在実行中のトレーニングも終了する。
+学習対象言語を変更する際に確認ダイアログを表示する。
 
-そのため、誤操作を防ぐために確認ダイアログを表示する。
+HTML側では確認メッセージを `data-confirm-message` に設定し、JavaScript側で処理する。
 
-HTMLの `onclick` に直接メッセージを埋め込むのではなく、
-
-```text
-data-* 属性
-+
-header.js
-```
-
-で処理する。
-
-## 16.1 layout.html
+## 13.1 layout.html
 
 ```html
 <script th:src="@{/js/header.js}"></script>
 ```
 
-を追加する。
-
-## 16.2 header.js
+## 13.2 header.js
 
 ```javascript
 document.querySelectorAll('.language-variant-link').forEach(link => {
@@ -842,9 +625,9 @@ event.preventDefault();
 
 ---
 
-# 17. 学習言語変更メッセージの多言語化
+# 14. 学習言語変更メッセージの多言語化
 
-## 17.1 messages.properties
+## 14.1 messages.properties
 
 ```properties
 header.studyLanguage=学習言語
@@ -852,7 +635,7 @@ header.studyLanguage.confirmMainland=学習言語を普通話に切り替えま�
 header.studyLanguage.confirmTaiwan=学習言語を國語に切り替えますか？\n切り替えると、現在のトレーニングは終了し、ホーム画面に戻ります。
 ```
 
-## 17.2 messages_en.properties
+## 14.2 messages_en.properties
 
 ```properties
 header.studyLanguage=Study Language
@@ -860,7 +643,7 @@ header.studyLanguage.confirmMainland=Switch the study language to Mandarin?\nYou
 header.studyLanguage.confirmTaiwan=Switch the study language to Taiwanese Mandarin?\nYour current training session will end, and you will return to the Home page.
 ```
 
-## 17.3 messages_zh_CN.properties
+## 14.3 messages_zh_CN.properties
 
 ```properties
 header.studyLanguage=学习语言
@@ -868,7 +651,7 @@ header.studyLanguage.confirmMainland=要将学习语言切换为普通话吗？\
 header.studyLanguage.confirmTaiwan=要将学习语言切换为国语吗？\n切换后，当前训练将结束，并返回首页。
 ```
 
-## 17.4 messages_zh_TW.properties
+## 14.4 messages_zh_TW.properties
 
 ```properties
 header.studyLanguage=學習語言
@@ -876,9 +659,9 @@ header.studyLanguage.confirmMainland=要將學習語言切換為普通話嗎？\
 header.studyLanguage.confirmTaiwan=要將學習語言切換為國語嗎？\n切換後，目前的練習將結束，並返回首頁。
 ```
 
-## 17.5 実行
+## 14.5 実行確認
 
-`http://localhost:8080/` にアクセスし、学習対象言語を正常に切り替えられることを確認した。
+学習対象言語を正常に切り替えられることを確認した。
 
 ### 普通話
 
@@ -890,48 +673,32 @@ header.studyLanguage.confirmTaiwan=要將學習語言切換為國語嗎？\n切�
 
 ---
 
-# 18. ヘッダーのUI修正
+# 15. ヘッダーのUI修正
 
 ```bash
 git commit -m "refactor: reorganize header UI"
 ```
 
-学習対象言語と表示言語の切り替えを実装した結果、ヘッダー内の要素が増え、UIが窮屈になった。
-
-主な問題は以下のとおり。
-
-- 学習言語と表示言語のドロップダウンが横並びになっている
-- 「こんにちは、ゲストさん」が横幅を使用する
-- 今後ログイン・ログアウト機能を追加する予定
-- 今後ハンバーガーメニューを追加する可能性がある
-
-そこで、将来的には、
+表示言語・学習対象言語の実装後、ヘッダーを以下の構成へ整理する。
 
 ```text
 中文造句工坊    学習言語 🇹🇼 國語 ▼    👤    ☰
 ```
 
-のようなシンプルなヘッダーを目指す。
+変更内容は以下。
 
-ユーザーアイコンは将来的に、
+* 学習対象言語はヘッダー上に表示
+* 表示言語はハンバーガーメニューへ移動
+* 「こんにちは、ゲストさん」をユーザーアイコンへ変更
+* ハンバーガーメニューを追加
 
-- カーソルを合わせるとユーザーIDを表示
-- クリックするとユーザー関連メニューを表示
-  - マイページ
-  - アカウント設定
-  - ログアウト
-
-などへ拡張する。
-
-ハンバーガーメニューには、アプリケーション全体に関するメニューを配置する。
-
-現時点ではログイン機能やユーザーDBを実装していないため、今回は将来の機能を配置するための「器」だけを作成する。
+現時点ではログイン機能やユーザーDBを実装していないため、ユーザーアイコンはUIのみ実装する。
 
 ---
 
-# 19. Bootstrap Iconsの導入
+# 16. Bootstrap Iconsの導入
 
-## 19.1 pom.xml
+## 16.1 pom.xml
 
 ```xml
 <dependency>
@@ -941,7 +708,7 @@ git commit -m "refactor: reorganize header UI"
 </dependency>
 ```
 
-## 19.2 layout.html
+## 16.2 layout.html
 
 Bootstrap IconsのCSSを読み込む。
 
@@ -953,7 +720,7 @@ Bootstrap IconsのCSSを読み込む。
 
 ---
 
-# 20. ユーザーアイコンの追加
+# 17. ユーザーアイコンの追加
 
 これまで表示していた、
 
@@ -972,34 +739,18 @@ Bootstrap IconsのCSSを読み込む。
 </button>
 ```
 
-学習言語や表示言語のドロップダウンは白枠で囲まれているが、ユーザーアイコンまで白枠で囲むとUIが重くなる。
-
-そのため、ユーザーアイコンは枠のないシンプルなアイコンとして表示する。
-
-現時点ではログイン機能がないため、ユーザーアイコン自体の機能はまだ実装しない。
+現時点ではユーザーアイコン自体の機能は実装しない。
 
 ---
 
-# 21. 表示言語切り替えをハンバーガーメニューへ移動
+# 18. 表示言語切り替えをハンバーガーメニューへ移動
 
-表示言語の切り替えは常時ヘッダー上に表示する必要性が低いため、ハンバーガーメニュー内へ移動する。
-
-一方、学習対象言語は現在どちらの中国語を学習しているのかを示す重要な設定なので、引き続きヘッダー上へ常時表示する。
-
-```text
-学習言語
-    ↓
-学習内容そのものに関係するため常時表示
-
-表示言語
-    ↓
-変更頻度が低いためハンバーガーメニュー内へ移動
-```
+表示言語切り替えをヘッダー上のドロップダウンからハンバーガーメニュー内へ移動する。
 
 ハンバーガーメニューには現時点で、
 
-- このアプリについて
-- 表示言語切り替え
+* このアプリについて
+* 表示言語切り替え
 
 を配置する。
 
@@ -1073,25 +824,19 @@ Bootstrap IconsのCSSを読み込む。
 
 現在選択されている表示言語には `✓` を表示する。
 
-これによってヘッダー上に常時表示する要素を減らし、今後ユーザー関連機能などを追加するためのスペースも確保する。
-
 ---
 
-# 22. ヘッダーUI修正後の実行確認
+# 19. ヘッダーUI修正後の実行確認
 
-`http://localhost:8080/` にアクセスしたところ、ヘッダーが以前より整理されていることを確認した。
+`http://localhost:8080/` にアクセスし、修正後のヘッダーを確認した。
 
 ![](../../images/0003-08.png)
 
-現在のヘッダーは概ね、
+現在のヘッダーは以下の構成となる。
 
 ```text
 中文造句工坊       学習言語 🇹🇼 國語 ▼       👤    ☰
 ```
-
-という構成になった。
-
-それぞれの役割は以下のようになる。
 
 ```text
 中文造句工坊
@@ -1104,7 +849,7 @@ MAINLAND / TAIWAN の切り替え
 
 👤
     ↓
-将来のユーザー関連機能
+ユーザー関連機能用
 
 ☰
     ├─ このアプリについて
@@ -1115,12 +860,10 @@ MAINLAND / TAIWAN の切り替え
         └─ 繁體中文
 ```
 
-これにより、学習対象言語のように学習中も意識する必要がある設定はヘッダーへ常時表示し、表示言語のように変更頻度の低い設定はハンバーガーメニューへまとめる構成となった。
-
 ---
 
-# 23. 次にやること
+# 20. 次にやること
 
 **学習モードの実装**
 
-今回作成した学習対象言語設定を利用し、今後は実際の問題データや学習処理を実装していく。
+今回作成した学習対象言語設定を利用し、実際の問題データや学習処理を実装していく。
