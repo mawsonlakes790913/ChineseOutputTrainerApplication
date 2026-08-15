@@ -71,6 +71,8 @@ TAIWAN
 | language_variant | 学習対象言語 | - | - | VARCHAR(20) | ○ | - | MAINLAND / TAIWAN |
 | japanese_text | 日本語文 | - | - | TEXT | ○ | - | 問題文 |
 | chinese_text | 模範解答 | - | - | TEXT | ○ | - | 学習対象に対応した中国語 |
+| pinyin | 拼音 | - | - | TEXT | ○ | - | 中国語本文に対応する拼音 |
+| zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
 | alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
 | condition | 条件 | - | - | VARCHAR(100) | - | - | 文法・構文・表現条件など |
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
@@ -203,6 +205,8 @@ AI生成学習によって生成された問題のうち、ユーザーが理解
 | source_question_id | 生成元問題ID | - | ○ | BIGINT | ○ | - | QUESTION.question_id参照 |
 | japanese_text | 日本語問題文 | - | - | TEXT | ○ | - | AI生成された問題文 |
 | chinese_text | 模範解答 | - | - | TEXT | ○ | - | AI生成された中国語 |
+| pinyin | 拼音 | - | - | TEXT | ○ | - | AI生成された中国語に対応する拼音 |
+| zhuyin | 注音 | - | - | TEXT | ○ | - | AI生成された中国語に対応する注音符號 |
 | evaluation | 学習結果 | - | - | VARCHAR(10) | ○ | - | HARD / GOOD / EASY |
 | created_at | 作成日時 | - | - | TIMESTAMP | ○ | - | DBへ初めて保存した日時 |
 | evaluation_updated_at | 評価更新日時 | - | - | TIMESTAMP | ○ | - | 最後に理解度を更新した日時 |
@@ -589,3 +593,99 @@ English
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - 学習対象言語とサイト表記言語は別の設定として扱う。
 - AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
+
+---
+
+---
+
+# 15. 開発途中で追加したテーブル設計
+
+## 15.1 拼音・注音への対応
+
+**追加日：2026年8月15日**
+
+当初のテーブル設計では、QUESTIONおよびAI_GENERATED_QUESTIONに中国語本文のみを保存し、発音表記は保存しない設計としていた。
+
+その後、学習時に中国語の発音を確認できるようにするため、QUESTIONおよびAI_GENERATED_QUESTIONに以下のカラムを追加する。
+
+```text
+pinyin
+zhuyin
+```
+
+### QUESTION
+
+QUESTIONに以下のカラムを追加する。
+
+| カラム名   | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考                       |
+| ------ | -- | -- | -- | ---- | -------- | ------ | ------------------------ |
+| pinyin | 拼音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する拼音   |
+| zhuyin | 注音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する注音符號 |
+
+大陸普通話・台湾華語のどちらの問題についても、拼音・注音の両方を保持する。
+
+したがって、`language_variant` によってどちらか一方のみを保存する構造にはしない。
+
+```text
+QUESTION
+│
+├── language_variant
+├── chinese_text
+├── pinyin
+└── zhuyin
+```
+
+### AI_GENERATED_QUESTION
+
+AI_GENERATED_QUESTIONにも以下のカラムを追加する。
+
+| カラム名   | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考                       |
+| ------ | -- | -- | -- | ---- | -------- | ------ | ------------------------ |
+| pinyin | 拼音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する拼音   |
+| zhuyin | 注音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する注音符號 |
+
+AI生成問題についても、大陸普通話・台湾華語のどちらで生成された問題かにかかわらず、拼音・注音の両方を保持する。
+
+AI生成問題は生成された時点ではDBへ保存せず、既存設計どおり、ユーザーが `HARD / GOOD / EASY` のいずれかを選択した場合にAI_GENERATED_QUESTIONへ保存する。
+
+その際、中国語本文とともに対応する拼音・注音も保存する。
+
+### 発音表記設定との関係
+
+`pinyin` および `zhuyin` は、ユーザーがどちらの発音表記を選択しているかにかかわらず問題データとして保持する。
+
+発音表記設定は、
+
+```text
+PINYIN
+ZHUYIN
+```
+
+を想定し、現在の設定に応じて表示するカラムを切り替える。
+
+```text
+PINYIN
+  ↓
+pinyin
+
+ZHUYIN
+  ↓
+zhuyin
+```
+
+発音表記設定は `language_variant` とは独立して扱う。
+
+そのため、
+
+```text
+MAINLAND + PINYIN
+MAINLAND + ZHUYIN
+TAIWAN   + PINYIN
+TAIWAN   + ZHUYIN
+```
+
+のすべての組み合わせを可能とする。
+
+発音表記のデフォルト値は `PINYIN` とする。
+
+発音表記設定自体をUSERテーブルへ保存するか、Session等で管理するかについては詳細設計時に決定する。
