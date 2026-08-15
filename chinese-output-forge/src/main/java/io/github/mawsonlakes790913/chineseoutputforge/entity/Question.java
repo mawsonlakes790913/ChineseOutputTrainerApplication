@@ -35,6 +35,12 @@ public class Question {
 
     @Column(name = "chinese_text", nullable = false)
     private String chineseText;
+    
+    @Column(name = "pinyin", nullable = false, columnDefinition = "TEXT")
+    private String pinyin;
+
+    @Column(name = "zhuyin", nullable = false, columnDefinition = "TEXT")
+    private String zhuyin;
 
     @Column(name = "alternative_answer")
     private String alternativeAnswer;
