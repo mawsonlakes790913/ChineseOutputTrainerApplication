@@ -1257,6 +1257,7 @@ TAIWAN
 ```text
 PINYIN
 ZHUYIN
+NONE
 ```
 
 によって、取得したQuestionのどちらの発音情報を画面へ表示するかを決定する。
@@ -1276,7 +1277,8 @@ Question
         │
 発音表記設定
 ├── PINYIN
-└── ZHUYIN
+├── ZHUYIN
+└── NONE
 ```
 
 という関係となる。
@@ -1313,6 +1315,7 @@ Question
 | -------- | ------- |
 | `PINYIN` | 拼音を表示する |
 | `ZHUYIN` | 注音を表示する |
+| `NONE` | 発音記号を表示しない |
 
 発音表記設定は学習対象言語とは独立して保持する。
 
@@ -1389,3 +1392,120 @@ Question.zhuyin
 * 発音表記設定はQuestionの取得条件には使用しない。
 * 現在の発音表記設定に応じて、QuestionまたはAiGeneratedQuestionの拼音・注音のどちらを表示するかを決定する。
 * 発音表記設定の永続化方法については詳細設計時に決定する。
+
+---
+
+### 18.6 別解の発音情報の追加
+
+**追加日：2026年8月16日**
+
+`18.1 拼音・注音データの追加` では、Questionの中国語模範解答に対応する拼音・注音を保持する設計を追加した。
+
+その後、別解が存在する問題についても発音を確認できるようにする必要があるため、**別解にも拼音・注音を保持する**設計へ拡張する。
+
+---
+
+#### Question
+
+Questionの別解に対応する発音情報として、以下を追加する。
+
+* 別解の拼音
+* 別解の注音
+
+これにより、Questionの解答および発音情報は概念的に以下の構造となる。
+
+```text
+Question
+│
+├── chinese_text
+│   ├── pinyin
+│   └── zhuyin
+│
+└── alternative_answer
+    ├── alternative_answer_pinyin
+    └── alternative_answer_zhuyin
+```
+
+本解答と別解は、それぞれ自身の中国語文に対応する拼音・注音を保持する。
+
+例えば、
+
+```text
+chinese_text
+我们坐出租车去车站吧。
+
+pinyin
+Wǒmen zuò chūzūchē qù chēzhàn ba.
+
+zhuyin
+ㄨㄛˇ ㄇㄣ˙ ㄗㄨㄛˋ ㄔㄨ ㄗㄨ ㄔㄜ ㄑㄩˋ ㄔㄜ ㄓㄢˋ ㄅㄚ˙
+```
+
+に対して別解が、
+
+```text
+alternative_answer
+我们打车去车站吧。
+
+alternative_answer_pinyin
+Wǒmen dǎchē qù chēzhàn ba.
+
+alternative_answer_zhuyin
+ㄨㄛˇ ㄇㄣ˙ ㄉㄚˇ ㄔㄜ ㄑㄩˋ ㄔㄜ ㄓㄢˋ ㄅㄚ˙
+```
+
+のように、それぞれ独立した発音情報を保持する。
+
+---
+
+#### 発音表記設定との関係
+
+別解の発音表記についても、本解答と同じ発音表記設定を使用する。
+
+```text
+PINYIN
+├── chinese_text               → pinyin
+└── alternative_answer         → alternative_answer_pinyin
+
+ZHUYIN
+├── chinese_text               → zhuyin
+└── alternative_answer         → alternative_answer_zhuyin
+
+NONE
+├── chinese_text               → 発音表記なし
+└── alternative_answer         → 発音表記なし
+```
+
+本解答と別解で異なる発音表記設定は持たせない。
+
+---
+
+#### 別解が存在しない場合
+
+別解はすべてのQuestionに存在するとは限らない。
+
+そのため、別解が存在しないQuestionでは、別解に対応する発音情報も使用しない。
+
+別解およびその発音情報のNULL可否については、テーブル定義で定義する。
+
+---
+
+#### AiGeneratedQuestion
+
+AI生成問題についても、将来的に別解を生成・保持する仕様とする場合は、別解に対応する拼音・注音を保持できる構造とする。
+
+ただし、AI生成問題における別解の生成方法および保存方法については、AI生成機能の詳細設計時に決定する。
+
+---
+
+#### 追加後の設計方針
+
+別解の発音情報追加後は、以下を設計方針に加える。
+
+* Questionは本解答に対応する拼音・注音を保持する。
+* Questionは別解が存在する場合、別解に対応する拼音・注音も扱えるものとする。
+* 本解答と別解には同一の発音表記設定を適用する。
+* `PINYIN` の場合は本解答・別解ともに拼音を表示する。
+* `ZHUYIN` の場合は本解答・別解ともに注音を表示する。
+* `NONE` の場合は本解答・別解ともに発音表記を表示しない。
+* 発音表記設定はQuestionの取得条件には使用しない。
