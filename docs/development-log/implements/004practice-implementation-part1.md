@@ -481,6 +481,38 @@ public String getPracticeMenu(
 
 する。
 
+### 追記：学習対象言語未設定時の問題数取得を修正（2026年8月16日）
+
+Spring Boot再起動後に通常学習メニュー（`/practice/menu`）へアクセスすると、各難易度の問題数がすべて0問になる問題が発生した。
+
+![](../../images/0003-09.png)
+
+新しいSessionでは `languageVariant` がまだ設定されていないため、`PracticeController#getPracticeMenu()` で学習対象言語を取得し、未設定の場合はデフォルトの `MAINLAND` を使用するよう修正した。
+
+## PracticeController.java
+
+```java
+// 学習対象言語を取得
+LanguageVariant languageVariant =
+        (LanguageVariant) session.getAttribute("languageVariant");
+
+// 未設定の場合は普通話
+if (languageVariant == null) {
+    languageVariant = LanguageVariant.MAINLAND;
+}
+
+// 通常問題数を取得
+PracticeMenuDto menu =
+        practiceService.countPracticeQuestions(languageVariant);
+
+model.addAttribute("practiceMenu", menu);
+
+これにより、学習対象言語を一度も変更していない状態でも、普通話をデフォルトとして問題数を取得できるようになった。
+
+現時点では未設定時のデフォルトを MAINLAND とする。
+ログイン機能実装後、ユーザー設定としてデフォルトの学習対象言語を保持するかは別途検討する。
+
+---
 
 ## 新しい問題セットを開始
 
