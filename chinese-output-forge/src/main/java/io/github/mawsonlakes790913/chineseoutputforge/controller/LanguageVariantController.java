@@ -26,7 +26,7 @@ public class LanguageVariantController {
 	                : "redirect:/";
 	    }
 
-	    // 中断中の通常学習データを破棄
+	    // 中断中の通常学習データを破棄(今後復習も同じように破棄される)
 	    session.removeAttribute("practiceQuestions");
 	    session.removeAttribute("practiceCurrentPage");
 

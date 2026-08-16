@@ -87,14 +87,22 @@
 
             <div id="answerArea"
                  style="display:none;">
-
+				<p class="mb-2"
+				   th:if="${pronunciation != null}">
+				
+				    <span th:text="${pronunciation}">
+				        Pronunciation
+				    </span>
+				
+				</p>
                 <p class="mb-2">
 
                     <span th:text="#{practice.question.answer}">
                         解答：
                     </span>
 
-                    <span th:text="${question.chineseText}">
+                    <span class="fs-3"
+                    	  th:text="${question.chineseText}">
                         Chinese Answer
                     </span>
 

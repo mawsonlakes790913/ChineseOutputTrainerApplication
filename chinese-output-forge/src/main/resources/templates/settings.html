@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <title>設定</title>
+</head>
+
+<body>
+
+<div layout:fragment="content">
+
+    <h1 class="mb-4">設定</h1>
+
+    <h2 class="h5 mb-3">発音記号の表示</h2>
+
+    <div class="d-flex gap-2">
+
+        <!-- 拼音 -->
+        <a th:href="@{/pronunciation-type(pronunciationType='PINYIN')}"
+           class="btn"
+           th:classappend="${session.pronunciationType == null
+                            || session.pronunciationType.name() == 'PINYIN'}
+                            ? 'btn-primary'
+                            : 'btn-outline-primary'">
+            拼音
+        </a>
+
+        <!-- 注音 -->
+        <a th:href="@{/pronunciation-type(pronunciationType='ZHUYIN')}"
+           class="btn"
+           th:classappend="${session.pronunciationType != null
+                            && session.pronunciationType.name() == 'ZHUYIN'}
+                            ? 'btn-primary'
+                            : 'btn-outline-primary'">
+            注音
+        </a>
+
+        <!-- 表示なし -->
+        <a th:href="@{/pronunciation-type(pronunciationType='NONE')}"
+           class="btn"
+           th:classappend="${session.pronunciationType != null
+                            && session.pronunciationType.name() == 'NONE'}
+                            ? 'btn-primary'
+                            : 'btn-outline-primary'">
+            表示なし
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>

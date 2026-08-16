@@ -33,10 +33,19 @@ public class PracticeController {
 		
 	    // 言語切替後の戻り先
 	    model.addAttribute("languageVariantRedirect", "/practice/menu");
-		
-		// 通常問題数を取得
-		PracticeMenuDto menu = 
-				practiceService.countPracticeQuestions( (LanguageVariant) session.getAttribute("languageVariant"));
+	    
+	    // 学習対象言語を取得
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    // 未設定の場合は普通話
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
+	    
+	    // 通常問題数を取得
+	    PracticeMenuDto menu =
+	            practiceService.countPracticeQuestions(languageVariant);
 		model.addAttribute("practiceMenu", menu);
 	    
 	    // セッションから情報を取得
@@ -104,12 +113,21 @@ public class PracticeController {
 	    // 既存の学習状態を破棄
 	    clearPracticeSession(session);
 	    
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
+
 	    //問題セットを取得
-	    List<Question> questions = practiceService.getPracticeQuestions(
-	    		(LanguageVariant) session.getAttribute("languageVariant"),
-	    		difficulty, 
-	    		start, 
-	    		random);
+	    List<Question> questions =
+	            practiceService.getPracticeQuestions(
+	                    languageVariant,
+	                    difficulty,
+	                    start,
+	                    random
+	            );
 	    
 		// 問題が存在しない場合
 	    if (questions.isEmpty()) {
@@ -142,7 +160,7 @@ public class PracticeController {
 	    }
 	    
 		// HTMLが必要な情報をModelへ格納
-	    questionModelUtil.setQuestionModel(model, questions, page);
+	    questionModelUtil.setQuestionModel(model, questions, page, session);
 		
 		return "practice/question";
 	}
