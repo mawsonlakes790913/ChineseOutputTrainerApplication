@@ -205,8 +205,11 @@ AI生成学習によって生成された問題のうち、ユーザーが理解
 | source_question_id | 生成元問題ID | - | ○ | BIGINT | ○ | - | QUESTION.question_id参照 |
 | japanese_text | 日本語問題文 | - | - | TEXT | ○ | - | AI生成された問題文 |
 | chinese_text | 模範解答 | - | - | TEXT | ○ | - | AI生成された中国語 |
-| pinyin | 拼音 | - | - | TEXT | ○ | - | AI生成された中国語に対応する拼音 |
-| zhuyin | 注音 | - | - | TEXT | ○ | - | AI生成された中国語に対応する注音符號 |
+| pinyin | 拼音 | - | - | TEXT | ○ | - | 中国語本文に対応する拼音 |
+| zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
+| alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
+| alternative_answer_pinyin | 別解の拼音 | - | - | TEXT | - | - | 別解に対応する拼音（NULL可） |
+| alternative_answer_zhuyin | 別解の注音 | - | - | TEXT | - | - | 別解に対応する注音符號（NULL可） |
 | evaluation | 学習結果 | - | - | VARCHAR(10) | ○ | - | HARD / GOOD / EASY |
 | created_at | 作成日時 | - | - | TIMESTAMP | ○ | - | DBへ初めて保存した日時 |
 | evaluation_updated_at | 評価更新日時 | - | - | TIMESTAMP | ○ | - | 最後に理解度を更新した日時 |
@@ -659,6 +662,7 @@ AI生成問題は生成された時点ではDBへ保存せず、既存設計ど�
 ```text
 PINYIN
 ZHUYIN
+NONE
 ```
 
 を想定し、現在の設定に応じて表示するカラムを切り替える。
@@ -689,3 +693,79 @@ TAIWAN   + ZHUYIN
 発音表記のデフォルト値は `PINYIN` とする。
 
 発音表記設定自体をUSERテーブルへ保存するか、Session等で管理するかについては詳細設計時に決定する。
+
+---
+
+## 15.2 別解の拼音・注音への対応
+
+**追加日：2026年8月16日**
+
+`15.1 拼音・注音への対応` では、中国語の模範解答に対応する発音情報として、QUESTIONに以下のカラムを追加した。
+
+```text
+pinyin
+zhuyin
+```
+
+その後、別解が存在する問題についても発音を確認できるようにする必要があるため、QUESTIONに別解用の発音情報を追加する。
+
+### QUESTION
+
+以下のカラムを追加する。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| alternative_answer_pinyin | 別解の拼音 | - | - | TEXT | - | - | `alternative_answer` に対応する拼音（NULL可） |
+| alternative_answer_zhuyin | 別解の注音 | - | - | TEXT | - | - | `alternative_answer` に対応する注音符號（NULL可） |
+
+これにより、QUESTIONの中国語解答および発音情報は以下の構成となる。
+
+```text
+QUESTION
+│
+├── chinese_text
+│   ├── pinyin
+│   └── zhuyin
+│
+└── alternative_answer
+    ├── alternative_answer_pinyin
+    └── alternative_answer_zhuyin
+```
+
+`alternative_answer_pinyin` および `alternative_answer_zhuyin` は、`alternative_answer` が存在する場合に使用する。
+
+別解自体が任意項目であるため、これらのカラムについてもNULLを許可する。
+
+### 発音表記設定との関係
+
+本解答と別解には同一の発音表記設定を適用する。
+
+```text
+PINYIN
+├── chinese_text       → pinyin
+└── alternative_answer → alternative_answer_pinyin
+
+ZHUYIN
+├── chinese_text       → zhuyin
+└── alternative_answer → alternative_answer_zhuyin
+
+NONE
+├── chinese_text       → 発音表記なし
+└── alternative_answer → 発音表記なし
+```
+
+別解専用の発音表記設定は設けない。
+
+### AI_GENERATED_QUESTION
+
+現時点のAI_GENERATED_QUESTIONには `alternative_answer` を保持する設計がないため、今回の変更では別解用の発音カラムを追加しない。
+
+将来、AI生成問題にも別解を保持する仕様を追加する場合は、
+
+```text
+alternative_answer
+alternative_answer_pinyin
+alternative_answer_zhuyin
+```
+
+の追加をあわせて検討する。
