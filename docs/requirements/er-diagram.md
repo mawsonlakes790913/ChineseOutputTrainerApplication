@@ -74,6 +74,8 @@ erDiagram
         text pinyin
         text zhuyin
         text alternative_answer
+        text alternative_answer_pinyin
+        text alternative_answer_zhuyin
         string condition
         string difficulty
         boolean allow_ai_variation
@@ -633,3 +635,45 @@ TAIWAN   + ZHUYIN
 発音表記の選択はユーザー側の設定として扱い、QUESTIONおよびAI_GENERATED_QUESTIONとの新たなリレーションは発生しない。
 
 したがって、今回の変更では既存エンティティ間のリレーションは変更せず、QUESTIONおよびAI_GENERATED_QUESTIONの保持属性のみを追加する。
+
+---
+
+### 14.2 別解の拼音・注音への対応
+
+**追加日：2026年8月16日**
+
+`14.1 拼音・注音への対応` では、QUESTIONの中国語模範解答に対応する発音情報として、
+
+```text
+pinyin
+zhuyin
+```
+
+を追加した。
+
+その後、別解が存在する問題についても発音を確認できるようにする必要があるため、QUESTIONに以下の属性を追加する。
+
+```text
+alternative_answer_pinyin
+alternative_answer_zhuyin
+```
+
+これにより、QUESTIONの中国語解答に関する属性は以下の構成となる。
+
+```text
+QUESTION
+│
+├── chinese_text
+│   ├── pinyin
+│   └── zhuyin
+│
+└── alternative_answer
+    ├── alternative_answer_pinyin
+    └── alternative_answer_zhuyin
+```
+
+`alternative_answer_pinyin` は別解に対応する拼音、`alternative_answer_zhuyin` は別解に対応する注音を保持する。
+
+今回の変更はQUESTIONが保持する属性の追加であり、新しいエンティティや外部キーは発生しない。
+
+したがって、既存エンティティ間のリレーションは変更しない。
