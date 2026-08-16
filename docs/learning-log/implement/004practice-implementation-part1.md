@@ -741,6 +741,120 @@ verb_variation
 - 各機能を単独で確認するだけでなく、複数機能をまたいだ実際のユーザー操作で動作確認する
 - DB設計時には、最終的な画面で必要になるデータまで確認する
 
+---
+
+# 追記：Session未設定時のデフォルト値の扱い（2026年8月16日）
+
+## 発生した問題
+
+Spring Bootを再起動して通常学習メニュー（`/practice/menu`）へアクセスすると、初級・中級・上級の問題数がすべて0問になった。
+
+![](../../images/0003-09.png)
+
+一度学習対象言語を切り替えると、正常に問題数が表示された。
+
+## 原因
+
+学習対象言語は `languageVariant` としてSessionに保存しているが、新しいSessionではまだ値が設定されていない。
+
+そのため、学習対象言語を一度も切り替えていない状態では、
+
+```java
+session.getAttribute("languageVariant")
+```
+
+の結果は、
+
+```text
+null
+```
+
+となる。
+
+一方、画面上では `languageVariant == null` の場合も普通話として表示していたため、
+
+```text
+画面上
+languageVariant == null
+    ↓
+普通話として表示
+
+問題数取得
+languageVariant == null
+    ↓
+nullのまま検索条件として使用
+    ↓
+0件
+```
+
+という食い違いが発生していた。
+
+## 修正
+
+`PracticeController#getPracticeMenu()` でSessionから学習対象言語を取得し、未設定の場合は `MAINLAND` として扱うようにした。
+
+```java
+// 学習対象言語を取得
+LanguageVariant languageVariant =
+        (LanguageVariant) session.getAttribute("languageVariant");
+
+// 未設定の場合は普通話
+if (languageVariant == null) {
+    languageVariant = LanguageVariant.MAINLAND;
+}
+
+// 通常問題数を取得
+PracticeMenuDto menu =
+        practiceService.countPracticeQuestions(languageVariant);
+
+model.addAttribute("practiceMenu", menu);
+```
+
+これにより、学習対象言語を一度も変更していない状態でも、普通話の問題数を正常に取得できるようになった。
+
+## 学んだこと
+
+Sessionに保存する設定値には、ユーザーがまだ一度も設定を変更していない状態が存在する。
+
+そのため、
+
+```text
+Sessionに値が存在しない
+```
+
+ことと、
+
+```text
+アプリケーション上のデフォルト設定
+```
+
+は分けて考える必要がある。
+
+今回の場合は、
+
+```text
+languageVariant == null
+        ↓
+LanguageVariant.MAINLAND
+```
+
+として扱うことで、Sessionが未設定でも普通話をデフォルトとして処理できる。
+
+また、画面上でデフォルト値として表示しているだけでは、Sessionにその値が保存されていることにはならない。
+
+```text
+画面上で「普通話」と表示されている
+≠
+SessionにMAINLANDが保存されている
+```
+
+この違いには注意が必要。
+
+現時点では普通話（`MAINLAND`）をデフォルトとする。
+
+今後ログインユーザーごとにデフォルトの学習対象言語を設定できるようにする場合は、ユーザー設定を優先して初期値を決定する仕組みを検討する。
+
+---
 
 # 14. 次回
 
