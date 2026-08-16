@@ -45,7 +45,38 @@ public class QuestionModelUtil {
             case NONE ->
                 model.addAttribute("pronunciation", null);
         }
+        
+        switch (pronunciationType) {
 
+        case PINYIN -> {
+            model.addAttribute(
+                    "pronunciation",
+                    question.getPinyin()
+            );
+
+            model.addAttribute(
+                    "alternativePronunciation",
+                    question.getAlternativeAnswerPinyin()
+            );
+        }
+
+        case ZHUYIN -> {
+            model.addAttribute(
+                    "pronunciation",
+                    question.getZhuyin()
+            );
+
+            model.addAttribute(
+                    "alternativePronunciation",
+                    question.getAlternativeAnswerZhuyin()
+            );
+        }
+
+        case NONE -> {
+            model.addAttribute("pronunciation", null);
+            model.addAttribute("alternativePronunciation", null);
+        }
+        }
         
     }
 }

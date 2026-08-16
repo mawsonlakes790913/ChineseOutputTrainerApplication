@@ -44,6 +44,12 @@ public class Question {
 
     @Column(name = "alternative_answer")
     private String alternativeAnswer;
+    
+    @Column(name = "alternative_answer_pinyin")
+    private String alternativeAnswerPinyin;
+    
+    @Column(name = "alternative_answer_zhuyin")
+    private String alternativeAnswerZhuyin;
 
     @Column(name = "condition")
     private String condition;
