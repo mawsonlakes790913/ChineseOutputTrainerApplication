@@ -20,6 +20,17 @@
                         th:text="#{signup.title}">
                         新規登録
                     </h2>
+                    
+					<!-- グローバルエラー -->
+					<div th:if="${#fields.hasGlobalErrors()}"
+					     class="alert alert-danger">
+					
+					    <p th:each="error : ${#fields.globalErrors()}"
+					       th:text="${error}"
+					       class="mb-0">
+					    </p>
+					
+					</div>                    
 
                     <!-- ユーザーID -->
                     <div class="mb-3">

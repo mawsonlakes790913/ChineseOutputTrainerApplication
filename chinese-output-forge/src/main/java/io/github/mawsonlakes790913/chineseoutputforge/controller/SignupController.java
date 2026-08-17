@@ -4,6 +4,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,10 +30,15 @@ public class SignupController {
 	
 	@PostMapping("/signup")
 	public String postSignup(
-							 @ModelAttribute SignupForm form,
+							 @ModelAttribute @Validated SignupForm form,
 							 BindingResult bindingResult,
 							 RedirectAttributes redirectAttributes) {
 
+		// ① 通常のバリデーションエラー確認
+	    if (bindingResult.hasErrors()) {
+	        return getSignup(form);
+	    }
+		
 	    try {
 	    	log.debug("ユーザー登録開始 userId={}", form.getLoginId());
 	    	
@@ -61,38 +67,4 @@ public class SignupController {
 
 	    return "redirect:/";
 	}
-	
-//	@PostMapping("/signup")
-//	public String postSignup(Model model,
-//							 @ModelAttribute @Validated SignupForm form,
-//							 BindingResult bindingResult) {
-//		// ① 通常のバリデーションエラー確認
-//	    if (bindingResult.hasErrors()) {
-//	        return getSignup(model, form);
-//	    }
-//
-//	    try {
-//	    	log.debug("ユーザー登録開始 userId={}", form.getUserId());
-//	    	
-//	    	Users user = new Users();
-//
-//	    	user.setLoginId(form.getLoginId());
-//	    	user.setPassword(form.getPassword());
-//	    	
-//	        // ② Serviceの業務処理
-//	    	signupService.signup(users);
-//
-//	    } catch (DuplicateKeyException e) {
-//
-//	        // ③ Serviceで発生した重複エラーをBindingResultへ追加
-//	        bindingResult.rejectValue(
-//	                "userId",
-//	                "duplicate",
-//	                e.getMessage());
-//
-//	        return getSignup(model, form);
-//	    }
-//
-//	    return "redirect:/signup/complete";
-//	}
 }
