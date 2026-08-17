@@ -21,9 +21,9 @@ public class SignupForm {
         message = "{signup.loginId.length}"
     )
     @Pattern(
-        regexp = "^[a-zA-Z0-9]+$",
-        message = "{signup.loginId.pattern}"
-    )
+    	    regexp = "^[a-zA-Z0-9_]+$",
+    	    message = "{signup.loginId.pattern}"
+    	)
     private String loginId;
 	
     @NotBlank(message = "{signup.password.notBlank}")
@@ -33,9 +33,9 @@ public class SignupForm {
         message = "{signup.password.length}"
     )
     @Pattern(
-        regexp = "^[a-zA-Z0-9]+$",
-        message = "{signup.password.pattern}"
-    )
+    	    regexp = "^[\\x21-\\x7E]+$",
+    	    message = "{signup.password.pattern}"
+    	)
     private String password;
 	
     @NotBlank(message = "{signup.passwordConfirm.notBlank}")
