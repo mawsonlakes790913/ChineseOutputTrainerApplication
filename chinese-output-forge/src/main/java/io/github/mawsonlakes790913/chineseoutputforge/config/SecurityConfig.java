@@ -1,12 +1,20 @@
 package io.github.mawsonlakes790913.chineseoutputforge.config;
 
+import java.io.IOException;
+
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 @Configuration
 public class SecurityConfig {
@@ -38,6 +46,21 @@ public class SecurityConfig {
 	            .usernameParameter("loginId")
 	            .passwordParameter("password")
 	            .defaultSuccessUrl("/", false)
+	            .failureHandler(new AuthenticationFailureHandler() {
+     		        @Override
+     		        public void onAuthenticationFailure(HttpServletRequest request,
+     		                                            HttpServletResponse response,
+     		                                            AuthenticationException exception)
+     		                throws IOException {
+
+     		            HttpSession session = request.getSession(true);
+     		            session.setAttribute(
+     		                    "loginErrorMessage",
+     		                    "login.error");
+
+     		            response.sendRedirect("/login");
+     		        }
+     		    })
 	            .permitAll()
 	        )
 	        
