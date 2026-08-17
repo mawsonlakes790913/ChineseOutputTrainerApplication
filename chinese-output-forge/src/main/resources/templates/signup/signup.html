@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{signup.title}">新規登録</title>
+</head>
+<body>
+
+    <div class="container mt-5" layout:fragment="content">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+
+                <form method="post"
+                      th:action="@{/signup}"
+                      th:object="${signupForm}">
+
+                    <h2 class="text-center mb-4"
+                        th:text="#{signup.title}">
+                        新規登録
+                    </h2>
+
+                    <!-- ユーザーID -->
+                    <div class="mb-3">
+                        <label for="loginId"
+                               class="form-label"
+                               th:text="#{signup.loginId}">
+                            ユーザーID
+                        </label>
+
+                        <input type="text"
+                               id="loginId"
+                               class="form-control"
+                               th:field="*{loginId}"
+                               th:errorclass="is-invalid">
+
+                        <div class="invalid-feedback"
+                             th:errors="*{loginId}">
+                        </div>
+                    </div>
+
+                    <!-- パスワード -->
+                    <div class="mb-3">
+                        <label for="password"
+                               class="form-label"
+                               th:text="#{signup.password}">
+                            パスワード
+                        </label>
+
+                        <input type="password"
+                               id="password"
+                               class="form-control"
+                               th:field="*{password}"
+                               th:errorclass="is-invalid">
+
+                        <div class="invalid-feedback"
+                             th:errors="*{password}">
+                        </div>
+                    </div>
+
+                    <!-- パスワード確認 -->
+                    <div class="mb-3">
+                        <label for="passwordConfirm"
+                               class="form-label"
+                               th:text="#{signup.passwordConfirm}">
+                            パスワード（確認）
+                        </label>
+
+                        <input type="password"
+                               id="passwordConfirm"
+                               class="form-control"
+                               th:field="*{passwordConfirm}"
+                               th:errorclass="is-invalid">
+
+                        <div class="invalid-feedback"
+                             th:errors="*{passwordConfirm}">
+                        </div>
+                    </div>
+
+                    <!-- 登録ボタン -->
+                    <input type="submit"
+                           th:value="#{signup.button}"
+                           class="btn btn-primary w-100 mt-4">
+
+                    <!-- ログイン画面 -->
+                    <div class="text-center mt-2">
+                        <a th:href="@{/login}"
+                           th:text="#{signup.loginLink}">
+                            ログインはこちら
+                        </a>
+                    </div>
+
+                    <!-- Topへ戻る -->
+                    <div class="text-center mt-3 mb-3">
+                        <a th:href="@{/}"
+                           class="btn btn-secondary"
+                           th:text="#{common.backToTop}">
+                            Topに戻る
+                        </a>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
