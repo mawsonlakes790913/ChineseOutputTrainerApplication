@@ -15,6 +15,9 @@
                 <form method="post"
                       th:action="@{/signup}"
                       th:object="${signupForm}">
+	                <!-- CSRF対策(手動で明示する場合必要)
+	                <input type="hidden" th:name="${_csrf.parameterName}" 
+	    			th:value="${_csrf.token}" /> -->                      
 
                     <h2 class="text-center mb-4"
                         th:text="#{signup.title}">

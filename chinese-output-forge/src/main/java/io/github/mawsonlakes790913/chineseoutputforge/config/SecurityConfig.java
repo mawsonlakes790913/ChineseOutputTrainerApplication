@@ -89,8 +89,8 @@ public class SecurityConfig {
 	        	    .tokenValiditySeconds(3600)
 	        );
 	    
-	    // CSRFを無効化
-	    http.csrf(csrf -> csrf.disable());
+//	    // CSRFを無効化
+//	    http.csrf(csrf -> csrf.disable());
 	    
 	    return http.build();
 	}
