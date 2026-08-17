@@ -82,6 +82,11 @@ public class SecurityConfig {
 			            response.sendRedirect("/");
 			        }
 			    })
+	        )
+	        
+	        .rememberMe(remember -> remember
+	        	    .rememberMeParameter("remember-me")
+	        	    .tokenValiditySeconds(3600)
 	        );
 	    
 	    // CSRFを無効化
