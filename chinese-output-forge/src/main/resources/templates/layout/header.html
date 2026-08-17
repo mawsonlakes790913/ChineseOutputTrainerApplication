@@ -152,6 +152,27 @@
 				                <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
 				            </a>
 				        </li>
+				        
+				        <li><hr class="dropdown-divider"></li>
+						<!-- 未ログイン時 -->
+						<li sec:authorize="isAnonymous()">
+						    <a class="dropdown-item"
+						       th:href="@{/login}"
+						       th:text="#{header.login}">
+						        ログイン
+						    </a>
+						</li>
+						
+						<!-- ログイン時 -->
+						<li sec:authorize="isAuthenticated()">
+						    <form th:action="@{/logout}" method="post">
+						        <button class="dropdown-item"
+						        		type="submit"
+						                th:text="#{header.logout}">
+						            ログアウト
+						        </button>
+						    </form>
+						</li>				        
 				
 				    </ul>
 				</div>			                   	
