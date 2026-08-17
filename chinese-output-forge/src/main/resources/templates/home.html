@@ -25,6 +25,12 @@
 		     th:if="${successMessage}"
 		     th:text="${successMessage}">
 		</div>
+		
+		<!-- ログアウト成功 -->
+		<div class="alert alert-success d-inline-block"
+		     th:if="${logoutMessage}"
+		     th:text="#{__${logoutMessage}__}">
+		</div>		
 	
 	    <div class="d-grid gap-3 col-md-3 mx-auto mt-5">		
 
