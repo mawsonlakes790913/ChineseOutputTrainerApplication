@@ -91,12 +91,57 @@
 					
 					</div>
 				</div>            	
-				<!-- ユーザーアイコン -->
-				<button type="button"
-				        class="btn p-0 text-white border-0"
-				        aria-label="ユーザー">
-				    <i class="bi bi-person-circle fs-4"></i>
-				</button>    
+
+				
+				    <!-- ユーザーアイコン -->
+				    <button class="btn btn-outline-light dropdown-toggle"
+				            type="button"
+				            data-bs-toggle="dropdown"
+				            aria-expanded="false">
+				        <i class="bi bi-person"></i>
+				    </button>
+				
+				    <ul class="dropdown-menu dropdown-menu-end">
+				
+						<!-- ログイン中：ユーザーID -->
+						<li sec:authorize="isAuthenticated()">
+						    <span class="dropdown-item-text fw-bold"
+						          sec:authentication="name">
+						        userId
+						    </span>
+						</li>
+						
+						<!-- 未ログイン：ゲスト -->
+						<li sec:authorize="isAnonymous()">
+						    <span class="dropdown-item-text fw-bold"
+						          th:text="#{header.guest}">
+						        ゲスト
+						    </span>
+						</li>
+						
+						<li><hr class="dropdown-divider"></li>
+						
+						<!-- ログイン中：プロフィール -->
+						<li sec:authorize="isAuthenticated()">
+						    <a class="dropdown-item"
+						       th:href="@{/user/profile}"
+						       th:text="#{header.profile}">
+						        プロフィール
+						    </a>
+						</li>
+						
+						<!-- 未ログイン：新規登録 -->
+						<li sec:authorize="isAnonymous()">
+						    <a class="dropdown-item"
+						       th:href="@{/signup}"
+						       th:text="#{header.signup}">
+						        新規登録
+						    </a>
+						</li>
+				
+				    </ul>
+				
+				</div>				
 				<!-- ハンバーガーアイコン -->
 				<div class="dropdown">
 				    <button type="button"
