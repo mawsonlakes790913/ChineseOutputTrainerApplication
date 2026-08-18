@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       layout:decorate="~{layout/layout}">
 
 <head>
@@ -141,6 +142,83 @@
         </div>
 
     </div>
+    
+	<!-- 理解度 -->
+	<div id="evaluationArea"
+	     sec:authorize="isAuthenticated()"
+	     class="mt-1 d-flex justify-content-center gap-5"
+	     style="display:none;">
+	
+	    <!-- HARD -->
+	    <form th:action="@{/practice/evaluation}" method="post">
+	
+	        <input type="hidden"
+	               name="questionId"
+	               th:value="${question.questionId}">
+	
+	        <input type="hidden"
+	               name="evaluation"
+	               value="HARD">
+	
+	        <input type="hidden"
+	               name="page"
+	               th:value="${nextPageIndex - 1}">
+	
+	        <button type="submit"
+	                class="btn btn-danger btn-lg"
+	                th:text="#{practice.question.evaluation.hard}">
+	            Hard（難しかった）
+	        </button>
+	
+	    </form>
+	
+	    <!-- GOOD -->
+	    <form th:action="@{/practice/evaluation}" method="post">
+	
+	        <input type="hidden"
+	               name="questionId"
+	               th:value="${question.questionId}">
+	
+	        <input type="hidden"
+	               name="evaluation"
+	               value="GOOD">
+	
+	        <input type="hidden"
+	               name="page"
+	               th:value="${nextPageIndex - 1}">
+	
+	        <button type="submit"
+	                class="btn btn-primary btn-lg"
+	                th:text="#{practice.question.evaluation.good}">
+	            Good（少し考えた）
+	        </button>
+	
+	    </form>
+	
+	    <!-- EASY -->
+	    <form th:action="@{/practice/evaluation}" method="post">
+	
+	        <input type="hidden"
+	               name="questionId"
+	               th:value="${question.questionId}">
+	
+	        <input type="hidden"
+	               name="evaluation"
+	               value="EASY">
+	
+	        <input type="hidden"
+	               name="page"
+	               th:value="${nextPageIndex - 1}">
+	
+	        <button type="submit"
+	                class="btn btn-success btn-lg"
+	                th:text="#{practice.question.evaluation.easy}">
+	            Easy（余裕だった）
+	        </button>
+	
+	    </form>
+	
+	</div>
 
 
     <!-- 前へ・次へ -->

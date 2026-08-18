@@ -4,17 +4,24 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
+import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PracticeService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +34,8 @@ public class PracticeController {
 	
 	private final PracticeService practiceService;
 	private final QuestionModelUtil questionModelUtil;
+	private final UserAccountService userAccountService;
+	private final EvaluationService evaluationService;
 	
 	@GetMapping("/practice/menu")
 	public String getPracticeMenu(HttpSession session, Model model) {
@@ -209,5 +218,36 @@ public class PracticeController {
 	private void clearPracticeSession(HttpSession session) {
 	    session.removeAttribute("practiceQuestions");
 	    session.removeAttribute("practiceCurrentPage");
+	}
+	
+	@PostMapping("/practice/evaluation")
+	public String postEvaluation(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long questionId,
+	        @RequestParam Evaluation evaluation,
+	        @RequestParam Integer page,
+	        HttpSession session) {
+
+	    // ユーザー情報を取得
+	    Users user = userAccountService.getUserOne(
+	            loginUser.getUsername());
+
+	    // 理解度を保存
+	    evaluationService.updateEvaluation(
+	            user,
+	            questionId,
+	            evaluation);
+
+	    // セッションから問題一覧を取得
+	    List<Question> questions =
+	            (List<Question>) session.getAttribute("practiceQuestions");
+
+	    // 最後の問題の場合
+	    if (page + 1 >= questions.size()) {
+	        return "redirect:/practice/complete";
+	    }
+
+	    // 次の問題へ
+	    return "redirect:/practice/question?page=" + (page + 1);
 	}
 }
