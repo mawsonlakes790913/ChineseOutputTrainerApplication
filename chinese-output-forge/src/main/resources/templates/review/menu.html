@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Chinese Output Forge</title>
+
+    <link rel="stylesheet"
+          th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+
+    <script th:src="@{/js/review/menu.js}" defer></script>
+
+</head>
+
+<body>
+
+<div layout:fragment="content">
+
+    <!-- ============================= -->
+    <!-- ヘッダー -->
+    <!-- ============================= -->
+
+    <div class="header border-bottom pb-2 mb-2
+                d-flex justify-content-between align-items-center">
+
+        <h1 class="h2 mb-0">
+
+            <i class="bi bi-arrow-repeat me-2 text-primary"></i>
+
+            <span th:text="#{review.menu.title}">
+                復習
+            </span>
+
+        </h1>
+
+        <div th:if="${canResume}"
+             class="d-flex align-items-center gap-3">
+
+            <span class="text-danger fw-bold">
+
+                <span th:text="#{review.menu.resume.message}">
+                    中断しているトレーニングがあります
+                </span>
+
+                (<span th:text="${currentPage + 1}"></span>
+                /
+                <span th:text="${totalCount}"></span>)
+
+            </span>
+
+            <a th:href="@{/review/resume}"
+               class="btn btn-warning"
+               th:text="#{review.menu.resume}">
+                再開する
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <form th:action="@{/review/start}"
+          method="get">
+
+        <div class="row">
+
+
+            <!-- ============================= -->
+            <!-- 出題方法 -->
+            <!-- ============================= -->
+
+            <div class="col-md-6 mb-4">
+
+                <div class="card">
+
+                    <div class="card-header"
+                         th:text="#{review.menu.order.title}">
+                        出題方法
+                    </div>
+
+                    <div class="card-body">
+
+                        <label class="form-check">
+
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="order"
+                                   value="SEQUENTIAL"
+                                   checked>
+
+                            <span class="form-check-label"
+                                  th:text="#{review.menu.order.sequential}">
+                                順番に出題
+                            </span>
+
+                        </label>
+
+
+                        <label class="form-check">
+
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="order"
+                                   value="RANDOM">
+
+                            <span class="form-check-label"
+                                  th:text="#{review.menu.order.random}">
+                                ランダムに出題
+                            </span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ============================= -->
+            <!-- 理解度 -->
+            <!-- ============================= -->
+
+            <div class="col-md-6 mb-4">
+
+                <div class="card">
+
+                    <div class="card-header"
+                         th:text="#{review.menu.evaluation.title}">
+                        理解度
+                    </div>
+
+                    <div class="card-body">
+
+                        <div class="row">
+
+
+                            <!-- HARD -->
+
+                            <div class="col text-center">
+
+                                <label class="form-check">
+
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="evaluations"
+                                           value="HARD">
+
+                                    <span class="form-check-label">
+
+                                        <span class="fw-bold text-danger"
+                                              th:text="#{review.menu.evaluation.hard}">
+                                            Hard
+                                        </span>
+
+                                        <br>
+
+                                        <small class="text-danger"
+                                               th:text="#{review.menu.evaluation.hard.description}">
+                                            難しい・わからない
+                                        </small>
+
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+
+                            <!-- GOOD -->
+
+                            <div class="col text-center">
+
+                                <label class="form-check">
+
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="evaluations"
+                                           value="GOOD">
+
+                                    <span class="form-check-label">
+
+                                        <span class="fw-bold text-primary"
+                                              th:text="#{review.menu.evaluation.good}">
+                                            Good
+                                        </span>
+
+                                        <br>
+
+                                        <small class="text-primary"
+                                               th:text="#{review.menu.evaluation.good.description}">
+                                            少し考えた、一部正解だった
+                                        </small>
+
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+
+                            <!-- EASY -->
+
+                            <div class="col text-center">
+
+                                <label class="form-check">
+
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="evaluations"
+                                           value="EASY">
+
+                                    <span class="form-check-label">
+
+                                        <span class="fw-bold text-success"
+                                              th:text="#{review.menu.evaluation.easy}">
+                                            Easy
+                                        </span>
+
+                                        <br>
+
+                                        <small class="text-success"
+                                               th:text="#{review.menu.evaluation.easy.description}">
+                                            簡単だった
+                                        </small>
+
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ============================= -->
+            <!-- 問題難易度 -->
+            <!-- ============================= -->
+
+            <div class="col-md-6 mb-4">
+
+                <div class="card">
+
+                    <div class="card-header"
+                         th:text="#{review.menu.difficulty.title}">
+                        問題難易度
+                    </div>
+
+                    <div class="card-body">
+
+                        <div class="d-flex gap-3">
+
+
+                            <!-- BEGINNER -->
+
+                            <label class="bg-danger-subtle rounded px-3 py-2">
+
+                                <input class="form-check-input me-2"
+                                       type="checkbox"
+                                       name="difficulties"
+                                       value="BEGINNER">
+
+                                <span class="fw-bold text-danger"
+                                      th:text="#{review.menu.difficulty.beginner}">
+                                    初級
+                                </span>
+
+                            </label>
+
+
+                            <!-- INTERMEDIATE -->
+
+                            <label class="bg-primary-subtle rounded px-3 py-2">
+
+                                <input class="form-check-input me-2"
+                                       type="checkbox"
+                                       name="difficulties"
+                                       value="INTERMEDIATE">
+
+                                <span class="fw-bold text-primary"
+                                      th:text="#{review.menu.difficulty.intermediate}">
+                                    中級
+                                </span>
+
+                            </label>
+
+
+                            <!-- ADVANCED -->
+
+                            <label class="bg-success-subtle rounded px-3 py-2">
+
+                                <input class="form-check-input me-2"
+                                       type="checkbox"
+                                       name="difficulties"
+                                       value="ADVANCED">
+
+                                <span class="fw-bold text-success"
+                                      th:text="#{review.menu.difficulty.advanced}">
+                                    上級
+                                </span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ============================= -->
+            <!-- お気に入り -->
+            <!-- ============================= -->
+
+            <div class="col-md-6 mb-4">
+
+                <div class="card">
+
+                    <div class="card-header"
+                         th:text="#{review.menu.favorite.title}">
+                        お気に入り
+                    </div>
+
+                    <div class="card-body">
+
+
+                        <!-- FAVORITED -->
+
+                        <label class="form-check mb-2">
+
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="favoriteCondition"
+                                   value="FAVORITED">
+
+                            <span class="form-check-label"
+                                  th:text="#{review.menu.favorite.favorited}">
+                                お気に入り登録した問題のみ出題
+                            </span>
+
+                        </label>
+
+
+                        <!-- NOT_FAVORITED -->
+
+                        <label class="form-check mb-2">
+
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="favoriteCondition"
+                                   value="NOT_FAVORITED">
+
+                            <span class="form-check-label"
+                                  th:text="#{review.menu.favorite.notFavorited}">
+                                お気に入り登録していない問題のみ出題
+                            </span>
+
+                        </label>
+
+
+                        <!-- ALL -->
+
+                        <label class="form-check">
+
+                            <input class="form-check-input"
+                                   type="radio"
+                                   name="favoriteCondition"
+                                   value="ALL"
+                                   checked>
+
+                            <span class="form-check-label"
+                                  th:text="#{review.menu.favorite.all}">
+                                どちらも出題する
+                            </span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ============================= -->
+        <!-- 出題数 -->
+        <!-- ============================= -->
+
+        <div class="text-center mb-4">
+
+            <div class="text-secondary mb-2"
+                 th:text="#{review.menu.count}">
+                出題数
+            </div>
+
+            <h2 class="fw-bold"
+                id="countReviewQuestions">
+                -
+            </h2>
+
+        </div>
+
+
+        <!-- ============================= -->
+        <!-- 出題開始 -->
+        <!-- ============================= -->
+
+        <div class="text-center mt-4">
+
+            <button type="submit"
+                    class="btn btn-primary btn-lg px-5"
+                    th:text="#{review.menu.start}">
+                出題開始
+            </button>
+
+        </div>
+
+    </form>
+
+
+    <!-- ============================= -->
+    <!-- Topに戻る -->
+    <!-- ============================= -->
+
+    <div class="text-center mt-3 mb-3">
+
+        <a th:href="@{/}"
+           class="btn btn-secondary"
+           th:text="#{review.menu.backToTop}">
+            Topに戻る
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

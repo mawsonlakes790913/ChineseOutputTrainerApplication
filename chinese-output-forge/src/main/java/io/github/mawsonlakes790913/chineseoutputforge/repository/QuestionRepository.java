@@ -59,4 +59,5 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 				    @Param("userId") Long userId,
 				    @Param("difficulties") List<String> difficulties					
 					);
+	
 }
