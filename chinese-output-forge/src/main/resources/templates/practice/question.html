@@ -125,19 +125,19 @@
                 </p>
 
 
-                <!-- 別解 -->
-                <p th:if="${question.alternativeAnswer != null}"
-                   class="mb-0">
+				<!-- 別解 -->
+				<div th:if="${question.alternativeAnswer != null}">
+				
 				    <p class="mb-2"
 				       th:if="${alternativePronunciation != null}">
 				
 				        <span class="small"
-				        	  th:text="${alternativePronunciation}">
+				              th:text="${alternativePronunciation}">
 				            Alternative Pronunciation
 				        </span>
 				
-				    </p>                   
-
+				    </p>
+				
 				    <p class="mb-0">
 				
 				        <span th:text="#{practice.question.alternativeAnswer}">
@@ -149,8 +149,8 @@
 				        </span>
 				
 				    </p>
-
-                </p>
+				
+				</div>
 
             </div>
 
