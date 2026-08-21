@@ -20,6 +20,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
@@ -36,6 +37,7 @@ public class PracticeController {
 	private final QuestionModelUtil questionModelUtil;
 	private final UserAccountService userAccountService;
 	private final EvaluationService evaluationService;
+	private final FavoriteService favoriteService;
 	
 	@GetMapping("/practice/menu")
 	public String getPracticeMenu(HttpSession session, Model model) {
@@ -152,7 +154,8 @@ public class PracticeController {
 	@GetMapping("/practice/question")
 	public String getPracticeQuestion(Model model,
 								   HttpSession session,
-								   @RequestParam(defaultValue = "0") int page
+								   @RequestParam(defaultValue = "0") int page,
+								   @AuthenticationPrincipal UserDetails loginUser
 								   ) {
 		
 		// Sessionからquestions取得
@@ -170,6 +173,18 @@ public class PracticeController {
 	    
 		// HTMLが必要な情報をModelへ格納
 	    questionModelUtil.setQuestionModel(model, questions, page, session);
+	    
+	    // 現在表示する問題を取得
+	    Question question = questions.get(page);
+	    
+	    // ログインしている場合だけお気に入り判定
+	    if (loginUser != null) {
+	        boolean isFavorite = favoriteService.isFavorite(
+	        		getLoginUser(loginUser),
+	                question.getQuestionId());
+
+	        model.addAttribute("isFavorite", isFavorite);
+	    }
 		
 		return "practice/question";
 	}
@@ -249,5 +264,9 @@ public class PracticeController {
 
 	    // 次の問題へ
 	    return "redirect:/practice/question?page=" + (page + 1);
+	}
+	
+	private Users getLoginUser(UserDetails loginUser) {
+		return userAccountService.getUserOne(loginUser.getUsername());
 	}
 }
