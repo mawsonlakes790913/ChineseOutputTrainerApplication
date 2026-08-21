@@ -10,9 +10,11 @@ import org.springframework.stereotype.Service;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
+import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
 import io.github.mawsonlakes790913.chineseoutputforge.value.Range;
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class PracticeService {
 	
 	private final QuestionRepository questionRepository;
+	private final SearchConditionConverter searchConditionConverter;
 	
 	public List<Question> getPracticeQuestions(LanguageVariant languageVariant,
 				Difficulty difficulty,
@@ -82,6 +85,22 @@ public class PracticeService {
 
 		return count;
 	}
+	
+	public NewPracticeCountDto countNewPracticeQuestions(Long userId) {
+		
+		NewPracticeCountDto count = new NewPracticeCountDto();
+		
+	    long beginnerCount = questionRepository.countNewQuestions(userId, Difficulty.BEGINNER.name());
+	    count.setBeginnerCount(beginnerCount);	    
+	    
+	    long intermediateCount = questionRepository.countNewQuestions(userId, Difficulty.INTERMEDIATE.name());
+	    count.setIntermediateCount(intermediateCount);
+
+	    long advancedCount = questionRepository.countNewQuestions(userId, Difficulty.ADVANCED.name());
+	    count.setAdvancedCount(advancedCount);
+		
+		return count;
+	}
 
 	private List<Range> createRanges(long count) {
 		List<Range> ranges = new ArrayList<>();
@@ -98,6 +117,11 @@ public class PracticeService {
 		return ranges;
 	}	
 	
-	
+	public List<Question> getNewQuestions(Long userId, List<Difficulty> difficulty) {
+		
+		List<Question> extractedNewQuestions = questionRepository.findUnlearnedQuestionsByUserIdAndDifficulty(userId, searchConditionConverter.convertDifficulty(difficulty));
+		
+		return extractedNewQuestions;
+	}
 	
 }

@@ -16,6 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
@@ -40,7 +41,7 @@ public class PracticeController {
 	private final FavoriteService favoriteService;
 	
 	@GetMapping("/practice/menu")
-	public String getPracticeMenu(HttpSession session, Model model) {
+	public String getPracticeMenu(@AuthenticationPrincipal UserDetails loginUser, HttpSession session, Model model) {
 		
 	    // 言語切替後の戻り先
 	    model.addAttribute("languageVariantRedirect", "/practice/menu");
@@ -58,6 +59,13 @@ public class PracticeController {
 	    PracticeMenuDto menu =
 	            practiceService.countPracticeQuestions(languageVariant);
 		model.addAttribute("practiceMenu", menu);
+		
+	    // 未学習問題数を取得
+	    if (loginUser != null) {
+	    Users user = getLoginUser(loginUser);
+		NewPracticeCountDto count = practiceService.countNewPracticeQuestions(user.getId());
+		model.addAttribute("newQuestionCount", count);
+	    }
 	    
 	    // セッションから情報を取得
 	    List<Question> questions =
@@ -150,6 +158,37 @@ public class PracticeController {
 	    
 	    return "redirect:/practice/question?page=0";	    
 	}	
+	
+	@GetMapping("/practice/new/start")
+	public String getPracticeNewStart(
+	        HttpSession session,
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam(name = "difficulties", required = false) 
+			List<Difficulty> difficulty
+	        ) {
+		
+	    // 既存の学習状態を破棄
+		clearPracticeSession(session);
+	    
+	    //先に宣言
+	    List<Question> questions;
+	    
+	    // user_id(文字列)からUsersを取得
+	    Users user = getLoginUser(loginUser);
+	    Long userId = user.getId();
+	    
+	    //問題セットを取得
+	    questions = practiceService.getNewQuestions(userId, difficulty);
+	    
+	    if (questions.isEmpty()) {
+	        return "redirect:/practice/menu";
+	    }
+
+		session.setAttribute("practiceQuestions", questions);
+	    session.setAttribute("practiceCurrentPage", 0);
+	    
+	    return "redirect:/practice/question?page=0";	    
+	}
 	
 	@GetMapping("/practice/question")
 	public String getPracticeQuestion(Model model,
