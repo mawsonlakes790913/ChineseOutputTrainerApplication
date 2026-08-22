@@ -1,5 +1,6 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Service;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
@@ -37,6 +39,26 @@ public class ReviewService {
 	    		convertedDifficulties,
 	    		convertedFavoriteCondition
 	    		);
+	}
+	
+	//問題取得
+	public List<Question> getQuestion(Long userId, 
+									  List<Evaluation> evaluations, 
+									  List<Difficulty> difficulties,
+									  FavoriteCondition favoriteCondition,
+									  boolean random){
+		
+		List<Question> extractedQuestions = studyHistoryRepository.findReviewQuestions(userId,
+				searchConditionConverter.convertEvaluation(evaluations),
+				searchConditionConverter.convertDifficulty(difficulties),
+				searchConditionConverter.convertFavoriteCondition(favoriteCondition));
+		
+		// シャッフルする
+		if (random) {
+			Collections.shuffle(extractedQuestions);
+		} 
+		
+		return extractedQuestions;
 	}
 
 }
