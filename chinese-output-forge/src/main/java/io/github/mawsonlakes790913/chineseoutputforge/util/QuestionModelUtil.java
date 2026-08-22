@@ -9,10 +9,9 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import jakarta.servlet.http.HttpSession;
 
-
 @Component
 public class QuestionModelUtil {
-	
+
     public void setQuestionModel(
             Model model,
             List<Question> questions,
@@ -26,7 +25,7 @@ public class QuestionModelUtil {
         model.addAttribute("totalPages", questions.size());
         model.addAttribute("hasPrevious", page > 0);
         model.addAttribute("hasNext", page < questions.size() - 1);
-        
+
         // 表示する発音記号を決定
         PronunciationType pronunciationType =
                 (PronunciationType) session.getAttribute("pronunciationType");
@@ -35,17 +34,6 @@ public class QuestionModelUtil {
             pronunciationType = PronunciationType.PINYIN;
         }
 
-        switch (pronunciationType) {
-            case PINYIN ->
-                model.addAttribute("pronunciation", question.getPinyin());
-
-            case ZHUYIN ->
-                model.addAttribute("pronunciation", question.getZhuyin());
-
-            case NONE ->
-                model.addAttribute("pronunciation", null);
-        }
-        
         switch (pronunciationType) {
 
         case PINYIN -> {
@@ -73,10 +61,17 @@ public class QuestionModelUtil {
         }
 
         case NONE -> {
-            model.addAttribute("pronunciation", null);
-            model.addAttribute("alternativePronunciation", null);
+            model.addAttribute(
+                    "pronunciation",
+                    null
+            );
+
+            model.addAttribute(
+                    "alternativePronunciation",
+                    null
+            );
         }
+
         }
-        
     }
 }
