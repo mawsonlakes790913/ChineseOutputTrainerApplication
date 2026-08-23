@@ -180,6 +180,10 @@ feat: set up question data for practice
 
 既存のQuestionにはまだ `structure` の値が存在しないため、まずはNULLを許可した状態でフィールドを追加する。
 
+```text
+git commit -m "feat: add structure field to question"
+```
+
 #### Question.java
 
 ```java
