@@ -74,7 +74,8 @@ TAIWAN
 | pinyin | 拼音 | - | - | TEXT | ○ | - | 中国語本文に対応する拼音 |
 | zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
 | alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
-| condition | 条件 | - | - | VARCHAR(100) | - | - | 文法・構文・表現条件など |
+| condition | 条件 | - | - | VARCHAR(100) | - | - | 解答条件・ヒント（NULL可） |
+| structure | 文法・構造 | - | - | VARCHAR(50) | ○ | - | 中国語文の根幹となる文法・構造 |
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
 | allow_ai_variation | AI生成可否 | - | - | BOOLEAN | ○ | - | AI生成対象かどうか |
 | template | AI生成用テンプレート | - | - | TEXT | - | - | AI生成対象外の場合はNULL可 |
@@ -104,6 +105,9 @@ TAIWAN
 - `allow_ai_variation = false` の問題は固定問題としてのみ使用する。
 - AIによって生成された問題そのものを本テーブルへ追加しない。
 - `template`、`subject_type`、`verb_variation` は問題内容に応じてNULLを許容する。
+- `structure` は模範解答となる中国語文の根幹となる文法・構造を表し、すべての問題で必須とする。
+- `structure` は1つのQUESTIONにつき1つ設定する。
+- `condition` は開発者・出題者が設定する解答条件・ヒントであり、条件を必要としない問題ではNULLを許可する。
 
 ---
 
@@ -596,6 +600,10 @@ English
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - 学習対象言語とサイト表記言語は別の設定として扱う。
 - AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
+- QUESTIONには、中国語文の根幹となる文法・構造を表す `structure` を持たせる。
+- `structure` は1つのQUESTIONにつき1つ設定し、NULLを許可しない。
+- `condition` は開発者・出題者が設定する解答条件・ヒントとして扱い、NULLを許可する。
+- AI生成問題の `structure` は生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには重複して保持しない。
 
 ---
 
@@ -769,3 +777,160 @@ alternative_answer_zhuyin
 ```
 
 の追加をあわせて検討する。
+
+## 15.3 問題の文法・構造（structure）の追加
+
+**追加日：2026年8月23日**
+
+問題を文法・構造によって客観的に分類し、復習時の出題条件や問題検索に利用できるようにするため、QUESTIONに `structure` カラムを追加する。
+
+### QUESTION
+
+以下のカラムを追加する。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| structure | 文法・構造 | - | - | VARCHAR(50) | ○ | - | 中国語文の根幹となる文法・構造 |
+
+`structure` は、模範解答となる中国語文を文法・構造上分析した際に、**その文章の根幹となる文法・構造を客観的に分類するためのカラム**とする。
+
+例えば、
+
+```text
+chinese_text = 他笑着跟我说话。
+structure    = 動態助詞（着）
+```
+
+```text
+chinese_text = 这么多菜，我们吃不完。
+structure    = 可能補語
+```
+
+のように設定する。
+
+1つの中国語文に複数の文法的要素が含まれている場合でも、文章の根幹となる文法・構造を1つ選択し、**1つのQUESTIONにつき1つの `structure` を保持する**。
+
+---
+
+### conditionとの違い
+
+`structure` と既存の `condition` は異なる目的を持つ。
+
+```text
+structure
+└── 中国語文そのものの根幹となる文法・構造
+    └── 客観的な分類
+
+condition
+└── その問題をどのように解答させるか
+    └── 開発者・出題者が設定する主観的な条件・ヒント
+```
+
+例えば、
+
+```text
+japanese_text = 彼は笑いながら私に話した。
+chinese_text  = 他笑着跟我说话。
+structure     = 動態助詞（着）
+condition     = 「着」を使う
+```
+
+の場合、`structure` は中国語文そのものの文法的な分類であり、`condition` は日本語文から中国語へ変換する際に「着」を使用するよう指定する解答条件である。
+
+結果として両者が近い内容になる場合もあるが、その役割は異なる。
+
+---
+
+### NULL可否
+
+すべての模範解答となる中国語文には、分類対象となる何らかの文法・構造が存在する。
+
+そのため、`structure` は必須項目とし、NULLを許可しない。
+
+```text
+structure
+NOT NULL
+```
+
+一方、`condition` は特定の文法・語彙・言い回しなどを使用して解答させたい場合に設定する項目であり、条件を必要としない問題も存在する。
+
+そのため、`condition` は従来どおりNULLを許可する。
+
+```text
+structure   NOT NULL
+condition   NULL可
+```
+
+---
+
+### structureの値
+
+`structure` には、中国語文の根幹となる文法・構造を表す統一されたカテゴリ名を保存する。
+
+例えば、以下のような値を想定する。
+
+```text
+動態助詞（了）
+動態助詞（着）
+動態助詞（過）
+結果補語
+方向補語
+可能補語
+程度補語
+把構文
+被構文
+比較構文
+連動文
+兼語文
+存現文
+条件複文
+因果複文
+前置詞句
+慣用表現
+成語
+口語表現
+```
+
+具体的な分類値については、既存問題および今後追加する問題を整理したうえで確定する。
+
+---
+
+### 検索条件としての利用
+
+`structure` は問題を文法・構造によって客観的に分類する情報であるため、以下の機能における検索・絞り込み条件として利用する。
+
+- 復習時の出題条件
+- ユーザー用問題検索
+- 管理者用問題検索
+
+例えば、
+
+```text
+structure = 可能補語
+```
+
+を条件とすることで、可能補語を中国語文の根幹とするQUESTIONを取得できる。
+
+一方、`condition` は開発者・出題者が問題ごとに設定する解答条件・ヒントであるため、文法・構造による問題分類の検索条件としては使用しない。
+
+---
+
+### AI_GENERATED_QUESTIONとの関係
+
+AI_GENERATED_QUESTIONには `structure` カラムを追加しない。
+
+AI生成問題は `source_question_id` によって生成元QUESTIONを参照できるため、AI生成問題の文法・構造は生成元QUESTIONの `structure` から判定する。
+
+```text
+AI_GENERATED_QUESTION
+        │
+        │ source_question_id
+        ↓
+     QUESTION
+        │
+        └── structure
+```
+
+これにより、AI_GENERATED_QUESTIONに同一の分類情報を重複して保持することを避ける。
+
+AI生成問題は生成元QUESTIONの文法・構造を維持したバリエーションとして生成するため、原則として生成元QUESTIONと同一の `structure` に属するものとして扱う。

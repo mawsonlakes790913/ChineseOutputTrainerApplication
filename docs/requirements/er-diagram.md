@@ -66,6 +66,7 @@ erDiagram
     }
 
 
+
     QUESTION {
         bigint question_id PK
         string language_variant
@@ -77,6 +78,7 @@ erDiagram
         text alternative_answer_pinyin
         text alternative_answer_zhuyin
         string condition
+        string structure
         string difficulty
         boolean allow_ai_variation
         text template
@@ -597,6 +599,9 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
 - AiSettingは保存方式が確定するまでER図には含めない。
+- QUESTIONには、中国語文の根幹となる文法・構造を表す `structure` を持たせる。
+- `structure` は1つのQUESTIONにつき1つ設定し、NULLを許可しない。
+- AI生成問題の `structure` は生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには重複して保持しない。
 
 ---
 
@@ -677,3 +682,99 @@ QUESTION
 今回の変更はQUESTIONが保持する属性の追加であり、新しいエンティティや外部キーは発生しない。
 
 したがって、既存エンティティ間のリレーションは変更しない。
+
+### 14.3 問題の文法・構造（structure）の追加
+
+**追加日：2026年8月23日**
+
+問題を文法・構造によって客観的に分類し、復習時の出題条件や問題検索に利用できるようにするため、QUESTIONに以下の属性を追加する。
+
+```text
+structure
+```
+
+`structure` は、模範解答となる中国語文を文法・構造上分析した際に、**その文章の根幹となる文法・構造を客観的に分類するための属性**とする。
+
+例えば、
+
+```text
+QUESTION
+│
+├── chinese_text = 他笑着跟我说话。
+├── structure    = 動態助詞（着）
+└── condition    = 「着」を使う
+```
+
+の場合、
+
+- `structure` は、中国語文そのものの根幹となる文法・構造を表す。
+- `condition` は、開発者・出題者がその問題に設定した解答条件・ヒントを表す。
+
+したがって、`structure` と `condition` は役割が異なる。
+
+```text
+structure
+└── 中国語文そのものの根幹となる文法・構造
+    └── 客観的な分類
+
+condition
+└── その問題をどのように解答させるか
+    └── 開発者・出題者が設定する主観的な条件・ヒント
+```
+
+1つの中国語文に複数の文法的要素が含まれている場合でも、文章の根幹となる文法・構造を1つ選択し、**1つのQUESTIONにつき1つの `structure` を保持する**。
+
+また、すべての模範解答には分類対象となる何らかの文法・構造が存在するため、`structure` は必須属性とし、NULLを許可しない。
+
+一方、`condition` は特定の解答条件を必要としない問題も存在するため、NULLを許可する。
+
+```text
+structure   NOT NULL
+condition   NULL可
+```
+
+`structure` には、例えば以下のような分類を設定する。
+
+```text
+動態助詞（了）
+動態助詞（着）
+動態助詞（過）
+結果補語
+方向補語
+可能補語
+程度補語
+把構文
+被構文
+比較構文
+連動文
+兼語文
+存現文
+条件複文
+因果複文
+前置詞句
+慣用表現
+成語
+口語表現
+```
+
+具体的な分類値については、既存問題および今後追加する問題を整理したうえで確定する。
+
+AI_GENERATED_QUESTIONには `structure` を重複して保持しない。
+
+AI生成問題は `source_question_id` によって生成元QUESTIONを参照しているため、
+
+```text
+AI_GENERATED_QUESTION
+        │
+        │ source_question_id
+        ↓
+     QUESTION
+        │
+        └── structure
+```
+
+のように、生成元QUESTIONから `structure` を取得する。
+
+したがって、今回の変更では新しいエンティティや外部キーは追加せず、**QUESTIONが保持する属性のみを追加する**。
+
+既存エンティティ間のリレーションは変更しない。
