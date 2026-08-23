@@ -158,6 +158,47 @@ public class Question {
 feat: set up question data for practice
 ```
 
+### 追記（2026年8月23日）structureフィールドの追加
+
+問題を文法・構造によって分類できるようにするため、`Question` に `structure` フィールドを追加する。
+
+`structure` は、模範解答となる中国語文の根幹となる文法・構造を表す。
+
+例えば、
+
+```text
+他笑着跟我说话。
+→ 動態助詞（着）
+
+这么多菜，我们吃不完。
+→ 可能補語
+```
+
+のように設定する。
+
+`structure` の分類は今後問題を追加する中で増える可能性があり、現時点では値を固定できないため、Enumではなく `String` として保持する。
+
+既存のQuestionにはまだ `structure` の値が存在しないため、まずはNULLを許可した状態でフィールドを追加する。
+
+#### Question.java
+
+```java
+@Column(name = "condition")
+private String condition;
+
+@Column(name = "structure")
+private String structure;
+
+@Column(name = "difficulty", nullable = false)
+@Enumerated(EnumType.STRING)
+private Difficulty difficulty;
+```
+
+アプリケーションを起動し、`question` テーブルに `structure` カラムが追加されたことを確認する。
+
+既存の全Questionに `structure` を設定した後、NULLが存在しないことを確認し、最終的に `structure` をNOT NULLとする。
+
+
 
 # 3. DBに問題データを登録
 
@@ -226,6 +267,67 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 - 國語：初級10問 / 中級10問 / 上級10問
 
 の合計60問を登録した。
+
+## 追記（2026年8月23日）structure・conditionへのデータ設定
+
+`Question` に `structure` を追加したため、既存の問題データについて、中国語の模範解答をもとに各問題の `structure` を設定する。
+
+`structure` には、模範解答となる中国語文を文法・構造上分析した際の、文章の根幹となる文法・構造を設定する。
+
+例えば、
+
+```text
+他笑着跟我说话。
+→ structure：動態助詞（着）
+
+这么多菜，我们吃不完。
+→ structure：可能補語
+```
+
+のように分類する。
+
+また、既存の `condition` についても問題内容を確認し、特定の文法・語彙・言い回しなどを使用して解答させる必要がある問題には適切な値を設定する。
+
+一方、特定の解答条件を必要としない問題については、`condition` をNULLのままとする。
+
+```text
+structure
+└── 中国語文そのものの根幹となる文法・構造
+    └── 全問題に設定
+
+condition
+└── 出題者が指定する解答条件・ヒント
+    └── 必要な問題にのみ設定
+```
+
+既存の全問題について `structure` と `condition` を確認し、必要なデータをUPDATEする。
+
+```sql
+UPDATE question
+SET
+    structure = '...',
+    condition = '...'
+WHERE question_id = ...;
+```
+
+`condition` を必要としない問題については、`structure` のみを更新する。
+
+```sql
+UPDATE question
+SET structure = '...'
+WHERE question_id = ...;
+```
+
+データ設定後、`structure` が設定されていない問題が残っていないことを確認する。
+
+```sql
+SELECT *
+FROM question
+WHERE structure IS NULL;
+```
+
+0件であることを確認した後、`structure` を必須項目として扱える状態とする。
+
 
 
 # 4. 難易度と範囲から問題セットを取得
