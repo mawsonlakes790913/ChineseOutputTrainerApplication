@@ -53,6 +53,9 @@ public class Question {
 
     @Column(name = "condition")
     private String condition;
+    
+    @Column(name = "structure", nullable = false)
+    private String structure;
 
     @Column(name = "difficulty", nullable = false)
     @Enumerated(EnumType.STRING)
