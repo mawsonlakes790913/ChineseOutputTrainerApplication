@@ -1,12 +1,17 @@
+// =========================
+// 問題件数表示
+// =========================
+
 document.addEventListener("DOMContentLoaded", () => {
 
     // 検索条件
-    const searchConditions = document.querySelectorAll(
-        "input[name='evaluations'], " +
-        "input[name='difficulties'], " +
-        "input[name='conditions'], " +
-        "input[name='favoriteCondition']"
-    );
+	const searchConditions = document.querySelectorAll(
+	    "input[name='evaluations'], " +
+	    "input[name='difficulties'], " +
+	    "input[name='conditions'], " +
+	    "input[name='favoriteCondition'], " +
+	    "input[name='structures']"
+	);
 
     // 出題数表示
     const countArea =
@@ -45,6 +50,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 "input[name='favoriteCondition']:checked"
             ).value
         );
+        
+		// 文法・構造
+		document
+		    .querySelectorAll("input[name='structures']:checked")
+		    .forEach(cb => {
+		        params.append("structures", cb.value);
+		    });        
 
         const response =
             await fetch("/review/count?" + params);
@@ -63,4 +75,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 初回表示時にも全復習対象問題数を取得
     updateCount();
+    
+	// =========================
+	// 文法・構造の一括選択
+	// =========================
+	
+	const selectAllStructuresButton =
+	    document.getElementById("selectAllStructures");
+	
+	const clearAllStructuresButton =
+	    document.getElementById("clearAllStructures");
+	
+	const structureCheckboxes =
+	    document.querySelectorAll("input[name='structures']");
+	
+	
+	// すべて選択
+	selectAllStructuresButton.addEventListener("click", () => {
+	
+	    structureCheckboxes.forEach(checkbox => {
+	        checkbox.checked = true;
+	    });
+	
+	    updateCount();
+	});
+	
+	
+	// すべて解除
+	clearAllStructuresButton.addEventListener("click", () => {
+	
+	    structureCheckboxes.forEach(checkbox => {
+	        checkbox.checked = false;
+	    });
+	
+	    updateCount();
+	});    
+    
 });
+

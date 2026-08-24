@@ -394,6 +394,66 @@
             </div>
 
         </div>
+        
+		<!-- ============================= -->
+		<!-- 文法・構造 -->
+		<!-- ============================= -->
+		
+		<div class="col-12 mb-4">
+		
+		    <div class="card">
+		
+		        <div class="card-header"
+		             th:text="#{review.menu.structure}">
+		            文法・構造（複数選択可）
+		        </div>
+		
+		        <div class="card-body">
+		
+		            <!-- 一括操作 -->
+		            <div class="mb-3">
+		
+		                <button type="button"
+		                        id="selectAllStructures"
+		                        class="btn btn-outline-primary btn-sm"
+		                        th:text="#{review.menu.structure.selectAll}">
+		                    すべて選択
+		                </button>
+		
+		                <button type="button"
+		                        id="clearAllStructures"
+		                        class="btn btn-outline-secondary btn-sm"
+		                        th:text="#{review.menu.structure.clearAll}">
+		                    すべて解除
+		                </button>
+		
+		            </div>
+		
+		            <!-- 文法・構造 -->
+		            <div class="d-flex flex-wrap gap-2">
+		
+		                <label th:each="structure : ${structures}"
+		                       class="bg-light rounded px-3 py-2">
+		
+						    <input class="form-check-input me-2"
+						           type="checkbox"
+						           name="structures"
+						           th:value="${structure}"
+						           checked>
+		
+		                    <span th:text="${structure}">
+		                        文法・構造
+		                    </span>
+		
+		                </label>
+		
+		            </div>
+		
+		        </div>
+		
+		    </div>
+		
+		</div>  
 
 
         <!-- ============================= -->

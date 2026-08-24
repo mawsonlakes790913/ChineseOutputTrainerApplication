@@ -57,6 +57,11 @@ public class ReviewController {
 		    model.addAttribute("currentPage", currentPage);
 		    model.addAttribute("totalCount", questions.size());
 	    } 
+	    
+	    // 画面表示用structureを取得
+	    model.addAttribute(
+	            "structures",
+	            reviewService.findStructures());
 
 	    return "review/menu";
 	}
@@ -69,7 +74,9 @@ public class ReviewController {
 								@RequestParam(name = "difficulties", required = false) 
 									List<Difficulty> difficulties,
 								@RequestParam(name = "favoriteCondition", required = false)
-									FavoriteCondition favoriteCondition
+									FavoriteCondition favoriteCondition,
+								@RequestParam(name = "structures", required = false)
+									List<String> structures
 								) {
 		
 	    // user_id(文字列)からUsersを取得
@@ -81,7 +88,8 @@ public class ReviewController {
 	            userId,
 	            evaluations,
 	            difficulties,
-	            favoriteCondition);
+	            favoriteCondition,
+	            structures);
 	}
 	
 	@GetMapping("/review/start")

@@ -26,7 +26,8 @@ public class ReviewService {
 	//復習出題数取得
 	public long countReviewQuestions(Long userId, List<Evaluation> evaluations, 
 												  List<Difficulty> difficulties,
-												  FavoriteCondition favoriteCondition) {
+												  FavoriteCondition favoriteCondition,
+												  List<String> structures) {
 		
 		// ここで変換する
 		List<String> convertedDifficulties = searchConditionConverter.convertDifficulty(difficulties);
@@ -37,7 +38,8 @@ public class ReviewService {
 	    		userId,
 	    		convertedEvaluations,
 	    		convertedDifficulties,
-	    		convertedFavoriteCondition
+	    		convertedFavoriteCondition,
+	    		structures
 	    		);
 	}
 	
@@ -59,6 +61,11 @@ public class ReviewService {
 		} 
 		
 		return extractedQuestions;
+	}
+	
+	// structure全件取得
+	public List<String> findStructures() {
+	    return questionRepository.findDistinctStructures();
 	}
 
 }

@@ -60,4 +60,10 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 				    @Param("difficulties") List<String> difficulties					
 					);
 	
+	@Query(value = """
+	        SELECT DISTINCT structure
+	        FROM question
+	        ORDER BY structure
+	        """, nativeQuery = true)
+	List<String> findDistinctStructures();
 }
