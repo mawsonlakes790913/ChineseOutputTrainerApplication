@@ -131,6 +131,17 @@ document.addEventListener("DOMContentLoaded", () => {
 	            ? toggleStructuresButton.dataset.hideText
 	            : toggleStructuresButton.dataset.showText;
 	});	
+	
+	// =========================
+	// 文法・構造の説明
+	// =========================
+	
+	const tooltipTriggerList =
+	    document.querySelectorAll('[data-bs-toggle="tooltip"]');
+	
+	tooltipTriggerList.forEach(element => {
+	    new bootstrap.Tooltip(element);
+	});	
     
 });
 

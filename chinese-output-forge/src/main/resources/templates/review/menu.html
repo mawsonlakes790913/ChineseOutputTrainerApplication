@@ -437,7 +437,13 @@
 		                 class="d-flex flex-wrap gap-2 structure-list">
 		
 						<label th:each="structure : ${structures}"
-						       class="bg-light rounded px-3 py-2">
+						       class="bg-light rounded px-3 py-2"
+						       data-bs-toggle="tooltip"
+						       data-bs-placement="top"
+						       th:data-bs-title="${session.languageVariant != null
+						                           && session.languageVariant.name() == 'TAIWAN'
+						                           ? structure.descriptionZhTw
+						                           : structure.descriptionZhCn}">
 						
 						    <input class="form-check-input me-2"
 						           type="checkbox"
