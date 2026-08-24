@@ -1,0 +1,12 @@
+/* =========================
+   文法・構造
+   ========================= */
+   
+.structure-list {
+    max-height: 100px;
+    overflow: hidden;
+}
+
+.structure-list.expanded {
+    max-height: none;
+}

@@ -110,6 +110,28 @@ document.addEventListener("DOMContentLoaded", () => {
 	
 	    updateCount();
 	});    
+	
+	// =========================
+	// 文法・構造欄表示
+	// =========================
+	
+	const structureList =
+	    document.getElementById("structureList");
+	
+	const toggleStructuresButton =
+	    document.getElementById("toggleStructures");
+	
+	toggleStructuresButton.addEventListener("click", () => {
+	
+	    const expanded =
+	        structureList.classList.toggle("expanded");
+	
+	    toggleStructuresButton.textContent =
+	        expanded
+	            ? toggleStructuresButton.dataset.hideText
+	            : toggleStructuresButton.dataset.showText;
+	});	
     
 });
+
 

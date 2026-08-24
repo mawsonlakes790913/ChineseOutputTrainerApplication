@@ -12,6 +12,9 @@
 
     <link rel="stylesheet"
           th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+          
+	<link rel="stylesheet"
+	      th:href="@{/css/review/menu.css}">          
 
     <script th:src="@{/js/review/menu.js}" defer></script>
 
@@ -430,7 +433,8 @@
 		            </div>
 		
 		            <!-- 文法・構造 -->
-		            <div class="d-flex flex-wrap gap-2">
+		            <div id="structureList"
+		                 class="d-flex flex-wrap gap-2 structure-list">
 		
 		                <label th:each="structure : ${structures}"
 		                       class="bg-light rounded px-3 py-2">
@@ -448,6 +452,19 @@
 		                </label>
 		
 		            </div>
+		            
+					<div class="text-center mt-3">
+					
+					    <button type="button"
+					            id="toggleStructures"
+					            class="btn btn-link btn-sm"
+					            th:data-show-text="#{review.menu.structure.showAll}"
+					            th:data-hide-text="#{review.menu.structure.collapse}"
+					            th:text="#{review.menu.structure.showAll}">
+					        すべて表示
+					    </button>
+					
+					</div>		            
 		
 		        </div>
 		
