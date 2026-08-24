@@ -9,6 +9,7 @@ Chinese Output Forgeで使用するデータベーステーブルを定義する
 ただし、両者のデータ構造は共通しているため、
 
 - Question
+- Structure
 - Favorite
 - StudyHistory
 - AiGeneratedQuestion
@@ -75,7 +76,7 @@ TAIWAN
 | zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
 | alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
 | condition | 条件 | - | - | VARCHAR(100) | - | - | 解答条件・ヒント（NULL可） |
-| structure | 文法・構造 | - | - | VARCHAR(50) | ○ | - | 中国語文の根幹となる文法・構造 |
+| structure_id | 文法・構造ID | - | ○ | BIGINT | ○ | - | STRUCTURE.structure_id参照 |
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
 | allow_ai_variation | AI生成可否 | - | - | BOOLEAN | ○ | - | AI生成対象かどうか |
 | template | AI生成用テンプレート | - | - | TEXT | - | - | AI生成対象外の場合はNULL可 |
@@ -105,13 +106,69 @@ TAIWAN
 - `allow_ai_variation = false` の問題は固定問題としてのみ使用する。
 - AIによって生成された問題そのものを本テーブルへ追加しない。
 - `template`、`subject_type`、`verb_variation` は問題内容に応じてNULLを許容する。
-- `structure` は模範解答となる中国語文の根幹となる文法・構造を表し、すべての問題で必須とする。
-- `structure` は1つのQUESTIONにつき1つ設定する。
+- QUESTIONは `structure_id` によってSTRUCTUREを参照する。
+- 1つのQUESTIONにつき1つのSTRUCTUREを関連付ける。
+- STRUCTUREとの関連はすべてのQUESTIONで必須とし、`structure_id` はNULLを許可しない。
+- 文法・構造名および説明はQUESTION自身には保持せず、関連するSTRUCTUREから取得する。
 - `condition` は開発者・出題者が設定する解答条件・ヒントであり、条件を必要としない問題ではNULLを許可する。
 
 ---
 
-# 4. FAVORITE
+# 4. STRUCTURE
+
+## 概要
+
+問題の文法・構造を管理するマスタテーブル。
+
+QUESTIONの模範解答となる中国語文を文法・構造上分析した際の、文章の根幹となる文法・構造を管理する。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| structure_id | 文法・構造ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
+| name | 文法・構造名 | - | - | VARCHAR(50) | ○ | ○ | 可能補語、把構文、比較構文など |
+| description | 説明 | - | - | TEXT | ○ | - | 文法・構造についての簡潔な説明 |
+
+## 補足
+
+- STRUCTUREは文法・構造を一元管理するマスタテーブルとする。
+- `structure_id` は文法・構造を内部的に識別するために使用する。
+- `name` には「可能補語」「把構文」「比較構文」などの文法・構造名を保持する。
+- 文法・構造名の重複を防ぐため、`name` はUNIQUEとする。
+- `description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+- 1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
+- QUESTIONが1件も関連付けられていないSTRUCTUREの存在も許可する。
+- QUESTIONからSTRUCTUREへの関連は必須とする。
+- 文法・構造はEnumでは管理せず、STRUCTUREのレコードとして追加・変更できるものとする。
+
+```text
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+```
+
+例えば、
+
+```
+STRUCTURE
+structure_id = 1
+name         = 可能補語
+description  = 動作や結果が実現できるか、できないかを表す形式。
+        │
+        │ 1:N
+        ↓
+QUESTION
+├── 这么多菜，我们吃不完。
+├── 这个箱子太重了，我搬不动。
+└── 他说得太快，我听不懂。
+```
+
+のように管理する。
+
+---
+
+# 5. FAVORITE
 
 ## 概要
 
@@ -150,7 +207,7 @@ language_variant
 
 ---
 
-# 5. STUDY_HISTORY
+# 6. STUDY_HISTORY
 
 ## 概要
 
@@ -192,7 +249,7 @@ language_variant
 
 ---
 
-# 6. AI_GENERATED_QUESTION
+# 7. AI_GENERATED_QUESTION
 
 ## 概要
 
@@ -246,10 +303,11 @@ language_variant
 
 ---
 
-# 7. 外部キー一覧
+# 8. 外部キー一覧
 
 | テーブル | カラム | 参照先 |
 |---|---|---|
+| QUESTION | structure_id | STRUCTURE.structure_id |
 | FAVORITE | user_id | USER.id |
 | FAVORITE | question_id | QUESTION.question_id |
 | STUDY_HISTORY | user_id | USER.id |
@@ -259,19 +317,20 @@ language_variant
 
 ---
 
-# 8. 主キー一覧
+# 9. 主キー一覧
 
 | テーブル | 主キー |
 |---|---|
 | USER | id |
 | QUESTION | question_id |
+| STRUCTURE | structure_id |
 | FAVORITE | user_id + question_id |
 | STUDY_HISTORY | user_id + question_id |
 | AI_GENERATED_QUESTION | generated_question_id |
 
 ---
 
-# 9. ユーザーIDの管理方針
+# 10. ユーザーIDの管理方針
 
 USERでは、内部管理用IDとログインIDを分離する。
 
@@ -317,7 +376,7 @@ naoki2026
 
 ---
 
-# 10. AI生成問題の保存方針
+# 11. AI生成問題の保存方針
 
 AI生成問題については、生成されたすべての問題をDBへ保存しない。
 
@@ -363,7 +422,7 @@ AIによる問題生成
 
 ---
 
-# 11. 大陸普通話・台湾華語の管理方針
+# 12. 大陸普通話・台湾華語の管理方針
 
 大陸普通話と台湾華語は、単純な文字変換による同一問題として扱わない。
 
@@ -457,7 +516,7 @@ Favorite、StudyHistory、AiGeneratedQuestionについては、QUESTIONとの関
 
 ---
 
-# 12. 学習対象言語によるデータ取得方針
+# 13. 学習対象言語によるデータ取得方針
 
 通常学習、復習、AI生成学習などでは、現在ユーザーが選択している学習対象言語に応じてQUESTIONを絞り込む。
 
@@ -507,7 +566,7 @@ language_variant = TAIWAN
 
 ---
 
-# 13. サイト表記言語との関係
+# 14. サイト表記言語との関係
 
 学習対象言語とサイト表記言語は別の設定として扱う。
 
@@ -558,7 +617,7 @@ English
 
 ---
 
-# 14. 設計上の補足
+# 15. 設計上の補足
 
 - USERは大陸普通話・台湾華語で共通とする。
 - USERは内部管理用の `id` を主キーとして持つ。
@@ -600,18 +659,23 @@ English
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - 学習対象言語とサイト表記言語は別の設定として扱う。
 - AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
-- QUESTIONには、中国語文の根幹となる文法・構造を表す `structure` を持たせる。
-- `structure` は1つのQUESTIONにつき1つ設定し、NULLを許可しない。
+- STRUCTUREは文法・構造を管理するマスタテーブルとする。
+- STRUCTUREは `structure_id`、文法・構造名、説明を保持する。
+- STRUCTUREとQUESTIONは1対多の関係とする。
+- QUESTIONは `structure_id` によってSTRUCTUREを参照する。
+- 1つのQUESTIONにつき1つのSTRUCTUREを関連付ける。
+- QUESTIONからSTRUCTUREへの関連は必須とし、`structure_id` はNULLを許可しない。
+- 文法・構造名はSTRUCTUREで一元管理し、QUESTIONには重複して保持しない。
 - `condition` は開発者・出題者が設定する解答条件・ヒントとして扱い、NULLを許可する。
-- AI生成問題の `structure` は生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには重複して保持しない。
+- AI生成問題の文法・構造は生成元QUESTIONに関連付けられたSTRUCTUREから判定し、AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
 
 ---
 
 ---
 
-# 15. 開発途中で追加したテーブル設計
+# 16. 開発途中で追加したテーブル設計
 
-## 15.1 拼音・注音への対応
+## 16.1 拼音・注音への対応
 
 **追加日：2026年8月15日**
 
@@ -704,11 +768,11 @@ TAIWAN   + ZHUYIN
 
 ---
 
-## 15.2 別解の拼音・注音への対応
+## 16.2 別解の拼音・注音への対応
 
 **追加日：2026年8月16日**
 
-`15.1 拼音・注音への対応` では、中国語の模範解答に対応する発音情報として、QUESTIONに以下のカラムを追加した。
+`16.1 拼音・注音への対応` では、中国語の模範解答に対応する発音情報として、QUESTIONに以下のカラムを追加した。
 
 ```text
 pinyin
@@ -778,7 +842,7 @@ alternative_answer_zhuyin
 
 の追加をあわせて検討する。
 
-## 15.3 問題の文法・構造（structure）の追加
+## 16.3 問題の文法・構造（structure）の追加
 
 **追加日：2026年8月23日**
 
@@ -934,3 +998,186 @@ AI_GENERATED_QUESTION
 これにより、AI_GENERATED_QUESTIONに同一の分類情報を重複して保持することを避ける。
 
 AI生成問題は生成元QUESTIONの文法・構造を維持したバリエーションとして生成するため、原則として生成元QUESTIONと同一の `structure` に属するものとして扱う。
+
+---
+
+## 16.4 Structureのマスタテーブル化
+
+**変更日：2026年8月24日**
+
+16.3では、問題を文法・構造によって分類するため、QUESTIONに `structure` カラムを追加した。
+
+当初は、
+
+```text
+QUESTION
+│
+└── structure
+```
+
+として、文法・構造名をQUESTION自身に文字列として保持する設計としていた。
+
+その後、復習メニューに文法・構造による絞り込み機能を実装する中で、ユーザーが文法・構造の名称だけでなく、その内容についても確認できるようにする必要が生じた。
+
+例えば、
+
+```text
+可能補語
+
+動作や結果が実現できるか、
+できないかを表す形式。
+```
+
+のように、文法・構造ごとに説明を保持する必要がある。
+
+このため、文法・構造をQUESTIONの単なる文字列属性として管理するのではなく、独立したマスタデータとして管理する設計へ変更する。
+
+### STRUCTUREの追加
+
+新たにSTRUCTUREテーブルを追加する。
+
+```text
+STRUCTURE
+│
+├── structure_id
+├── name
+└── description
+```
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| structure_id | 文法・構造ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
+| name | 文法・構造名 | - | - | VARCHAR(50) | ○ | ○ | 可能補語、把構文、比較構文など |
+| description | 説明 | - | - | TEXT | ○ | - | 文法・構造についての簡潔な説明 |
+
+`name` には、これまでQUESTIONの `structure` に直接保存していた文法・構造名を保持する。
+
+`description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+
+### QUESTIONの変更
+
+QUESTIONの、
+
+```text
+structure VARCHAR(50) NOT NULL
+```
+
+を廃止し、代わりに、
+
+```text
+structure_id BIGINT NOT NULL
+```
+
+を追加する。
+
+`structure_id` は、
+
+```text
+STRUCTURE.structure_id
+```
+
+を参照する外部キーとする。
+
+これにより、
+
+```text
+変更前
+
+QUESTION
+│
+└── structure
+    （VARCHAR）
+```
+
+から、
+
+```text
+変更後
+
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+    │
+    └── structure_id FK
+```
+
+へ変更する。
+
+1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
+
+一方、1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
+
+```text
+STRUCTURE 1 : 0..N QUESTION
+QUESTION  N : 1 STRUCTURE
+```
+
+そのため、QUESTIONの `structure_id` はNULLを許可しない。
+
+### conditionとの関係
+
+今回の変更によっても、文法・構造と `condition` の役割の違いは変更しない。
+
+```text
+STRUCTURE
+└── 中国語文そのものの根幹となる文法・構造
+    └── 客観的な分類
+
+condition
+└── その問題をどのように解答させるか
+    └── 開発者・出題者が設定する主観的な条件・ヒント
+```
+
+例えば、
+
+```text
+QUESTION
+chinese_text = 他笑着跟我说话。
+condition    = 「着」を使う
+structure_id = 1
+                    ↓
+                STRUCTURE
+                name = 動態助詞（着）
+```
+
+のように管理する。
+
+QUESTIONには必ずSTRUCTUREを関連付けるが、`condition` は特定の解答条件を必要とする問題にのみ設定するため、引き続きNULLを許可する。
+
+### AI_GENERATED_QUESTIONとの関係
+
+AI_GENERATED_QUESTIONには `structure_id` を追加しない。
+
+AI生成問題の文法・構造は、
+
+```text
+AI_GENERATED_QUESTION
+        │
+        │ source_question_id
+        ↓
+     QUESTION
+        │
+        │ structure_id
+        ↓
+    STRUCTURE
+```
+
+として、生成元QUESTIONに関連付けられたSTRUCTUREから判定する。
+
+これにより、AI_GENERATED_QUESTIONに同じ文法・構造情報を重複して保持することを避ける。
+
+### 変更後の方針
+
+Structureのマスタテーブル化後は、以下の方針とする。
+
+- 文法・構造はSTRUCTUREで一元管理する。
+- QUESTIONには文法・構造名を直接保存しない。
+- QUESTIONは `structure_id` によってSTRUCTUREを参照する。
+- 1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
+- STRUCTUREには文法・構造名と説明を保持する。
+- 文法・構造名は重複を許可しない。
+- 新しい文法・構造はEnumではなくSTRUCTUREのレコードとして追加する。
+- 復習時の出題条件や問題検索ではSTRUCTUREを利用する。
+- AI生成問題の文法・構造は生成元QUESTIONを経由してSTRUCTUREから取得する。

@@ -8,6 +8,7 @@ Chinese Output Forge で使用する主要エンティティと、そのリレ�
 
 - User
 - Question
+- Structure
 - Favorite
 - StudyHistory
 - AiGeneratedQuestion
@@ -58,6 +59,8 @@ erDiagram
     USER ||--o{ AI_GENERATED_QUESTION : owns
     QUESTION ||--o{ AI_GENERATED_QUESTION : generates
 
+    STRUCTURE ||--o{ QUESTION : classifies
+
 
     USER {
         string user_id PK
@@ -65,6 +68,12 @@ erDiagram
         string role
     }
 
+
+    STRUCTURE {
+        bigint structure_id PK
+        string name
+        text description
+    }
 
 
     QUESTION {
@@ -78,7 +87,7 @@ erDiagram
         text alternative_answer_pinyin
         text alternative_answer_zhuyin
         string condition
-        string structure
+        bigint structure_id FK
         string difficulty
         boolean allow_ai_variation
         text template
@@ -130,14 +139,20 @@ USER
   ├── FAVORITE
   │       │
   │       └── QUESTION
+  │              │
+  │              └── STRUCTURE
   │
   ├── STUDY_HISTORY
   │       │
   │       └── QUESTION
+  │              │
+  │              └── STRUCTURE
   │
   └── AI_GENERATED_QUESTION
           │
           └── QUESTION
+                 │
+                 └── STRUCTURE
               （生成元）
 ```
 
@@ -156,7 +171,27 @@ TAIWAN
 
 によって学習対象言語を識別する。
 
-そのため、FavoriteやStudyHistoryなどに学習対象言語を重複して保持する必要はなく、関連するQuestionを参照することで判定できる。
+また、QUESTIONには、
+
+```text
+structure_id
+```
+
+を外部キーとして持たせ、対応するSTRUCTUREを参照する。
+
+```text
+QUESTION
+    ↓
+structure_id
+    ↓
+STRUCTURE
+```
+
+これにより、QUESTIONの文法・構造を判定する。
+
+FavoriteやStudyHistoryなどに学習対象言語やStructureを重複して保持する必要はなく、関連するQuestionを参照することで判定できる。
+
+AI_GENERATED_QUESTIONについても、生成元QUESTIONを経由して学習対象言語およびStructureを判定する。
 
 ---
 
@@ -214,7 +249,76 @@ language_variant = TAIWAN
 
 ---
 
-## 5. UserとFavorite
+## 5. QuestionとStructure
+
+### リレーション
+
+StructureとQuestionは1対多の関係とする。
+
+```text
+STRUCTURE
+   │
+   │ 1:N
+   ↓
+QUESTION
+```
+
+1つのStructureには複数のQuestionを関連付けることができる。
+
+一方、1つのQuestionが参照するStructureは1つのみとする。
+
+例えば、
+
+```text
+STRUCTURE
+structure_id = 1
+name         = 可能補語
+description  = 動作や結果が実現できるか、できないかを表す形式。
+        │
+        │ 1:N
+        ↓
+QUESTION
+├── 这么多菜，我们吃不完。
+├── 这个箱子太重了，我搬不动。
+└── 他说得太快，我听不懂。
+```
+
+のような関係となる。
+
+QUESTIONには、
+
+```text
+structure_id
+```
+
+を外部キーとして保持し、対応するSTRUCTUREを参照する。
+
+```text
+QUESTION
+    ↓
+structure_id
+    ↓
+STRUCTURE
+├── name
+└── description
+```
+
+すべてのQuestionには文法・構造上の分類が存在するため、QuestionからStructureへの関連は必須とする。
+
+一方、StructureはQuestionがまだ登録されていない状態でもマスタデータとして存在できるものとする。
+
+そのため、
+
+```text
+STRUCTURE 1 : 0..N QUESTION
+QUESTION  N : 1 STRUCTURE
+```
+
+の関係とする。
+
+---
+
+## 6. UserとFavorite
 
 ### リレーション
 
@@ -283,7 +387,7 @@ language_variant
 
 ---
 
-## 6. UserとStudyHistory
+## 7. UserとStudyHistory
 
 ### リレーション
 
@@ -358,7 +462,7 @@ language_variant
 
 ---
 
-## 7. AI生成問題の位置付け
+## 8. AI生成問題の位置付け
 
 AI生成問題はマスタ問題とは明確に分離する。
 
@@ -408,7 +512,7 @@ AI生成問題は以下の条件を満たす場合のみDBへ保存する。
 
 ---
 
-## 8. UserとAiGeneratedQuestion
+## 9. UserとAiGeneratedQuestion
 
 UserとAiGeneratedQuestionは1対多の関係とする。
 
@@ -428,7 +532,7 @@ AI生成問題には必ず `user_id` を保持し、そのユーザー専用の�
 
 ---
 
-## 9. QuestionとAiGeneratedQuestion
+## 10. QuestionとAiGeneratedQuestion
 
 QuestionとAiGeneratedQuestionは1対多の関係とする。
 
@@ -459,7 +563,7 @@ source_question_id
 
 ---
 
-## 10. AI生成問題とStudyHistoryの違い
+## 11. AI生成問題とStudyHistoryの違い
 
 マスタ問題では、問題そのものが全ユーザーで共有される。
 
@@ -493,7 +597,7 @@ AI_GENERATED_QUESTION
 
 ---
 
-## 11. 大陸普通話・台湾華語の管理
+## 12. 大陸普通話・台湾華語の管理
 
 大陸普通話と台湾華語は、**論理的には異なる問題データとして扱うが、物理的なテーブルは共通化する。**
 
@@ -548,7 +652,7 @@ QUESTION
 
 ---
 
-## 12. AiSettingについて
+## 13. AiSettingについて
 
 AI問題生成に関する共通設定としてAiSettingを想定するが、現時点ではDBテーブルとして管理することを確定していない。
 
@@ -574,7 +678,7 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 
 ---
 
-## 13. 設計上の補足
+## 14. 設計上の補足
 
 - USERは大陸普通話・台湾華語で共通とする。
 - 大陸普通話と台湾華語は異なる問題データとして扱う。
@@ -599,17 +703,22 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
 - AiSettingは保存方式が確定するまでER図には含めない。
-- QUESTIONには、中国語文の根幹となる文法・構造を表す `structure` を持たせる。
-- `structure` は1つのQUESTIONにつき1つ設定し、NULLを許可しない。
-- AI生成問題の `structure` は生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには重複して保持しない。
+- 文法・構造は独立したSTRUCTUREとして管理する。
+- STRUCTUREは文法・構造ID、文法・構造名、説明を保持する。
+- STRUCTUREとQUESTIONは1対多の関係とする。
+- QUESTIONには `structure_id` を外部キーとして保持する。
+- 1つのQUESTIONにつき1つのSTRUCTUREを設定する。
+- QUESTIONからSTRUCTUREへの関連は必須とする。
+- QUESTION自身には文法・構造名や説明を重複して保持しない。
+- AI生成問題のStructureは生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
 
 ---
 
 ---
 
-## 14. 開発途中で追加した設計
+## 15. 開発途中で追加した設計
 
-### 14.1 拼音・注音への対応
+### 15.1 拼音・注音への対応
 
 **追加日：2026年8月15日**
 
@@ -643,11 +752,11 @@ TAIWAN   + ZHUYIN
 
 ---
 
-### 14.2 別解の拼音・注音への対応
+### 15.2 別解の拼音・注音への対応
 
 **追加日：2026年8月16日**
 
-`14.1 拼音・注音への対応` では、QUESTIONの中国語模範解答に対応する発音情報として、
+`15.1 拼音・注音への対応` では、QUESTIONの中国語模範解答に対応する発音情報として、
 
 ```text
 pinyin
@@ -683,7 +792,7 @@ QUESTION
 
 したがって、既存エンティティ間のリレーションは変更しない。
 
-### 14.3 問題の文法・構造（structure）の追加
+### 15.3 問題の文法・構造（structure）の追加
 
 **追加日：2026年8月23日**
 
@@ -778,3 +887,274 @@ AI_GENERATED_QUESTION
 したがって、今回の変更では新しいエンティティや外部キーは追加せず、**QUESTIONが保持する属性のみを追加する**。
 
 既存エンティティ間のリレーションは変更しない。
+
+### 15.4 Structureのマスタテーブル化
+
+**設計変更日：2026年8月24日**
+
+`15.3 問題の文法・構造（structure）の追加` では、問題を文法・構造によって分類するため、QUESTIONに `structure` を文字列属性として追加した。
+
+当初は、`structure` は問題を分類・検索するための情報として使用することを想定していたため、
+
+```text
+QUESTION
+│
+├── question_id
+├── chinese_text
+├── condition
+├── structure
+└── difficulty
+```
+
+のように、QUESTION自身が文法・構造名を文字列として保持する設計としていた。
+
+その後、復習メニューに文法・構造による絞り込み機能を実装したことで、ユーザーが「可能補語」「比較構文」「条件複文」などの文法・構造名を直接見て検索条件を選択するようになった。
+
+しかし、中国語学習では、文法・構造そのものを理解していても、その正式な分類名称を把握しているとは限らない。
+
+そのため、文法・構造の選択肢から、その文法・構造についての簡単な説明を確認できる機能を提供することとした。
+
+例えば、
+
+```text
+可能補語
+
+動作や結果が実現できるか、できないかを表す形式。
+```
+
+のように、文法・構造名だけでなく、その文法・構造についての説明を管理する必要が生じた。
+
+これにより、`structure` は単なるQUESTIONの分類用文字列ではなく、
+
+```text
+文法・構造
+├── 文法・構造を識別するID
+├── 文法・構造名
+└── 説明
+```
+
+という独立した情報を持つデータとして扱う方が適切であると判断した。
+
+そこで、QUESTIONの `structure` 文字列属性として管理する設計を変更し、文法・構造を独立した `STRUCTURE` として管理する。
+
+---
+
+#### STRUCTUREの追加
+
+新たにSTRUCTUREを追加する。
+
+STRUCTUREは以下の情報を保持する。
+
+```text
+STRUCTURE
+│
+├── structure_id
+├── name
+└── description
+```
+
+`structure_id` は文法・構造を識別する主キーとする。
+
+`name` には、
+
+```text
+可能補語
+把構文
+比較構文
+条件複文
+譲歩複文
+```
+
+などの文法・構造名を保持する。
+
+`description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+
+例えば、
+
+```text
+STRUCTURE
+--------------------------------------------
+structure_id = 1
+name         = 可能補語
+description  = 動作や結果が実現できるか、
+               できないかを表す形式。
+--------------------------------------------
+```
+
+のように管理する。
+
+---
+
+#### QUESTIONとのリレーション
+
+これまでQUESTIONが直接保持していた、
+
+```text
+structure
+```
+
+は廃止する。
+
+代わりにQUESTIONは、
+
+```text
+structure_id
+```
+
+を外部キーとして保持し、STRUCTUREを参照する。
+
+```text
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+```
+
+1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
+
+一方、1つのQUESTIONが参照するSTRUCTUREは1つのみとする。
+
+例えば、
+
+```text
+STRUCTURE
+structure_id = 1
+name         = 可能補語
+        │
+        │ 1:N
+        ↓
+QUESTION
+├── 这么多菜，我们吃不完。
+├── 这个箱子太重了，我搬不动。
+└── 他说得太快，我听不懂。
+```
+
+のような関係となる。
+
+すべてのQUESTIONには分類対象となる文法・構造が存在するため、QUESTIONからSTRUCTUREへの関連は必須とする。
+
+したがって、QUESTIONの `structure_id` はNULLを許可しない。
+
+一方、STRUCTUREは将来使用する文法・構造を事前に登録することもできるため、QUESTIONが1件も関連付けられていないSTRUCTUREの存在は許可する。
+
+```text
+STRUCTURE 1 : 0..N QUESTION
+
+QUESTION N : 1 STRUCTURE
+```
+
+---
+
+#### conditionとの関係
+
+STRUCTUREを独立したエンティティとして管理するようになっても、`condition` との役割の違いは変更しない。
+
+```text
+STRUCTURE
+└── 中国語文そのものの根幹となる文法・構造
+    └── 客観的な分類
+
+condition
+└── その問題をどのように解答させるか
+    └── 開発者・出題者が設定する主観的な条件・ヒント
+```
+
+例えば、
+
+```text
+QUESTION
+chinese_text = 他笑着跟我说话。
+condition    = 「着」を使う
+structure_id = 2
+                    ↓
+                STRUCTURE
+                name = 動態助詞（着）
+```
+
+のようになる。
+
+STRUCTUREとの関連はすべてのQUESTIONに必須とするが、`condition` は特定の解答条件を必要とする問題にのみ設定するため、引き続きNULLを許可する。
+
+---
+
+#### AI_GENERATED_QUESTIONとの関係
+
+AI_GENERATED_QUESTIONには、STRUCTUREとの外部キーを追加しない。
+
+AI生成問題は、
+
+```text
+source_question_id
+```
+
+によって生成元QUESTIONを参照しているため、
+
+```text
+AI_GENERATED_QUESTION
+        │
+        │ source_question_id
+        ↓
+     QUESTION
+        │
+        │ structure_id
+        ↓
+    STRUCTURE
+```
+
+という関係から文法・構造を取得する。
+
+AI生成問題は生成元QUESTIONの文法・構造を維持したバリエーションとして生成するため、原則として生成元QUESTIONと同じSTRUCTUREに分類される。
+
+そのため、AI_GENERATED_QUESTION自身に `structure_id` を重複して保持しない。
+
+---
+
+#### 設計変更後のER
+
+今回の変更により、
+
+```text
+変更前
+
+QUESTION
+│
+└── structure
+    （文字列属性）
+```
+
+から、
+
+```text
+変更後
+
+STRUCTURE
+│
+│ 1:N
+↓
+QUESTION
+│
+└── structure_id FK
+```
+
+へ変更する。
+
+これにより、文法・構造を単なる問題の属性ではなく、独立したマスタデータとして管理できるようになる。
+
+また、
+
+- 文法・構造名の表記を統一できる
+- 文法・構造ごとの説明を一元管理できる
+- 復習メニューなど複数の画面で同じ説明を利用できる
+- 文法・構造ガイドでも同じデータを利用できる
+- 新しい文法・構造をJavaのEnumを変更せず追加できる
+
+という利点がある。
+
+今回の変更では、新たにSTRUCTUREを追加し、STRUCTUREとQUESTIONの間に1対多のリレーションを設定する。
+
+```text
+STRUCTURE 1 ────── N QUESTION
+```
+
+QUESTIONは `structure_id` を外部キーとしてSTRUCTUREを参照する。

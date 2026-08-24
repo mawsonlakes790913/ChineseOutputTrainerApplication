@@ -67,6 +67,7 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 | --- | --- |
 | User | ユーザー情報・認証・権限 |
 | Question | 大陸普通話・台湾華語のマスタ問題 |
+| Structure | 問題の文法・構造の分類および説明 |
 | Favorite | マスタ問題のお気に入り情報 |
 | StudyHistory | マスタ問題の学習履歴・理解度 |
 | AiGeneratedQuestion | ユーザー専用のAI生成問題 |
@@ -118,80 +119,81 @@ Userは大陸普通話・台湾華語で共通とする。
 
 ### Question
 
-通常学習およびAI生成の基となるマスタ問題を管理する。
+大陸普通話・台湾華語のマスタ問題。
 
-大陸普通話・台湾華語の双方を共通のQuestionで管理する。
-
-#### 保持情報
-
-##### 基本情報
+保持する情報：
 
 - 問題ID
 - 学習対象言語
 - 日本語文
-- 中国語の模範解答
-- 別解（任意）
+- 中国語模範解答
+- 別解
 - 条件
+- 文法・構造
 - 難易度
-
-##### AI生成情報
-
 - AI生成可否
 - AI生成用テンプレート
-- 主語生成タイプ
-- 動詞生成タイプ
-- その他AI生成に必要となる制御情報
+- AI生成時の主語変更可否
+- AI生成時の動詞変更可否
 
-#### 学習対象言語
+各Questionは、問題の模範解答となる中国語文の根幹となる文法・構造を表すStructureを1つ参照する。
 
-各Questionには、その問題がどちらの中国語を対象としているかを識別する情報を持たせる。
+```text
+Question
+    ↓ N:1
+Structure
+```
 
-想定する値：
+Question自身には文法・構造名を文字列として保持せず、Structureとの関連によって文法・構造を管理する。
 
-| 値 | 意味 |
-| --- | --- |
-| `MAINLAND` | 大陸普通話 |
-| `TAIWAN` | 台湾華語（國語） |
+すべてのQuestionはいずれか1つのStructureに属するものとし、Structureとの関連は必須とする。
 
-名称については実装時にEnum等として定義する。
+---
 
-#### 補足
+### Structure
 
-`MAINLAND` の問題は、中国大陸で一般的に使用される普通話の語彙・言い回しを基準とする。
+問題の文法・構造を分類するためのマスタデータ。
 
-`TAIWAN` の問題は、台湾で一般的に使用される台湾華語（國語）の語彙・言い回しを基準とする。
+保持する情報：
 
-両者は同一のQuestionテーブルに保存するが、**問題データとしては独立して扱う。**
+- 文法・構造ID
+- 文法・構造名
+- 文法・構造の説明
 
 例えば、
 
 ```text
-Question ID = 100
-language_variant = MAINLAND
+文法・構造名：
+可能補語
+
+説明：
+動作や結果が実現できるか、できないかを表す形式。
 ```
 
-と、
+のような情報を保持する。
+
+Structureは、模範解答となる中国語文そのものを文法・構造上分析した際の、文章の根幹となる文法・構造を表す。
+
+1つのStructureには複数のQuestionを関連付けることができる。
 
 ```text
-Question ID = 101
-language_variant = TAIWAN
+Structure
+    ↓ 1:N
+Question
 ```
 
-の間に意味的な対応関係が存在することを前提としない。
+Structureは、以下の用途で共通して利用する。
 
-つまり、
+- Questionの文法・構造による分類
+- 復習時の出題条件
+- 問題検索
+- 管理者による問題検索・管理
+- 文法・構造選択時の説明表示
+- 文法・構造ガイド
 
-```text
-大陸普通話の問題100
-=
-台湾華語の問題100
-```
+文法・構造はEnumとして固定せず、Structureのマスタデータとして管理する。
 
-という対応関係は持たせない。
-
-通常学習では、現在設定されている学習対象言語に対応するQuestionのみを取得する。
-
-AIによって生成された問題をQuestionへ追加することはしない。
+これにより、新しい文法・構造が必要になった場合でも、アプリケーションコードを変更することなく追加できるようにする。
 
 ---
 
@@ -972,6 +974,48 @@ Question
 
 AiGeneratedQuestionは生成元となったQuestionを保持する。
 
+### Structure と Question
+
+Structure と Question は1対多。
+
+1つのStructureには、複数のQuestionが属することができる。
+
+一方、1つのQuestionが参照するStructureは1つのみとする。
+
+したがって、
+
+```text
+Structure
+   ↓ 1:N
+Question
+```
+
+となる。
+
+例えば、
+
+```text
+Structure
+├── 可能補語
+│   ├── Question A
+│   ├── Question B
+│   └── Question C
+│
+├── 把構文
+│   ├── Question D
+│   └── Question E
+│
+└── 条件複文
+    ├── Question F
+    └── Question G
+```
+
+のような関係となる。
+
+QuestionからStructureへの関連は必須とし、すべてのQuestionはいずれか1つのStructureに属する。
+
+StructureはQuestionの文法・構造を分類するためのマスタデータであり、文法・構造名および説明を保持する。
+
 ---
 
 ## 14. データ構造概要
@@ -981,23 +1025,52 @@ AiGeneratedQuestionは生成元となったQuestionを保持する。
 ```text
                          User
                           │
-              ┌───────────┼────────────┐
-              │           │            │
-              ▼           ▼            ▼
-          Favorite   StudyHistory   AiGeneratedQuestion
-              │           │            │
-              │           │            │
-              ▼           ▼            ▼
-                         Question
-                            │
-                            ▼
-                    language_variant
-                       ┌────┴────┐
-                       │         │
-                  MAINLAND     TAIWAN
+               ┌──────────┼────────────┐
+               │          │            │
+               ▼          ▼            ▼
+           Favorite   StudyHistory   AiGeneratedQuestion
+               │          │            │
+               │          │            │
+               └──────┬───┘            │
+                      ▼                 │
+                   Question ◀───────────┘
+                      │
+             ┌────────┴────────┐
+             │                 │
+             ▼                 ▼
+          Structure      language_variant
+             │             ┌────┴────┐
+             │             │         │
+       文法・構造分類   MAINLAND   TAIWAN
 ```
 
 Questionを中心として、大陸普通話・台湾華語の学習データを共通構造で管理する。
+
+Questionは `language_variant` によって学習対象言語を識別するとともに、Structureを参照することで問題の文法・構造を識別する。
+
+```text
+Question
+├── language_variant
+│   ├── MAINLAND
+│   └── TAIWAN
+│
+└── Structure
+    ├── 文法・構造名
+    └── 説明
+```
+
+これにより、
+
+- 学習対象言語による問題分類
+- 文法・構造による問題分類
+
+をそれぞれ独立して行うことができる。
+
+また、FavoriteおよびStudyHistoryはQuestionを参照するため、関連するQuestionを経由してStructureを取得できる。
+
+AiGeneratedQuestionについても生成元Questionを参照するため、生成元Questionを経由してStructureを取得できる。
+
+そのため、Favorite、StudyHistory、AiGeneratedQuestion自身にはStructureとの関連を重複して保持しない。
 
 ---
 
@@ -1133,6 +1206,18 @@ Question.language_variant
 - AI生成時には現在の学習対象言語に対応するLanguage Profileを使用する。
 - 管理者は大陸普通話・台湾華語双方のマスタ問題およびAI生成設定を管理できる。
 - 学習対象言語とサイト表記言語は独立した設定として扱う。
+- 文法・構造は独立したStructureとして管理する。
+- Structureは文法・構造を識別するID、文法・構造名、説明を保持する。
+- Questionは文法・構造名を文字列として直接保持せず、Structureを参照する。
+- StructureとQuestionは1対多の関係とする。
+- 1つのQuestionにつき1つのStructureを設定する。
+- QuestionからStructureへの関連は必須とする。
+- Structureは中国語文そのものの根幹となる文法・構造を表す客観的な分類とする。
+- Structureは復習時の出題条件、問題検索、管理者による問題検索等の分類・検索条件として利用する。
+- Structureの説明は復習メニューや文法・構造ガイドなど複数の機能から共通して利用する。
+- StructureはEnumでは管理せず、データとして追加・変更できるものとする。
+- FavoriteおよびStudyHistoryはStructureを直接参照せず、Questionを経由してStructureを取得する。
+- AiGeneratedQuestionはStructureを直接参照せず、生成元Questionを経由してStructureを取得する。
 
 ---
 
@@ -1512,25 +1597,18 @@ AI生成問題についても、将来的に別解を生成・保持する仕様
 
 ---
 
-### 18.7 問題の文法・構造（structure）の追加
+### 18.7 問題の文法・構造（Structure）の追加
 
-**追加日：2026年8月23日**
+**追加日：2026年8月23日**  
+**設計変更：2026年8月24日**
 
 これまでQuestionには、問題文、中国語の模範解答、条件、難易度などの情報を保持していた。
 
-その後、復習時の出題条件および今後実装する問題検索機能において、問題を文法・構造によって客観的に分類できるようにするため、Questionに **`structure`** を追加する。
+その後、復習時の出題条件および今後実装する問題検索機能において、問題を文法・構造によって客観的に分類できるようにするため、問題ごとに文法・構造を設定する設計を追加した。
 
----
+当初はQuestion自身に `structure` を文字列として保持する設計としていた。
 
-#### Question
-
-Questionに以下の情報を追加する。
-
-* 文法・構造（`structure`）
-
-概念的には、
-
-```text id="18db6z"
+```text
 Question
 │
 ├── japanese_text
@@ -1540,24 +1618,108 @@ Question
 └── difficulty
 ```
 
-という構造とする。
+しかし、文法・構造の名称だけでなく、その文法・構造についての説明を複数の画面から利用できるようにする必要が生じた。
+
+そのため、文法・構造をQuestionの単なる文字列属性として管理するのではなく、独立した `Structure` として管理する設計へ変更する。
 
 ---
 
-#### structureの役割
+#### Structure
 
-`structure` は、模範解答となる中国語文を文法・構造上分析した際に、**その文章の根幹となる文法・構造を客観的に分類するための情報**とする。
+文法・構造の分類情報を管理する。
+
+Structureには以下の情報を保持する。
+
+* 文法・構造ID
+* 文法・構造名
+* 文法・構造の説明
+
+概念的には、
+
+```text
+Structure
+│
+├── structure_id
+├── name
+└── description
+```
+
+という構造とする。
 
 例えば、
 
-```text id="gx5m26"
+```text
+structure_id：
+1
+
+name：
+可能補語
+
+description：
+動作や結果が実現できるか、できないかを表す形式。
+```
+
+のようなデータを保持する。
+
+---
+
+#### QuestionとStructureの関係
+
+1つのQuestionには、文章の根幹となる文法・構造を1つ設定する。
+
+一方、同じ文法・構造には複数のQuestionが属する。
+
+したがって、StructureとQuestionは **1対多** の関係とする。
+
+```text
+Structure
+    1
+    │
+    │
+    N
+Question
+```
+
+Questionは文法・構造名そのものを文字列として保持するのではなく、対応するStructureを参照する。
+
+概念的には、
+
+```text
+Question
+│
+├── japanese_text
+├── chinese_text
+├── condition
+├── structure
+│       ↓
+│   Structure
+│   ├── structure_id
+│   ├── name
+│   └── description
+│
+└── difficulty
+```
+
+という関係となる。
+
+具体的な外部キーおよびカラム構成については、テーブル定義書で定義する。
+
+---
+
+#### Structureの役割
+
+Structureは、模範解答となる中国語文を文法・構造上分析した際に、**その文章の根幹となる文法・構造を客観的に分類するための情報**とする。
+
+例えば、
+
+```text
 日本語：
 彼は笑いながら私に話した。
 
 中国語：
 他笑着跟我说话。
 
-structure：
+Structure：
 動態助詞（着）
 ```
 
@@ -1565,33 +1727,33 @@ structure：
 
 また、
 
-```text id="yrw0gd"
+```text
 日本語：
 こんなにたくさんの料理は、私たちには食べきれません。
 
 中国語：
 这么多菜，我们吃不完。
 
-structure：
+Structure：
 可能補語
 ```
 
 のように、中国語文そのものの文法・構造に基づいて分類する。
 
-`structure` は、開発者・出題者がその問題を通して何を重点的に学習させたいかによって決定する情報ではない。
+Structureは、開発者・出題者がその問題を通して何を重点的に学習させたいかによって決定する情報ではない。
 
 あくまで模範解答となる中国語文そのものを分析し、その文章の根幹となる文法・構造を分類する。
 
-1つの中国語文に複数の文法的要素が含まれている場合でも、本システムでは文章の根幹となる文法・構造を1つ選択し、**1つのQuestionにつき1つの `structure` を保持する**。
+1つの中国語文に複数の文法的要素が含まれている場合でも、本システムでは文章の根幹となる文法・構造を1つ選択し、**1つのQuestionにつき1つのStructureを設定する**。
 
 ---
 
-#### structureとconditionの違い
+#### Structureとconditionの違い
 
-既存の `condition` と、新たに追加する `structure` は異なる目的を持つ。
+既存の `condition` とStructureは異なる目的を持つ。
 
-```text id="ydfqah"
-structure
+```text
+Structure
 └── 中国語文そのものの根幹となる文法・構造
     └── 客観的な分類
 
@@ -1602,109 +1764,144 @@ condition
 
 例えば、
 
-```text id="7ixiv6"
+```text
 日本語：
 彼は笑いながら私に話した。
 
 中国語：
 他笑着跟我说话。
 
-structure：
+Structure：
 動態助詞（着）
 
 condition：
 「着」を使う
 ```
 
-の場合、`structure` は中国語文そのものの文法的な分類であり、`condition` は日本語文から中国語へ変換する際に「着」を使用してほしいという出題者側の指定である。
+の場合、Structureは中国語文そのものの文法的な分類であり、`condition` は日本語文から中国語へ変換する際に「着」を使用してほしいという出題者側の指定である。
 
 結果として両者が近い内容になる場合もあるが、その役割は異なる。
 
 また、問題によっては特定の解答条件を設ける必要がない。
 
-例えば、
-
-```text id="zobbf7"
+```text
 日本語：
 次の交差点を右に曲がると、銀行が見えます。
 
 中国語：
 到下一个路口右转，就能看到银行。
 
-structure：
+Structure：
 条件複文
 
 condition：
 NULL
 ```
 
-のように、中国語文には分類すべき文法・構造が存在していても、出題者が特定の文法・語彙・言い回しを使用するよう指定する必要がなければ、`condition` は設定しない。
+このように、中国語文には分類すべき文法・構造が存在していても、出題者が特定の文法・語彙・言い回しを使用するよう指定する必要がなければ、`condition` は設定しない。
 
 ---
 
-#### NULL可否
+#### Structureの必須性
 
 すべてのQuestionの模範解答には、分類対象となる何らかの文法・構造が存在する。
 
-そのため、`structure` はすべてのQuestionに値を持たせ、**NULLを許可しない**。
+そのため、すべてのQuestionをいずれかのStructureに関連付ける。
 
-```text id="4gwxb7"
-structure
-NOT NULL
+```text
+Question
+    ↓
+Structure
 ```
 
-一方、`condition` は開発者・出題者が特定の解答方法を指定する必要がある場合にのみ使用する。
+QuestionからStructureへの関連は必須とする。
 
-条件を必要としない問題も存在するため、`condition` はNULLを許可する。
+一方、`condition` は開発者・出題者が特定の解答方法を指定する必要がある場合にのみ使用するため、NULLを許可する。
 
-```text id="eafwqc"
+```text
+Structure
+必須
+
 condition
 NULL可
 ```
 
 ---
 
-#### structureの分類
+#### Structureの分類
 
-`structure` には、中国語の文法・構造を表す分類を設定する。
+Structureには、中国語の文法・構造を表す統一された分類を登録する。
 
 例えば、
 
-```text id="a6c4g4"
-動態助詞（了）
-動態助詞（着）
-動態助詞（過）
-結果補語
-方向補語
+```text
+平叙文
+「是」構文
+形容詞述語文
+疑問文（疑問詞）
+介詞句（場所）
+介詞句（相手・共同）
+介詞句（方向）
+把構文
 可能補語
 程度補語
-把構文
-被構文
 比較構文
-連動文
-兼語文
-存現文
 条件複文
+譲歩複文
+逆接複文
+比例複文
+並列・累加複文
 因果複文
-前置詞句
-慣用表現
-成語
-口語表現
 ```
 
-などを想定する。
+などである。
 
-これらは個々の問題に対する説明文ではなく、問題を一定の基準で分類・検索できるよう、文法・構造のカテゴリとして統一された名称を使用する。
+これらは個々の問題に対する説明文ではなく、問題を一定の基準で分類・検索するためのカテゴリとして統一された名称を使用する。
 
-具体的な分類値については、既存問題および今後追加する問題を整理したうえで確定する。
-
-また、`structure` をEnumとしてアプリケーション側で管理するか、文字列として管理するかについては、分類値の確定後に決定する。
+Structureは独立したデータとして管理するため、新しい文法・構造が必要になった場合でも、Java側のEnum等を変更することなく新しいStructureを追加できる。
 
 ---
 
-#### structureによるデータ取得
+#### Structureの説明
 
-`structure` はQuestionを文法・構造によって分類する情報として、以下の機能における検索・絞り込み条件として利用する。
+各Structureには、その文法・構造の意味をユーザーが確認するための説明を保持する。
+
+例えば、
+
+```text
+name：
+可能補語
+
+description：
+動作や結果が実現できるか、できないかを表す形式。
+```
+
+のように管理する。
+
+この説明は特定の画面専用のデータとはせず、複数の機能から共通して利用できるものとする。
+
+例えば、
+
+```text
+Structure
+    │
+    ├── 復習メニュー
+    │     └── 文法・構造選択時の説明
+    │
+    ├── 問題検索
+    │     └── 文法・構造の説明
+    │
+    └── 文法・構造ガイド
+          └── 文法・構造の一覧・説明
+```
+
+のような利用を想定する。
+
+---
+
+#### Structureによるデータ取得
+
+StructureはQuestionを文法・構造によって分類する情報として、以下の機能における検索・絞り込み条件として利用する。
 
 * 復習時の出題条件
 * 問題検索
@@ -1712,17 +1909,19 @@ NULL可
 
 例えば、
 
-```text id="zt0oy4"
-structure = 可能補語
+```text
+Structure.name = 可能補語
 ```
 
 を検索条件とした場合、
 
-```text id="rvum7b"
+```text
 这么多菜，我们吃不完。
 ```
 
 のように、可能補語を文章の根幹とするQuestionを取得できるようにする。
+
+Question自身が文法・構造名を文字列として保持するのではなくStructureを参照するため、検索時にはQuestionとStructureの関連を利用して対象問題を取得する。
 
 一方、`condition` は問題ごとに開発者・出題者が設定する解答条件であり、客観的な問題分類ではないため、文法・構造による検索条件としては使用しない。
 
@@ -1732,52 +1931,53 @@ structure = 可能補語
 
 AI生成問題はマスタQuestionを基礎として生成され、元の問題の文法・構文・表現を維持したバリエーションとして生成する。
 
-そのため、AI生成問題についても、文法・構造上の分類は原則として生成元Questionの `structure` と同一となる。
+そのため、AI生成問題についても、文法・構造上の分類は原則として生成元Questionが参照するStructureと同一となる。
 
-概念的には、
-
-```text id="dby3x1"
+```text
+Structure
+    ↑
+    │
 Question
-│
-├── structure = 可能補語
-│
-└── AI生成
-      ↓
+    │
+    │ AI生成
+    ↓
 AiGeneratedQuestion
-      ↓
-同じstructureに属する
 ```
 
-となる。
+AiGeneratedQuestionは生成元となったQuestionを `source_question_id` によって参照できる。
 
-AiGeneratedQuestionは生成元となったQuestionを `source_question_id` によって参照できるため、`structure` は生成元Questionから取得することを基本とし、AiGeneratedQuestion自身には重複して保持しない。
+そのため、AiGeneratedQuestion自身にはStructureとの関連を重複して保持せず、
 
-```text id="igb4ob"
+```text
 AiGeneratedQuestion
         ↓
 source_question_id
         ↓
 Question
         ↓
-structure
+Structure
 ```
 
-これにより、生成元Questionの `structure` を基準として、保存されたAI生成問題についても文法・構造を判定できる。
+という関係から文法・構造を取得する。
 
 ---
 
 #### 追加後の設計方針
 
-`structure` の追加後は、以下を設計方針に加える。
+Structureの追加後は、以下を設計方針に加える。
 
-* Questionは、中国語文の根幹となる文法・構造を表す `structure` を保持する。
-* `structure` は中国語文そのものに基づく客観的な分類とする。
+* 文法・構造は独立したStructureとして管理する。
+* Structureは文法・構造ID、名称、説明を保持する。
+* QuestionはStructureを参照する。
+* StructureとQuestionは1対多の関係とする。
+* 1つのQuestionにつき1つのStructureを設定する。
+* QuestionからStructureへの関連は必須とする。
+* Structureは中国語文そのものに基づく客観的な分類とする。
 * `condition` は開発者・出題者が設定する主観的な解答条件・ヒントとして扱う。
-* 1つのQuestionにつき1つの `structure` を設定する。
-* `structure` は必須項目とし、NULLを許可しない。
 * `condition` は任意項目とし、NULLを許可する。
-* `structure` は復習時の出題条件、問題検索、管理者による問題検索等の分類・検索条件として利用する。
+* Structureは復習時の出題条件、問題検索、管理者による問題検索等の分類・検索条件として利用する。
+* Structureの説明は復習メニューや文法・構造ガイドなど複数の機能から共通して利用できるものとする。
+* 新しい文法・構造はStructureのデータとして追加できるものとし、Enumでは管理しない。
 * `condition` は文法・構造による問題分類の検索条件として使用しない。
-* `structure` の具体的な分類値およびデータ型は、分類体系を整理したうえで決定する。
-* AI生成問題の文法・構造は、原則として生成元Questionの `structure` と同一とする。
-* AiGeneratedQuestion自身には `structure` を重複して保持せず、`source_question_id` を通して生成元Questionの `structure` を参照する。
+* AI生成問題のStructureは、原則として生成元Questionと同一とする。
+* AiGeneratedQuestion自身にはStructureとの関連を重複して保持せず、`source_question_id` を通して生成元QuestionのStructureを参照する。
