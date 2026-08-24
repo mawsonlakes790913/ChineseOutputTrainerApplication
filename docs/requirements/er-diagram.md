@@ -72,7 +72,8 @@ erDiagram
     STRUCTURE {
         bigint structure_id PK
         string name
-        text description
+        text description_zh_cn
+        text description_zh_tw
     }
 
 
@@ -271,9 +272,10 @@ QUESTION
 
 ```text
 STRUCTURE
-structure_id = 1
-name         = 可能補語
-description  = 動作や結果が実現できるか、できないかを表す形式。
+structure_id       = 1
+name               = 可能補語
+description_zh_cn  = 動作や結果が実現できるか、できないかを表す形式。
+description_zh_tw  = 動作や結果が実現できるか、できないかを表す形式。
         │
         │ 1:N
         ↓
@@ -300,7 +302,8 @@ structure_id
     ↓
 STRUCTURE
 ├── name
-└── description
+├── description_zh_cn
+└── description_zh_tw
 ```
 
 すべてのQuestionには文法・構造上の分類が存在するため、QuestionからStructureへの関連は必須とする。
@@ -704,7 +707,11 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
 - AiSettingは保存方式が確定するまでER図には含めない。
 - 文法・構造は独立したSTRUCTUREとして管理する。
-- STRUCTUREは文法・構造ID、文法・構造名、説明を保持する。
+- STRUCTUREは文法・構造ID、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
+- 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
+- STRUCTUREの説明は、大陸普通話向けと台湾華語向けに分けて保持する。
+- STRUCTUREの説明を表示する際は、セッションに保存されている現在の学習対象言語に応じて使用する説明を切り替える。
+- STRUCTUREの説明の切り替えはサイト表記言語とは独立して扱う。
 - STRUCTUREとQUESTIONは1対多の関係とする。
 - QUESTIONには `structure_id` を外部キーとして保持する。
 - 1つのQUESTIONにつき1つのSTRUCTUREを設定する。
@@ -930,7 +937,8 @@ QUESTION
 文法・構造
 ├── 文法・構造を識別するID
 ├── 文法・構造名
-└── 説明
+├── 大陸普通話向けの説明
+└── 台湾華語向けの説明
 ```
 
 という独立した情報を持つデータとして扱う方が適切であると判断した。
@@ -950,7 +958,8 @@ STRUCTURE
 │
 ├── structure_id
 ├── name
-└── description
+├── description_zh_cn
+└── description_zh_tw
 ```
 
 `structure_id` は文法・構造を識別する主キーとする。
@@ -967,21 +976,55 @@ STRUCTURE
 
 などの文法・構造名を保持する。
 
-`description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+文法・構造そのものの分類は、大陸普通話と台湾華語で共通して管理する。
+
+一方、説明内で使用する中国語については、簡体字・繁体字の違いや、大陸普通話・台湾華語で一般的に使用される表現の違いが生じる場合がある。
+
+そのため、
+
+```text
+description_zh_cn
+└── 大陸普通話向けの説明
+
+description_zh_tw
+└── 台湾華語向けの説明
+```
+
+として、2種類の説明を保持する。
 
 例えば、
 
 ```text
 STRUCTURE
---------------------------------------------
-structure_id = 1
-name         = 可能補語
-description  = 動作や結果が実現できるか、
-               できないかを表す形式。
---------------------------------------------
+------------------------------------------------
+structure_id      = 1
+name              = 因果複文
+
+description_zh_cn =
+原因・理由と、それによって生じる結果を表す複文。
+「因为～所以～」「既然～就～」など。
+
+description_zh_tw =
+原因・理由と、それによって生じる結果を表す複文。
+「因為～所以～」「既然～就～」など。
+------------------------------------------------
 ```
 
 のように管理する。
+
+どちらの説明を表示するかは、セッションに保存されている現在の学習対象言語によって決定する。
+
+```text
+session.languageVariant
+
+├── MAINLAND
+│   └── description_zh_cn
+│
+└── TAIWAN
+    └── description_zh_tw
+```
+
+この切り替えはサイト表記言語とは独立して扱う。
 
 ---
 
@@ -1144,8 +1187,9 @@ QUESTION
 また、
 
 - 文法・構造名の表記を統一できる
-- 文法・構造ごとの説明を一元管理できる
-- 復習メニューなど複数の画面で同じ説明を利用できる
+- 大陸普通話向け・台湾華語向けの説明を一元管理できる
+- 学習対象言語に応じた説明を表示できる
+- 復習メニューなど複数の画面で同じStructureデータを利用できる
 - 文法・構造ガイドでも同じデータを利用できる
 - 新しい文法・構造をJavaのEnumを変更せず追加できる
 

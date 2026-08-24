@@ -126,7 +126,8 @@ QUESTIONの模範解答となる中国語文を文法・構造上分析した際
 |---|---|---|---|---|---|---|---|
 | structure_id | 文法・構造ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
 | name | 文法・構造名 | - | - | VARCHAR(50) | ○ | ○ | 可能補語、把構文、比較構文など |
-| description | 説明 | - | - | TEXT | ○ | - | 文法・構造についての簡潔な説明 |
+| description_zh_cn | 大陸普通話向け説明 | - | - | TEXT | ○ | - | 大陸普通話向けの文法・構造の説明 |
+| description_zh_tw | 台湾華語向け説明 | - | - | TEXT | ○ | - | 台湾華語向けの文法・構造の説明 |
 
 ## 補足
 
@@ -134,35 +135,47 @@ QUESTIONの模範解答となる中国語文を文法・構造上分析した際
 - `structure_id` は文法・構造を内部的に識別するために使用する。
 - `name` には「可能補語」「把構文」「比較構文」などの文法・構造名を保持する。
 - 文法・構造名の重複を防ぐため、`name` はUNIQUEとする。
-- `description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+- 文法・構造そのものの分類は、大陸普通話と台湾華語で共通して管理する。
+- `description_zh_cn` には、大陸普通話向けの文法・構造についての簡潔な説明を保持する。
+- `description_zh_tw` には、台湾華語向けの文法・構造についての簡潔な説明を保持する。
+- 説明には、必要に応じて代表的な中国語表現を含める。
+- どちらの説明を使用するかは、セッションに保存されている現在の学習対象言語によって決定する。
+- `session.languageVariant = MAINLAND` の場合は `description_zh_cn` を使用する。
+- `session.languageVariant = TAIWAN` の場合は `description_zh_tw` を使用する。
+- 説明の切り替えはサイト表記言語とは独立して扱う。
 - 1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
 - QUESTIONが1件も関連付けられていないSTRUCTUREの存在も許可する。
 - QUESTIONからSTRUCTUREへの関連は必須とする。
 - 文法・構造はEnumでは管理せず、STRUCTUREのレコードとして追加・変更できるものとする。
 
-```text
-STRUCTURE
-    │
-    │ 1:N
-    ↓
-QUESTION
-```
-
-例えば、
-
-```
-STRUCTURE
-structure_id = 1
-name         = 可能補語
-description  = 動作や結果が実現できるか、できないかを表す形式。
+    STRUCTURE
         │
         │ 1:N
         ↓
-QUESTION
-├── 这么多菜，我们吃不完。
-├── 这个箱子太重了，我搬不动。
-└── 他说得太快，我听不懂。
-```
+    QUESTION
+
+例えば、
+
+    STRUCTURE
+    structure_id      = 1
+    name              = 因果複文
+
+    description_zh_cn =
+    原因・理由と、それによって生じる結果を表す複文。
+    「因为～所以～」「既然～就～」など。
+
+    description_zh_tw =
+    原因・理由と、それによって生じる結果を表す複文。
+    「因為～所以～」「既然～就～」など。
+
+            │
+            │ 1:N
+            ↓
+
+    QUESTION
+    ├── 因为下雨，所以我没出去。
+    ├── 既然决定了，就不要放弃。
+    └── 因为太累了，所以他早早就睡了。
 
 のように管理する。
 
@@ -660,7 +673,14 @@ English
 - 学習対象言語とサイト表記言語は別の設定として扱う。
 - AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
 - STRUCTUREは文法・構造を管理するマスタテーブルとする。
-- STRUCTUREは `structure_id`、文法・構造名、説明を保持する。
+- STRUCTUREは `structure_id`、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
+- 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
+- `description_zh_cn` には大陸普通話向けの説明を保持する。
+- `description_zh_tw` には台湾華語向けの説明を保持する。
+- STRUCTUREの説明を表示する際は、セッションに保存されている現在の学習対象言語に応じて使用する説明を切り替える。
+- `session.languageVariant = MAINLAND` の場合は `description_zh_cn` を使用する。
+- `session.languageVariant = TAIWAN` の場合は `description_zh_tw` を使用する。
+- STRUCTUREの説明の切り替えはサイト表記言語とは独立して扱う。
 - STRUCTUREとQUESTIONは1対多の関係とする。
 - QUESTIONは `structure_id` によってSTRUCTUREを参照する。
 - 1つのQUESTIONにつき1つのSTRUCTUREを関連付ける。
@@ -1036,23 +1056,61 @@ QUESTION
 
 新たにSTRUCTUREテーブルを追加する。
 
-```text
-STRUCTURE
-│
-├── structure_id
-├── name
-└── description
-```
+    STRUCTURE
+    │
+    ├── structure_id
+    ├── name
+    ├── description_zh_cn
+    └── description_zh_tw
 
 | カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
 |---|---|---|---|---|---|---|---|
 | structure_id | 文法・構造ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
 | name | 文法・構造名 | - | - | VARCHAR(50) | ○ | ○ | 可能補語、把構文、比較構文など |
-| description | 説明 | - | - | TEXT | ○ | - | 文法・構造についての簡潔な説明 |
+| description_zh_cn | 大陸普通話向け説明 | - | - | TEXT | ○ | - | 大陸普通話向けの文法・構造の説明 |
+| description_zh_tw | 台湾華語向け説明 | - | - | TEXT | ○ | - | 台湾華語向けの文法・構造の説明 |
 
 `name` には、これまでQUESTIONの `structure` に直接保存していた文法・構造名を保持する。
 
-`description` には、その文法・構造についてユーザーが内容を確認するための簡潔な説明を保持する。
+文法・構造そのものの分類は、大陸普通話と台湾華語で共通して管理する。
+
+一方、説明内で使用する中国語については、簡体字・繁体字の違いや、大陸普通話・台湾華語で一般的に使用される表現の違いが生じる場合がある。
+
+そのため、単一の `description` ではなく、
+
+    description_zh_cn
+    └── 大陸普通話向け
+
+    description_zh_tw
+    └── 台湾華語向け
+
+の2種類の説明を保持する。
+
+例えば、
+
+    name = 因果複文
+
+    description_zh_cn =
+    原因・理由と、それによって生じる結果を表す複文。
+    「因为～所以～」「既然～就～」など。
+
+    description_zh_tw =
+    原因・理由と、それによって生じる結果を表す複文。
+    「因為～所以～」「既然～就～」など。
+
+のように管理する。
+
+どちらの説明を使用するかは、セッションに保存されている現在の学習対象言語によって決定する。
+
+    session.languageVariant
+
+    ├── MAINLAND
+    │   └── description_zh_cn
+    │
+    └── TAIWAN
+        └── description_zh_tw
+
+この切り替えはサイト表記言語とは独立して扱う。
 
 ### QUESTIONの変更
 
@@ -1176,7 +1234,12 @@ Structureのマスタテーブル化後は、以下の方針とする。
 - QUESTIONには文法・構造名を直接保存しない。
 - QUESTIONは `structure_id` によってSTRUCTUREを参照する。
 - 1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
-- STRUCTUREには文法・構造名と説明を保持する。
+- STRUCTUREには文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
+- 文法・構造名は大陸普通話と台湾華語で共通して使用する。
+- `description_zh_cn` には大陸普通話向けの説明を保持する。
+- `description_zh_tw` には台湾華語向けの説明を保持する。
+- 説明を表示する際は、セッションに保存されている現在の学習対象言語に応じて使用する説明を切り替える。
+- 説明の切り替えはサイト表記言語とは独立して扱う。
 - 文法・構造名は重複を許可しない。
 - 新しい文法・構造はEnumではなくSTRUCTUREのレコードとして追加する。
 - 復習時の出題条件や問題検索ではSTRUCTUREを利用する。
