@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	    "input[name='difficulties'], " +
 	    "input[name='conditions'], " +
 	    "input[name='favoriteCondition'], " +
-	    "input[name='structures']"
+	    "input[name='structureIds']"
 	);
 
     // 出題数表示
@@ -53,10 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
         
 		// 文法・構造
 		document
-		    .querySelectorAll("input[name='structures']:checked")
+		    .querySelectorAll("input[name='structureIds']:checked")
 		    .forEach(cb => {
-		        params.append("structures", cb.value);
-		    });        
+		        params.append("structureIds", cb.value);
+		    });     
 
         const response =
             await fetch("/review/count?" + params);
@@ -87,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	    document.getElementById("clearAllStructures");
 	
 	const structureCheckboxes =
-	    document.querySelectorAll("input[name='structures']");
+	    document.querySelectorAll("input[name='structureIds']");	    
 	
 	
 	// すべて選択

@@ -9,7 +9,8 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
-import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class ReviewService {
 	
 	private final StudyHistoryRepository studyHistoryRepository;
 	private final SearchConditionConverter searchConditionConverter;
-	private final QuestionRepository questionRepository;
+	private final StructureRepository structureRepository;
 	
 	//復習出題数取得
 	public long countReviewQuestions(Long userId, List<Evaluation> evaluations, 
@@ -64,8 +65,8 @@ public class ReviewService {
 	}
 	
 	// structure全件取得
-	public List<String> findStructures() {
-	    return questionRepository.findDistinctStructures();
+	public List<Structure> findStructures() {
+	    return structureRepository.findAll();
 	}
 
 }

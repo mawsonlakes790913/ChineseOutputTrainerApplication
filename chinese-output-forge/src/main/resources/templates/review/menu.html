@@ -436,20 +436,20 @@
 		            <div id="structureList"
 		                 class="d-flex flex-wrap gap-2 structure-list">
 		
-		                <label th:each="structure : ${structures}"
-		                       class="bg-light rounded px-3 py-2">
-		
+						<label th:each="structure : ${structures}"
+						       class="bg-light rounded px-3 py-2">
+						
 						    <input class="form-check-input me-2"
 						           type="checkbox"
-						           name="structures"
-						           th:value="${structure}"
+						           name="structureIds"
+						           th:value="${structure.structureId}"
 						           checked>
-		
-		                    <span th:text="${structure}">
-		                        文法・構造
-		                    </span>
-		
-		                </label>
+						
+						    <span th:text="${structure.name}">
+						        文法・構造
+						    </span>
+						
+						</label>
 		
 		            </div>
 		            
