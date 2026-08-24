@@ -102,6 +102,8 @@ public class ReviewController {
 									List<Difficulty> difficulties,
 						     @RequestParam(name = "favoriteCondition", required = false)
 									FavoriteCondition favoriteCondition,
+							 @RequestParam(name = "structureIds", required = false)
+							 		List<Long> structureIds,
 							 @RequestParam(name = "random", required = false)
 									boolean random
 							 ) {
@@ -116,7 +118,7 @@ public class ReviewController {
 	    Long userId = user.getId();
 	    
 	    // 新しい問題セットを作成
-	    questions = reviewService.getQuestion(userId, evaluations, difficulties, favoriteCondition, random);
+	    questions = reviewService.getQuestion(userId, evaluations, difficulties, favoriteCondition, structureIds, random);
 
 	    // 問題が1件もない場合は開始しない
 	    if (questions.isEmpty()) {

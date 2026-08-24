@@ -49,12 +49,14 @@ public class ReviewService {
 									  List<Evaluation> evaluations, 
 									  List<Difficulty> difficulties,
 									  FavoriteCondition favoriteCondition,
+									  List<Long> structureIds,
 									  boolean random){
 		
 		List<Question> extractedQuestions = studyHistoryRepository.findReviewQuestions(userId,
 				searchConditionConverter.convertEvaluation(evaluations),
 				searchConditionConverter.convertDifficulty(difficulties),
-				searchConditionConverter.convertFavoriteCondition(favoriteCondition));
+				searchConditionConverter.convertFavoriteCondition(favoriteCondition),
+				structureIds);
 		
 		// シャッフルする
 		if (random) {

@@ -69,12 +69,14 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	                  AND f.question_id IS NULL
 	              )
 	          )
+	          AND q.structure_id IN (:structureIds)
 	        """, nativeQuery = true)
 	List<Question> findReviewQuestions(
 	        @Param("userId") Long userId,
 	        @Param("evaluations") List<String> evaluations,
 	        @Param("difficulties") List<String> difficulties,
-	        @Param("favoriteCondition") String favoriteCondition
+	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("structureIds") List<Long> structureIds
 	);
 
 	
