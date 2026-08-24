@@ -28,7 +28,7 @@ public class ReviewService {
 	public long countReviewQuestions(Long userId, List<Evaluation> evaluations, 
 												  List<Difficulty> difficulties,
 												  FavoriteCondition favoriteCondition,
-												  List<String> structures) {
+												  List<Long> structureIds) {
 		
 		// ここで変換する
 		List<String> convertedDifficulties = searchConditionConverter.convertDifficulty(difficulties);
@@ -40,7 +40,7 @@ public class ReviewService {
 	    		convertedEvaluations,
 	    		convertedDifficulties,
 	    		convertedFavoriteCondition,
-	    		structures
+	    		structureIds
 	    		);
 	}
 	

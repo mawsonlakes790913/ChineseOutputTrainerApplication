@@ -75,8 +75,8 @@ public class ReviewController {
 									List<Difficulty> difficulties,
 								@RequestParam(name = "favoriteCondition", required = false)
 									FavoriteCondition favoriteCondition,
-								@RequestParam(name = "structures", required = false)
-									List<String> structures
+								@RequestParam(name = "structureIds", required = false)
+									List<Long> structureIds
 								) {
 		
 	    // user_id(文字列)からUsersを取得
@@ -89,7 +89,7 @@ public class ReviewController {
 	            evaluations,
 	            difficulties,
 	            favoriteCondition,
-	            structures);
+	            structureIds);
 	}
 	
 	@GetMapping("/review/start")
