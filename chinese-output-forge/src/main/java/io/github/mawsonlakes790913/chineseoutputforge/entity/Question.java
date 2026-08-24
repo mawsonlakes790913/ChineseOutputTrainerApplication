@@ -11,6 +11,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -54,8 +56,9 @@ public class Question {
     @Column(name = "condition")
     private String condition;
     
-    @Column(name = "structure", nullable = false)
-    private String structure;
+    @ManyToOne
+    @JoinColumn(name = "structure_id", nullable = false)
+    private Structure structure;
 
     @Column(name = "difficulty", nullable = false)
     @Enumerated(EnumType.STRING)
