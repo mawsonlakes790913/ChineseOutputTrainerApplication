@@ -47,27 +47,29 @@
 	    <div class="row g-3">
 	
 	        <!-- ========================= -->
-	        <!-- 学習対象言語 -->
+	        <!-- 表示言語 -->
 	        <!-- ========================= -->
 	
 	        <div class="col-md-12">
 	
 	            <label class="form-label fw-bold"
 	                   th:text="#{user.question.list.languageVariant}">
-	                学習対象言語
+	                表示言語
 	            </label>
 	
 	            <div class="d-flex align-items-center gap-4">
 	
 	                <!-- 普通話 -->
+	
 	                <div class="form-check">
-
-						<input class="form-check-input"
-						       type="checkbox"
-						       name="languageVariants"
-						       value="MAINLAND"
-						       id="mainland"
-						       th:checked="${selectedLanguageVariants[0].name() == 'MAINLAND'}">
+	
+	                    <input class="form-check-input"
+	                           type="checkbox"
+	                           name="languageVariants"
+	                           value="MAINLAND"
+	                           id="mainland"
+	                           th:checked="${selectedLanguageVariants != null
+	                               and selectedLanguageVariants.![name()].contains('MAINLAND')}">
 	
 	                    <label class="form-check-label"
 	                           for="mainland"
@@ -81,15 +83,16 @@
 	                </div>
 	
 	                <!-- 國語 -->
+	
 	                <div class="form-check">
 	
-						<!-- 國語 -->
-						<input class="form-check-input"
-						       type="checkbox"
-						       name="languageVariants"
-						       value="TAIWAN"
-						       id="taiwan"
-						       th:checked="${selectedLanguageVariants.![name()].contains('TAIWAN')}">
+	                    <input class="form-check-input"
+	                           type="checkbox"
+	                           name="languageVariants"
+	                           value="TAIWAN"
+	                           id="taiwan"
+	                           th:checked="${selectedLanguageVariants != null
+	                               and selectedLanguageVariants.![name()].contains('TAIWAN')}">
 	
 	                    <label class="form-check-label"
 	                           for="taiwan"
@@ -120,6 +123,8 @@
 	
 	            <div class="d-flex gap-3">
 	
+	                <!-- 初級 -->
+	
 	                <div class="form-check">
 	
 	                    <input class="form-check-input"
@@ -128,16 +133,17 @@
 	                           value="BEGINNER"
 	                           id="beginner"
 	                           th:checked="${selectedDifficulties == null
-	                               or selectedDifficulties.contains(
-	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).BEGINNER)}">
+	                               or selectedDifficulties.![name()].contains('BEGINNER')}">
 	
-						<label class="form-check-label text-danger fw-bold"
-						       for="beginner"
-						       th:text="#{difficulty.beginner}">
-						    初級
-						</label>
+	                    <label class="form-check-label text-danger fw-bold"
+	                           for="beginner"
+	                           th:text="#{difficulty.beginner}">
+	                        初級
+	                    </label>
 	
 	                </div>
+	
+	                <!-- 中級 -->
 	
 	                <div class="form-check">
 	
@@ -147,16 +153,17 @@
 	                           value="INTERMEDIATE"
 	                           id="intermediate"
 	                           th:checked="${selectedDifficulties == null
-	                               or selectedDifficulties.contains(
-	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).INTERMEDIATE)}">
+	                               or selectedDifficulties.![name()].contains('INTERMEDIATE')}">
 	
-						<label class="form-check-label text-primary fw-bold"
-						       for="intermediate"
-						       th:text="#{difficulty.intermediate}">
-						    中級
-						</label>
+	                    <label class="form-check-label text-primary fw-bold"
+	                           for="intermediate"
+	                           th:text="#{difficulty.intermediate}">
+	                        中級
+	                    </label>
 	
 	                </div>
+	
+	                <!-- 上級 -->
 	
 	                <div class="form-check">
 	
@@ -166,14 +173,13 @@
 	                           value="ADVANCED"
 	                           id="advanced"
 	                           th:checked="${selectedDifficulties == null
-	                               or selectedDifficulties.contains(
-	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).ADVANCED)}">
+	                               or selectedDifficulties.![name()].contains('ADVANCED')}">
 	
-						<label class="form-check-label text-success fw-bold"
-						       for="advanced"
-						       th:text="#{difficulty.advanced}">
-						    上級
-						</label>
+	                    <label class="form-check-label text-success fw-bold"
+	                           for="advanced"
+	                           th:text="#{difficulty.advanced}">
+	                        上級
+	                    </label>
 	
 	                </div>
 	
@@ -192,65 +198,65 @@
 	                   th:text="#{user.question.list.evaluation}">
 	                理解度
 	            </label>
-	            
-				<span id="evaluationWarning"
-				      class="text-danger small ms-3"
-				      th:text="#{user.question.list.evaluation.warning}">
-				    理解度は「学習済み」を選択した場合のみ指定できます。
-				</span>	            
 	
-				<div id="evaluationArea"
-				     class="d-flex gap-2">
-				
-				    <!-- Hard -->
-				    <label class="bg-danger-subtle border border-danger rounded px-3 py-2">
-				
-				        <input class="form-check-input me-2"
-				               type="checkbox"
-				               name="evaluations"
-				               value="HARD"
-				               id="hard"
-				               th:checked="${selectedEvaluations == null
-				                   or selectedEvaluations.contains(
-				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).HARD)}">
-				
-				        Hard
-				
-				    </label>
-				
-				    <!-- Good -->
-				    <label class="bg-primary-subtle border border-primary rounded px-3 py-2">
-				
-				        <input class="form-check-input me-2"
-				               type="checkbox"
-				               name="evaluations"
-				               value="GOOD"
-				               id="good"
-				               th:checked="${selectedEvaluations == null
-				                   or selectedEvaluations.contains(
-				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).GOOD)}">
-				
-				        Good
-				
-				    </label>
-				
-				    <!-- Easy -->
-				    <label class="bg-success-subtle border border-success rounded px-3 py-2">
-				
-				        <input class="form-check-input me-2"
-				               type="checkbox"
-				               name="evaluations"
-				               value="EASY"
-				               id="easy"
-				               th:checked="${selectedEvaluations == null
-				                   or selectedEvaluations.contains(
-				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).EASY)}">
-				
-				        Easy
-				
-				    </label>
-				
-				</div>
+	            <span id="evaluationWarning"
+	                  class="text-danger ms-3"
+	                  th:text="#{user.question.list.evaluation.warning}">
+	                理解度は「学習済み」を選択した場合のみ指定できます。
+	            </span>
+	
+	            <div id="evaluationArea"
+	                 class="d-flex gap-2">
+	
+	                <!-- Hard -->
+	
+	                <label class="bg-danger-subtle border border-danger rounded px-3 py-2">
+	
+	                    <input class="form-check-input me-2"
+	                           type="checkbox"
+	                           name="evaluations"
+	                           value="HARD"
+	                           id="hard"
+	                           th:checked="${selectedEvaluations != null
+	                               and selectedEvaluations.![name()].contains('HARD')}">
+	
+	                    Hard
+	
+	                </label>
+	
+	                <!-- Good -->
+	
+	                <label class="bg-primary-subtle border border-primary rounded px-3 py-2">
+	
+	                    <input class="form-check-input me-2"
+	                           type="checkbox"
+	                           name="evaluations"
+	                           value="GOOD"
+	                           id="good"
+	                           th:checked="${selectedEvaluations != null
+	                               and selectedEvaluations.![name()].contains('GOOD')}">
+	
+	                    Good
+	
+	                </label>
+	
+	                <!-- Easy -->
+	
+	                <label class="bg-success-subtle border border-success rounded px-3 py-2">
+	
+	                    <input class="form-check-input me-2"
+	                           type="checkbox"
+	                           name="evaluations"
+	                           value="EASY"
+	                           id="easy"
+	                           th:checked="${selectedEvaluations != null
+	                               and selectedEvaluations.![name()].contains('EASY')}">
+	
+	                    Easy
+	
+	                </label>
+	
+	            </div>
 	
 	        </div>
 	
@@ -335,87 +341,91 @@
 	
 	        </div>
 	
-			<!-- ========================= -->
-			<!-- 文法・構造 -->
-			<!-- ========================= -->
-			
-			<div class="col-12">
-			
-			    <div class="card">
-			
-			        <div class="card-header fw-bold"
-			             th:text="#{user.question.list.structure}">
-			            文法・構造
-			        </div>
-			
-			        <div class="card-body">
-			
-			            <!-- 一括操作 -->
-			            <div class="mb-3">
-			
-			                <button type="button"
-			                        id="selectAllStructures"
-			                        class="btn btn-outline-primary btn-sm"
-			                        th:text="#{user.question.list.structure.selectAll}">
-			                    すべて選択
-			                </button>
-			
-			                <button type="button"
-			                        id="clearAllStructures"
-			                        class="btn btn-outline-secondary btn-sm"
-			                        th:text="#{user.question.list.structure.clearAll}">
-			                    すべて解除
-			                </button>
-			
-			            </div>
-			
-			            <!-- 文法・構造一覧 -->
-			            <div id="structureList"
-			                 class="d-flex flex-wrap gap-2 structure-list">
-			
-			                <label th:each="structure : ${structures}"
-			                       class="bg-light rounded px-3 py-2"
-			                       data-bs-toggle="tooltip"
-			                       data-bs-placement="top"
-			                       th:data-bs-title="${session.languageVariant != null
-			                           && session.languageVariant.name() == 'TAIWAN'
-			                           ? structure.descriptionZhTw
-			                           : structure.descriptionZhCn}">
-			
-								<input class="form-check-input me-2"
-								       type="checkbox"
-								       name="structureIds"
-								       th:value="${structure.structureId}"
-								       th:checked="${selectedStructureIds == null
-								           or selectedStructureIds.contains(structure.structureId)}">
-			
-			                    <span th:text="${structure.name}">
-			                        文法・構造
-			                    </span>
-			
-			                </label>
-			
-			            </div>
-			
-			            <!-- 展開・折りたたみ -->
-			            <div class="text-center mt-3">
-			
-			                <button type="button"
-			                        id="toggleStructures"
-			                        class="btn btn-link btn-sm"
-			                        th:data-show-text="#{user.question.list.structure.showAll}"
-			                        th:data-hide-text="#{user.question.list.structure.collapse}"
-			                        th:text="#{user.question.list.structure.showAll}">
-			                    すべて表示
-			                </button>
-			
-			            </div>
-			
-			        </div>
-			
-			    </div>
-			
-			</div>
+	
+	        <!-- ========================= -->
+	        <!-- 文法・構造 -->
+	        <!-- ========================= -->
+	
+	        <div class="col-12">
+	
+	            <div class="card">
+	
+	                <div class="card-header fw-bold"
+	                     th:text="#{user.question.list.structure}">
+	                    文法・構造
+	                </div>
+	
+	                <div class="card-body">
+	
+	                    <!-- 一括操作 -->
+	
+	                    <div class="mb-3">
+	
+	                        <button type="button"
+	                                id="selectAllStructures"
+	                                class="btn btn-outline-primary btn-sm"
+	                                th:text="#{user.question.list.structure.selectAll}">
+	                            すべて選択
+	                        </button>
+	
+	                        <button type="button"
+	                                id="clearAllStructures"
+	                                class="btn btn-outline-secondary btn-sm"
+	                                th:text="#{user.question.list.structure.clearAll}">
+	                            すべて解除
+	                        </button>
+	
+	                    </div>
+	
+	                    <!-- 文法・構造一覧 -->
+	
+	                    <div id="structureList"
+	                         class="d-flex flex-wrap gap-2 structure-list">
+	
+	                        <label th:each="structure : ${structures}"
+	                               class="bg-light rounded px-3 py-2"
+	                               data-bs-toggle="tooltip"
+	                               data-bs-placement="top"
+	                               th:data-bs-title="${session.languageVariant != null
+	                                   && session.languageVariant.name() == 'TAIWAN'
+	                                   ? structure.descriptionZhTw
+	                                   : structure.descriptionZhCn}">
+	
+	                            <input class="form-check-input me-2"
+	                                   type="checkbox"
+	                                   name="structureIds"
+	                                   th:value="${structure.structureId}"
+	                                   th:checked="${selectedStructureIds == null
+	                                       or selectedStructureIds.contains(structure.structureId)}">
+	
+	                            <span th:text="${structure.name}">
+	                                文法・構造
+	                            </span>
+	
+	                        </label>
+	
+	                    </div>
+	
+	                    <!-- 展開・折りたたみ -->
+	
+	                    <div class="text-center mt-3">
+	
+	                        <button type="button"
+	                                id="toggleStructures"
+	                                class="btn btn-link btn-sm"
+	                                th:data-show-text="#{user.question.list.structure.showAll}"
+	                                th:data-hide-text="#{user.question.list.structure.collapse}"
+	                                th:text="#{user.question.list.structure.showAll}">
+	                            すべて表示
+	                        </button>
+	
+	                    </div>
+	
+	                </div>
+	
+	            </div>
+	
+	        </div>
 	
 	
 	        <!-- ========================= -->
