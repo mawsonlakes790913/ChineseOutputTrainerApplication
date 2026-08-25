@@ -346,28 +346,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (studyCondition) {
 
-        function updateEvaluationState() {
+function updateEvaluationState() {
 
-            const unlearned =
-                studyCondition.value ===
-                "UNLEARNED_ONLY";
+    const learned =
+        studyCondition.value ===
+        "LEARNED_ONLY";
 
-            evaluations.forEach(function (cb) {
+    const evaluationWarning =
+        document.getElementById("evaluationWarning");
 
-                if (unlearned) {
+    evaluations.forEach(function (cb) {
 
-                    cb.checked = false;
-                    cb.disabled = true;
+        if (learned) {
 
-                } else {
+            cb.disabled = false;
 
-                    cb.disabled = false;
+        } else {
 
-                }
-
-            });
+            cb.checked = false;
+            cb.disabled = true;
 
         }
+
+    });
+
+    evaluationWarning.style.display =
+        learned ? "none" : "";
+
+}
 
         studyCondition.addEventListener(
             "change",

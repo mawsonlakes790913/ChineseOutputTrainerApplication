@@ -192,6 +192,12 @@
 	                   th:text="#{user.question.list.evaluation}">
 	                理解度
 	            </label>
+	            
+				<span id="evaluationWarning"
+				      class="text-danger small ms-3"
+				      th:text="#{user.question.list.evaluation.warning}">
+				    理解度は「学習済み」を選択した場合のみ指定できます。
+				</span>	            
 	
 				<div id="evaluationArea"
 				     class="d-flex gap-2">
