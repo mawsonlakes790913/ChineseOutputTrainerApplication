@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chinese Output Forge</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <script th:src="@{/js/user/question/list.js}"
+            defer>
+    </script>
+
+    <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}">
+    </script>
+
+    <meta name="_csrf"
+          th:content="${_csrf.token}">
+
+    <meta name="_csrf_header"
+          th:content="${_csrf.headerName}">
+</head>
+
+<body>
+
+<div layout:fragment="content" class="w-100">
+
+    <h2 class="mb-4"
+        th:text="#{user.question.list.title}">
+        問題一覧
+    </h2>
+
+	<!-- ========================= -->
+	<!-- 検索フォーム -->
+	<!-- ========================= -->
+	
+	<form th:action="@{/user/question/list}"
+	      method="get"
+	      class="card p-3 mb-3">
+	
+	    <div class="row g-3">
+	
+	        <!-- ========================= -->
+	        <!-- 学習対象言語 -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-12">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.languageVariant}">
+	                学習対象言語
+	            </label>
+	
+	            <div class="d-flex align-items-center gap-4">
+	
+	                <!-- 普通話 -->
+	                <div class="form-check">
+
+						<input class="form-check-input"
+						       type="checkbox"
+						       name="languageVariants"
+						       value="MAINLAND"
+						       id="mainland"
+						       th:checked="${selectedLanguageVariants[0].name() == 'MAINLAND'}">
+	
+	                    <label class="form-check-label"
+	                           for="mainland"
+	                           th:classappend="${session.languageVariant == null
+	                               or session.languageVariant.name() == 'MAINLAND'}
+	                               ? ' fs-5 fw-bold'
+	                               : ''">
+	                        🇨🇳普通话
+	                    </label>
+	
+	                </div>
+	
+	                <!-- 國語 -->
+	                <div class="form-check">
+	
+						<!-- 國語 -->
+						<input class="form-check-input"
+						       type="checkbox"
+						       name="languageVariants"
+						       value="TAIWAN"
+						       id="taiwan"
+						       th:checked="${selectedLanguageVariants.![name()].contains('TAIWAN')}">
+	
+	                    <label class="form-check-label"
+	                           for="taiwan"
+	                           th:classappend="${session.languageVariant != null
+	                               and session.languageVariant.name() == 'TAIWAN'}
+	                               ? ' fs-5 fw-bold'
+	                               : ''">
+	                        🇹🇼國語
+	                    </label>
+	
+	                </div>
+	
+	            </div>
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 難易度 -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-12">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.difficulty}">
+	                難易度
+	            </label>
+	
+	            <div class="d-flex gap-3">
+	
+	                <div class="form-check">
+	
+	                    <input class="form-check-input"
+	                           type="checkbox"
+	                           name="difficulties"
+	                           value="BEGINNER"
+	                           id="beginner"
+	                           th:checked="${selectedDifficulties == null
+	                               or selectedDifficulties.contains(
+	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).BEGINNER)}">
+	
+						<label class="form-check-label text-danger fw-bold"
+						       for="beginner"
+						       th:text="#{difficulty.beginner}">
+						    初級
+						</label>
+	
+	                </div>
+	
+	                <div class="form-check">
+	
+	                    <input class="form-check-input"
+	                           type="checkbox"
+	                           name="difficulties"
+	                           value="INTERMEDIATE"
+	                           id="intermediate"
+	                           th:checked="${selectedDifficulties == null
+	                               or selectedDifficulties.contains(
+	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).INTERMEDIATE)}">
+	
+						<label class="form-check-label text-primary fw-bold"
+						       for="intermediate"
+						       th:text="#{difficulty.intermediate}">
+						    中級
+						</label>
+	
+	                </div>
+	
+	                <div class="form-check">
+	
+	                    <input class="form-check-input"
+	                           type="checkbox"
+	                           name="difficulties"
+	                           value="ADVANCED"
+	                           id="advanced"
+	                           th:checked="${selectedDifficulties == null
+	                               or selectedDifficulties.contains(
+	                               T(io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty).ADVANCED)}">
+	
+						<label class="form-check-label text-success fw-bold"
+						       for="advanced"
+						       th:text="#{difficulty.advanced}">
+						    上級
+						</label>
+	
+	                </div>
+	
+	            </div>
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 理解度 -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-12">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.evaluation}">
+	                理解度
+	            </label>
+	
+				<div id="evaluationArea"
+				     class="d-flex gap-2">
+				
+				    <!-- Hard -->
+				    <label class="bg-danger-subtle border border-danger rounded px-3 py-2">
+				
+				        <input class="form-check-input me-2"
+				               type="checkbox"
+				               name="evaluations"
+				               value="HARD"
+				               id="hard"
+				               th:checked="${selectedEvaluations == null
+				                   or selectedEvaluations.contains(
+				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).HARD)}">
+				
+				        Hard
+				
+				    </label>
+				
+				    <!-- Good -->
+				    <label class="bg-primary-subtle border border-primary rounded px-3 py-2">
+				
+				        <input class="form-check-input me-2"
+				               type="checkbox"
+				               name="evaluations"
+				               value="GOOD"
+				               id="good"
+				               th:checked="${selectedEvaluations == null
+				                   or selectedEvaluations.contains(
+				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).GOOD)}">
+				
+				        Good
+				
+				    </label>
+				
+				    <!-- Easy -->
+				    <label class="bg-success-subtle border border-success rounded px-3 py-2">
+				
+				        <input class="form-check-input me-2"
+				               type="checkbox"
+				               name="evaluations"
+				               value="EASY"
+				               id="easy"
+				               th:checked="${selectedEvaluations == null
+				                   or selectedEvaluations.contains(
+				                   T(io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation).EASY)}">
+				
+				        Easy
+				
+				    </label>
+				
+				</div>
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 学習状況 -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-4">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.studyCondition}">
+	                学習状況
+	            </label>
+	
+	            <select class="form-select"
+	                    id="studyCondition"
+	                    name="studyCondition">
+	
+	                <option value="ALL"
+	                        th:selected="${selectedStudyCondition == null
+	                            or selectedStudyCondition.name() == 'ALL'}"
+	                        th:text="#{user.question.list.studyCondition.all}">
+	                    すべて
+	                </option>
+	
+	                <option value="LEARNED_ONLY"
+	                        th:selected="${selectedStudyCondition != null
+	                            and selectedStudyCondition.name() == 'LEARNED_ONLY'}"
+	                        th:text="#{user.question.list.studyCondition.learned}">
+	                    学習済み
+	                </option>
+	
+	                <option value="UNLEARNED_ONLY"
+	                        th:selected="${selectedStudyCondition != null
+	                            and selectedStudyCondition.name() == 'UNLEARNED_ONLY'}"
+	                        th:text="#{user.question.list.studyCondition.unlearned}">
+	                    未学習
+	                </option>
+	
+	            </select>
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- お気に入り -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-4">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.favorite}">
+	                お気に入り
+	            </label>
+	
+	            <select class="form-select"
+	                    name="favoriteCondition">
+	
+	                <option value="ALL"
+	                        th:selected="${selectedFavoriteCondition == null
+	                            or selectedFavoriteCondition.name() == 'ALL'}"
+	                        th:text="#{user.question.list.favorite.all}">
+	                    すべて
+	                </option>
+	
+	                <option value="FAVORITED"
+	                        th:selected="${selectedFavoriteCondition != null
+	                            and selectedFavoriteCondition.name() == 'FAVORITED'}"
+	                        th:text="#{user.question.list.favorite.only}">
+	                    お気に入りのみ
+	                </option>
+	
+	                <option value="NOT_FAVORITED"
+	                        th:selected="${selectedFavoriteCondition != null
+	                            and selectedFavoriteCondition.name() == 'NOT_FAVORITED'}"
+	                        th:text="#{user.question.list.favorite.not}">
+	                    お気に入り以外
+	                </option>
+	
+	            </select>
+	
+	        </div>
+	
+			<!-- ========================= -->
+			<!-- 文法・構造 -->
+			<!-- ========================= -->
+			
+			<div class="col-12">
+			
+			    <div class="card">
+			
+			        <div class="card-header fw-bold"
+			             th:text="#{user.question.list.structure}">
+			            文法・構造
+			        </div>
+			
+			        <div class="card-body">
+			
+			            <!-- 一括操作 -->
+			            <div class="mb-3">
+			
+			                <button type="button"
+			                        id="selectAllStructures"
+			                        class="btn btn-outline-primary btn-sm"
+			                        th:text="#{user.question.list.structure.selectAll}">
+			                    すべて選択
+			                </button>
+			
+			                <button type="button"
+			                        id="clearAllStructures"
+			                        class="btn btn-outline-secondary btn-sm"
+			                        th:text="#{user.question.list.structure.clearAll}">
+			                    すべて解除
+			                </button>
+			
+			            </div>
+			
+			            <!-- 文法・構造一覧 -->
+			            <div id="structureList"
+			                 class="d-flex flex-wrap gap-2 structure-list">
+			
+			                <label th:each="structure : ${structures}"
+			                       class="bg-light rounded px-3 py-2"
+			                       data-bs-toggle="tooltip"
+			                       data-bs-placement="top"
+			                       th:data-bs-title="${session.languageVariant != null
+			                           && session.languageVariant.name() == 'TAIWAN'
+			                           ? structure.descriptionZhTw
+			                           : structure.descriptionZhCn}">
+			
+								<input class="form-check-input me-2"
+								       type="checkbox"
+								       name="structureIds"
+								       th:value="${structure.structureId}"
+								       th:checked="${selectedStructureIds == null
+								           or selectedStructureIds.contains(structure.structureId)}">
+			
+			                    <span th:text="${structure.name}">
+			                        文法・構造
+			                    </span>
+			
+			                </label>
+			
+			            </div>
+			
+			            <!-- 展開・折りたたみ -->
+			            <div class="text-center mt-3">
+			
+			                <button type="button"
+			                        id="toggleStructures"
+			                        class="btn btn-link btn-sm"
+			                        th:data-show-text="#{user.question.list.structure.showAll}"
+			                        th:data-hide-text="#{user.question.list.structure.collapse}"
+			                        th:text="#{user.question.list.structure.showAll}">
+			                    すべて表示
+			                </button>
+			
+			            </div>
+			
+			        </div>
+			
+			    </div>
+			
+			</div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 日本語キーワード -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-4">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.japaneseKeyword}">
+	                日本語キーワード
+	            </label>
+	
+	            <input class="form-control"
+	                   type="text"
+	                   name="japaneseKeyword"
+	                   th:value="${japaneseKeyword}">
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 中国語キーワード -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-4">
+	
+	            <label class="form-label fw-bold"
+	                   th:text="#{user.question.list.chineseKeyword}">
+	                中国語キーワード
+	            </label>
+	
+	            <input class="form-control"
+	                   type="text"
+	                   name="chineseKeyword"
+	                   th:value="${chineseKeyword}">
+	
+	        </div>
+	
+	
+	        <!-- ========================= -->
+	        <!-- 検索ボタン -->
+	        <!-- ========================= -->
+	
+	        <div class="col-md-4 d-grid align-self-end">
+	
+	            <button class="btn btn-primary"
+	                    type="submit">
+	
+	                <i class="bi bi-search me-1"></i>
+	
+	                <span th:text="#{user.question.list.search}">
+	                    検索
+	                </span>
+	
+	            </button>
+	
+	        </div>
+	
+	    </div>
+	
+	</form>
+
+    <!-- ========================= -->
+    <!-- 件数 -->
+    <!-- ========================= -->
+
+    <div class="text-center mb-3">
+
+        <span th:text="${start}"></span>
+        -
+        <span th:text="${end}"></span>
+        /
+        <span th:text="${total}"></span>
+
+        <span th:text="#{user.question.list.items}">
+            件
+        </span>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 問題一覧 -->
+    <!-- ========================= -->
+
+    <div class="table-responsive">
+
+        <table class="table table-hover align-middle">
+
+            <thead class="table-dark">
+
+            <tr>
+
+                <th class="text-nowrap"
+                    style="width:5%;"
+                    th:text="#{user.question.list.questionId}">
+                    問題番号
+                </th>
+
+                <th style="width:22%;"
+                    th:text="#{user.question.list.japanese}">
+                    日本語
+                </th>
+
+                <th style="width:22%;"
+                    th:text="#{user.question.list.chinese}">
+                    中国語
+                </th>
+
+                <th style="width:14%;"
+                    th:text="#{user.question.list.alternativeAnswer}">
+                    別解
+                </th>
+
+                <th style="width:10%;"
+                    th:text="#{user.question.list.structure}">
+                    文法・構造
+                </th>
+
+                <th class="text-nowrap"
+                    th:text="#{user.question.list.difficulty}">
+                    難易度
+                </th>
+
+                <th class="text-nowrap"
+                    th:text="#{user.question.list.detail}">
+                    詳細
+                </th>
+
+                <th class="text-nowrap"
+                    th:text="#{user.question.list.evaluation}">
+                    理解度
+                </th>
+
+                <th class="text-nowrap"
+                    th:text="#{user.question.list.favorite}">
+                    お気に入り
+                </th>
+
+            </tr>
+
+            </thead>
+
+            <tbody>
+
+            <tr th:each="question : ${questionList}">
+
+                <!-- 問題番号 -->
+
+                <td th:text="${question.questionId}">
+                </td>
+
+                <!-- 日本語 -->
+
+                <td th:text="${question.japaneseText}">
+                </td>
+
+                <!-- 中国語 -->
+
+                <td th:text="${question.chineseText}">
+                </td>
+
+                <!-- 別解 -->
+
+                <td th:text="${question.alternativeAnswer != null
+                    ? (#strings.length(question.alternativeAnswer) > 20
+                        ? #strings.substring(question.alternativeAnswer, 0, 20) + '…'
+                        : question.alternativeAnswer)
+                    : ''}">
+                </td>
+
+                <!-- 文法・構造 -->
+
+                <td>
+
+                    <span th:text="${question.structureName}"
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="top"
+                          th:data-bs-title="${session.languageVariant != null
+                              && session.languageVariant.name() == 'TAIWAN'
+                              ? question.structureDescriptionZhTw
+                              : question.structureDescriptionZhCn}">
+                        文法・構造
+                    </span>
+
+                </td>
+
+                <!-- 難易度 -->
+
+                <td>
+
+                    <span class="text-danger fw-bold"
+                          th:if="${question.difficulty.name() == 'BEGINNER'}"
+                          th:text="#{difficulty.beginner}">
+                        初級
+                    </span>
+
+                    <span class="text-primary fw-bold"
+                          th:if="${question.difficulty.name() == 'INTERMEDIATE'}"
+                          th:text="#{difficulty.intermediate}">
+                        中級
+                    </span>
+
+                    <span class="text-success fw-bold"
+                          th:if="${question.difficulty.name() == 'ADVANCED'}"
+                          th:text="#{difficulty.advanced}">
+                        上級
+                    </span>
+
+                </td>
+
+                <!-- 詳細 -->
+
+                <td>
+
+                    <button type="button"
+                            class="detailButton btn btn-outline-primary btn-sm text-nowrap"
+                            data-bs-toggle="modal"
+                            data-bs-target="#questionDetailModal"
+                            th:data-japanese="${question.japaneseText}"
+                            th:data-chinese="${question.chineseText}"
+                            th:data-alternative="${question.alternativeAnswer}"
+                            th:text="#{user.question.list.detail}"
+                            th:data-pinyin="${question.pinyin}"
+							th:data-zhuyin="${question.zhuyin}"
+							th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
+							th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}">
+                        詳細
+                    </button>
+
+                </td>
+
+                <!-- 理解度 -->
+
+                <td>
+
+                    <span th:if="${question.evaluation == null}"
+                          class="text-secondary text-nowrap"
+                          th:text="#{user.question.list.unlearned}">
+                        未学習
+                    </span>
+
+                    <button th:if="${question.evaluation?.name() == 'HARD'}"
+                            class="btn btn-sm btn-danger evaluationButton"
+                            th:data-question-id="${question.questionId}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#evaluationModal">
+                        Hard
+                    </button>
+
+                    <button th:if="${question.evaluation?.name() == 'GOOD'}"
+                            class="btn btn-sm btn-primary evaluationButton"
+                            th:data-question-id="${question.questionId}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#evaluationModal">
+                        Good
+                    </button>
+
+                    <button th:if="${question.evaluation?.name() == 'EASY'}"
+                            class="btn btn-sm btn-success evaluationButton"
+                            th:data-question-id="${question.questionId}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#evaluationModal">
+                        Easy
+                    </button>
+
+                </td>
+
+                <!-- お気に入り -->
+
+                <td class="text-center">
+
+                    <button class="btn btn-link p-0 favoriteButton"
+                            th:data-question-id="${question.questionId}">
+
+                        <i class="bi bi-heart-fill text-danger"
+                           th:if="${question.favorite}">
+                        </i>
+
+                        <i class="bi bi-heart text-secondary"
+                           th:unless="${question.favorite}">
+                        </i>
+
+                    </button>
+
+                </td>
+
+            </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- ページネーション -->
+    <!-- ========================= -->
+
+    <nav class="mt-4 mb-5"
+         th:if="${page.totalPages > 0}">
+
+        <ul class="pagination justify-content-center">
+
+            <!-- 前へ -->
+
+            <li class="page-item"
+                th:classappend="${page.first} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/user/question/list(
+                       page=${page.number - 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       evaluations=${selectedEvaluations},
+                       studyCondition=${selectedStudyCondition},
+                       favoriteCondition=${selectedFavoriteCondition},
+                       structureIds=${selectedStructureIds},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="#{user.question.list.previous}">
+                    前へ
+                </a>
+
+            </li>
+
+            <!-- 1ページ目 -->
+
+            <li class="page-item"
+                th:classappend="${page.number == 0} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/user/question/list(
+                       page=0,
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       evaluations=${selectedEvaluations},
+                       studyCondition=${selectedStudyCondition},
+                       favoriteCondition=${selectedFavoriteCondition},
+                       structureIds=${selectedStructureIds},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}">
+                    1
+                </a>
+
+            </li>
+
+            <!-- ... 先頭側 -->
+
+            <li class="page-item disabled"
+                th:if="${pagination.showFirstEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+            <!-- 中央のページ番号 -->
+
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(
+                    pagination.displayStartPage,
+                    pagination.displayEndPage)}"
+                th:if="${i != 0 and i != page.totalPages - 1}"
+                th:classappend="${i == pagination.currentPage} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/user/question/list(
+                       page=${i},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       evaluations=${selectedEvaluations},
+                       studyCondition=${selectedStudyCondition},
+                       favoriteCondition=${selectedFavoriteCondition},
+                       structureIds=${selectedStructureIds},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="${i + 1}">
+                </a>
+
+            </li>
+
+            <!-- ... 末尾側 -->
+
+            <li class="page-item disabled"
+                th:if="${pagination.showLastEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+            <!-- 最終ページ -->
+
+            <li class="page-item"
+                th:if="${page.totalPages > 1}"
+                th:classappend="${page.last} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/user/question/list(
+                       page=${page.totalPages - 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       evaluations=${selectedEvaluations},
+                       studyCondition=${selectedStudyCondition},
+                       favoriteCondition=${selectedFavoriteCondition},
+                       structureIds=${selectedStructureIds},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="${page.totalPages}">
+                </a>
+
+            </li>
+
+            <!-- 次へ -->
+
+            <li class="page-item"
+                th:classappend="${page.last} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/user/question/list(
+                       page=${page.number + 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       evaluations=${selectedEvaluations},
+                       studyCondition=${selectedStudyCondition},
+                       favoriteCondition=${selectedFavoriteCondition},
+                       structureIds=${selectedStructureIds},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="#{user.question.list.next}">
+                    次へ
+                </a>
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+    <!-- ========================= -->
+    <!-- 戻る -->
+    <!-- ========================= -->
+
+    <div class="text-center mt-3 mb-3">
+
+        <a th:href="@{/user/menu}"
+           class="btn btn-secondary"
+           th:text="#{user.question.list.backToMenu}">
+            ユーザーメニューに戻る
+        </a>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 問題詳細モーダル -->
+    <!-- ========================= -->
+
+    <div class="modal fade"
+         id="questionDetailModal"
+         th:data-pronunciation-type="${pronunciationType}">
+
+        <div class="modal-dialog">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title"
+                        th:text="#{user.question.list.detailTitle}">
+                        問題詳細
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+				<div class="modal-body">
+				
+				    <!-- 日本語 -->
+				    <p>
+				        <strong th:text="#{user.question.list.japanese}">
+				            日本語
+				        </strong>
+				        <br>
+				        <span id="modalJapanese"></span>
+				    </p>
+				
+				
+				    <!-- 中国語 -->
+				    <div class="mb-3">
+				
+				        <strong th:text="#{user.question.list.chinese}">
+				            中国語
+				        </strong>
+				
+				        <br>
+				
+				        <span id="modalChinese"></span>
+				
+				        <!-- 中国語の発音記号 -->
+				        <div id="modalChinesePronunciationArea"
+				             class="text-secondary small mt-1">
+				
+				            <span id="modalChinesePronunciation"></span>
+				
+				        </div>
+				
+				    </div>
+				
+				
+				    <!-- 別解 -->
+				    <div id="modalAlternativeArea"
+				         class="mb-3">
+				
+				        <strong th:text="#{user.question.list.alternativeAnswer}">
+				            別解
+				        </strong>
+				
+				        <br>
+				
+				        <span id="modalAlternative"></span>
+				
+				        <!-- 別解の発音記号 -->
+				        <div id="modalAlternativePronunciationArea"
+				             class="text-secondary small mt-1">
+				
+				            <span id="modalAlternativePronunciation"></span>
+				
+				        </div>
+				
+				    </div>
+				
+				</div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal"
+                            th:text="#{common.close}">
+                        閉じる
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 理解度変更モーダル -->
+    <!-- ========================= -->
+
+    <div class="modal fade"
+         id="evaluationModal">
+
+        <div class="modal-dialog">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title"
+                        th:text="#{user.question.list.changeEvaluation}">
+                        理解度変更
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+                <div class="modal-body text-center">
+
+                    <button class="btn btn-danger evaluationSelect"
+                            data-evaluation="HARD">
+                        Hard
+                    </button>
+
+                    <button class="btn btn-primary evaluationSelect"
+                            data-evaluation="GOOD">
+                        Good
+                    </button>
+
+                    <button class="btn btn-success evaluationSelect"
+                            data-evaluation="EASY">
+                        Easy
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

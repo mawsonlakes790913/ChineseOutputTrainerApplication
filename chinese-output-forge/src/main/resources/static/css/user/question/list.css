@@ -1,0 +1,19 @@
+/* =========================
+   文法・構造
+   ========================= */
+
+.structure-list {
+    max-height: 100px;
+    overflow: hidden;
+}
+
+.structure-list.expanded {
+    max-height: none;
+}
+
+.tooltip-inner {
+    max-width: 400px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    text-align: left;
+}

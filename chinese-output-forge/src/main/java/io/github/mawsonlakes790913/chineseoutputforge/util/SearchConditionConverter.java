@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.StudyCondition;
 
 @Component
 public class SearchConditionConverter {
@@ -79,5 +81,38 @@ public class SearchConditionConverter {
 		
 		return convertedFavoriteCondition;
 		
+	}
+	
+	public String convertStudyCondition(StudyCondition studyCondition) {
+		
+		String convertedStudyCondition;
+		
+		if (studyCondition == null) {
+			
+			convertedStudyCondition = StudyCondition.ALL.name();
+			
+		} else {
+			
+			convertedStudyCondition = studyCondition.name();
+					
+		}
+		
+		return convertedStudyCondition;
+	}
+	
+	public List<String> convertLanguageVariant(
+	        List<LanguageVariant> languageVariants) {
+
+	    List<String> convertedLanguageVariants =
+	            new ArrayList<>();
+
+	    for (LanguageVariant languageVariant : languageVariants) {
+
+	        convertedLanguageVariants.add(
+	                languageVariant.name()
+	        );
+	    }
+
+	    return convertedLanguageVariants;
 	}
 }

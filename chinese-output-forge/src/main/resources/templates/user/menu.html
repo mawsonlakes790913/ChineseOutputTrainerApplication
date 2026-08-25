@@ -20,57 +20,59 @@
 <div layout:fragment="content"
      class="container pt-3">
 
-    <h2 th:text="#{user.menu.title}">
-        ユーザーメニュー
-    </h2>
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
 
-    <div class="list-group mt-3">
+            <h2 th:text="#{user.menu.title}">
+                ユーザーメニュー
+            </h2>
 
-        <!-- 問題一覧・検索 -->
-        <a th:href="@{/user/question/search}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-list-ul me-2"></i>
-            <span th:text="#{user.menu.questionSearch}">
-                問題一覧・検索
-            </span>
-        </a>
+            <div class="list-group mt-3">
 
-        <!-- プロフィール -->
-        <a th:href="@{/user/profile}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-person-fill me-2"></i>
-            <span th:text="#{user.menu.profile}">
-                会員情報確認・編集
-            </span>
-        </a>
+                <a th:href="@{/user/question/list}"
+                   class="list-group-item list-group-item-action">
+                    <i class="bi bi-list-ul me-2"></i>
+                    <span th:text="#{user.menu.questionSearch}">
+                        問題一覧・検索
+                    </span>
+                </a>
 
-        <!-- 設定 -->
-        <a th:href="@{/user/settings}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-gear-fill me-2"></i>
-            <span th:text="#{user.menu.settings}">
-                設定
-            </span>
-        </a>
+                <a th:href="@{/user/profile}"
+                   class="list-group-item list-group-item-action">
+                    <i class="bi bi-person-fill me-2"></i>
+                    <span th:text="#{user.menu.profile}">
+                        会員情報確認・編集
+                    </span>
+                </a>
 
-        <!-- 管理者専用 -->
-        <a th:href="@{/admin/menu}"
-           class="list-group-item list-group-item-action"
-           sec:authorize="hasRole('ROLE_ADMIN')">
-            <i class="bi bi-shield-lock-fill me-2"></i>
-            <span th:text="#{user.menu.admin}">
-                アドミン権限専用画面
-            </span>
-        </a>
+                <a th:href="@{/user/settings}"
+                   class="list-group-item list-group-item-action">
+                    <i class="bi bi-gear-fill me-2"></i>
+                    <span th:text="#{user.menu.settings}">
+                        設定
+                    </span>
+                </a>
 
-    </div>
+                <a th:href="@{/admin/menu}"
+                   class="list-group-item list-group-item-action"
+                   sec:authorize="hasRole('ROLE_ADMIN')">
+                    <i class="bi bi-shield-lock-fill me-2"></i>
+                    <span th:text="#{user.menu.admin}">
+                        アドミン権限専用画面
+                    </span>
+                </a>
 
-    <div class="text-center mt-3">
-        <a th:href="@{/}"
-           class="btn btn-secondary"
-           th:text="#{common.backToTop}">
-            Topに戻る
-        </a>
+            </div>
+
+            <div class="text-center mt-3">
+                <a th:href="@{/}"
+                   class="btn btn-secondary"
+                   th:text="#{common.backToTop}">
+                    Topに戻る
+                </a>
+            </div>
+
+        </div>
     </div>
 
 </div>
