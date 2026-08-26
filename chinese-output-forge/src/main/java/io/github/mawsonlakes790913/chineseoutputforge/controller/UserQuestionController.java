@@ -121,6 +121,13 @@ public class UserQuestionController {
 
 	    // 検索条件を画面へ戻す
 	    model.addAttribute("selectedDifficulties", difficulties);
+	    // 学習済みで理解度が未指定の場合は全選択として表示
+	    if (studyCondition == StudyCondition.LEARNED_ONLY
+	            && (evaluations == null || evaluations.isEmpty())) {
+
+	        evaluations = Arrays.asList(Evaluation.values());
+	    }
+
 	    model.addAttribute("selectedEvaluations", evaluations);
 	    model.addAttribute("selectedStudyCondition", studyCondition);
 	    model.addAttribute("selectedFavoriteCondition", favoriteCondition);
