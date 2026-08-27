@@ -8,11 +8,12 @@ Chinese Output Forgeで使用するデータベーステーブルを定義する
 
 ただし、両者のデータ構造は共通しているため、
 
-- Question
-- Structure
-- Favorite
-- StudyHistory
-- AiGeneratedQuestion
+- USER
+- QUESTION
+- STRUCTURE
+- FAVORITE
+- STUDY_HISTORY
+- AI_GENERATED_QUESTION
 
 について、大陸普通話用と台湾華語用で別テーブルを持つのではなく、共通テーブルで管理する。
 
@@ -27,7 +28,14 @@ TAIWAN
 
 ユーザー情報についても両方の学習対象言語で共通のUSERテーブルを使用する。
 
-また、ユーザーをDB内部で識別するための数値IDと、ユーザーがログイン時に使用するログインIDを分離する。
+また、USERには認証・権限情報だけでなく、ユーザーが継続的に使用する以下の設定も保持する。
+
+```text
+language_variant
+pronunciation_type
+```
+
+これにより、ユーザーが学習対象言語や発音表記を変更した場合、その設定をログアウト後も維持できるようにする。
 
 ---
 
@@ -35,9 +43,16 @@ TAIWAN
 
 ## 概要
 
-ユーザー情報、認証情報、権限を管理するテーブル。
+ユーザー情報、認証情報、権限、およびユーザーごとの学習・表示設定を管理するテーブル。
 
 ユーザーを内部的に識別するための `id` を主キーとし、ユーザーがログイン時に使用するIDは `login_id` として別途管理する。
+
+また、
+
+- 学習対象言語
+- 発音表記
+
+についてはユーザーごとの設定としてUSERに保存する。
 
 | カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
 |---|---|---|---|---|---|---|---|
@@ -45,6 +60,47 @@ TAIWAN
 | login_id | ログインID | - | - | VARCHAR(20) | ○ | ○ | ユーザーがログイン時に使用 |
 | password | パスワード | - | - | VARCHAR(255) | ○ | - | ハッシュ化して保存 |
 | role | 権限 | - | - | VARCHAR(20) | ○ | - | USER / ADMIN |
+| language_variant | 学習対象言語 | - | - | VARCHAR(20) | ○ | - | MAINLAND / TAIWAN |
+| pronunciation_type | 発音表記 | - | - | VARCHAR(20) | ○ | - | PINYIN / ZHUYIN / NONE |
+
+## `language_variant`
+
+ユーザーが現在学習対象として設定している中国語を表す。
+
+| 値 | 意味 |
+|---|---|
+| MAINLAND | 大陸普通話 |
+| TAIWAN | 台湾華語（國語） |
+
+実装時にはEnumとして定義する。
+
+新規ユーザーのデフォルト値は、
+
+```text
+MAINLAND
+```
+
+とする。
+
+## `pronunciation_type`
+
+ユーザーが中国語の解答とともに表示する発音表記を表す。
+
+| 値 | 意味 |
+|---|---|
+| PINYIN | 拼音を表示する |
+| ZHUYIN | 注音を表示する |
+| NONE | 発音表記を表示しない |
+
+実装時にはEnumとして定義する。
+
+新規ユーザーのデフォルト値は、
+
+```text
+PINYIN
+```
+
+とする。
 
 ## 補足
 
@@ -55,6 +111,25 @@ TAIWAN
 - 他テーブルからUSERを参照する場合は `login_id` ではなく `id` を外部キーとして使用する。
 - パスワードは平文では保存しない。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
+- `language_variant` はユーザーが現在使用する学習対象言語を表す。
+- `pronunciation_type` はユーザーが現在使用する発音表記を表す。
+- `language_variant` と `pronunciation_type` は独立した設定として扱う。
+- ユーザーが設定画面で設定を変更した場合はUSERを更新する。
+- これらの設定はDBへ永続化し、ログアウト後も維持する。
+
+例えば、
+
+```text
+USER
+
+id                   = 1001
+login_id             = naoki
+role                 = USER
+language_variant     = TAIWAN
+pronunciation_type   = ZHUYIN
+```
+
+の場合、このユーザーは台湾華語を学習対象とし、発音表記として注音を使用する。
 
 ---
 
@@ -75,6 +150,8 @@ TAIWAN
 | pinyin | 拼音 | - | - | TEXT | ○ | - | 中国語本文に対応する拼音 |
 | zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
 | alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
+| alternative_answer_pinyin | 別解の拼音 | - | - | TEXT | - | - | 別解に対応する拼音（NULL可） |
+| alternative_answer_zhuyin | 別解の注音 | - | - | TEXT | - | - | 別解に対応する注音符號（NULL可） |
 | condition | 条件 | - | - | VARCHAR(100) | - | - | 解答条件・ヒント（NULL可） |
 | structure_id | 文法・構造ID | - | ○ | BIGINT | ○ | - | STRUCTURE.structure_id参照 |
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
@@ -92,7 +169,7 @@ TAIWAN
 | MAINLAND | 大陸普通話 |
 | TAIWAN | 台湾華語（國語） |
 
-実装時にはEnumとして定義することを想定する。
+実装時にはEnumとして定義する。
 
 ## 補足
 
@@ -111,6 +188,8 @@ TAIWAN
 - STRUCTUREとの関連はすべてのQUESTIONで必須とし、`structure_id` はNULLを許可しない。
 - 文法・構造名および説明はQUESTION自身には保持せず、関連するSTRUCTUREから取得する。
 - `condition` は開発者・出題者が設定する解答条件・ヒントであり、条件を必要としない問題ではNULLを許可する。
+- `pinyin` と `zhuyin` はユーザーの現在の発音表記設定にかかわらず両方保持する。
+- 別解が存在する場合は、別解用の拼音・注音も保持できる。
 
 ---
 
@@ -139,43 +218,48 @@ QUESTIONの模範解答となる中国語文を文法・構造上分析した際
 - `description_zh_cn` には、大陸普通話向けの文法・構造についての簡潔な説明を保持する。
 - `description_zh_tw` には、台湾華語向けの文法・構造についての簡潔な説明を保持する。
 - 説明には、必要に応じて代表的な中国語表現を含める。
-- どちらの説明を使用するかは、セッションに保存されている現在の学習対象言語によって決定する。
-- `session.languageVariant = MAINLAND` の場合は `description_zh_cn` を使用する。
-- `session.languageVariant = TAIWAN` の場合は `description_zh_tw` を使用する。
+- ログインユーザーの場合、どちらの説明を使用するかは `USER.language_variant` によって決定する。
+- `USER.language_variant = MAINLAND` の場合は `description_zh_cn` を使用する。
+- `USER.language_variant = TAIWAN` の場合は `description_zh_tw` を使用する。
 - 説明の切り替えはサイト表記言語とは独立して扱う。
 - 1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
 - QUESTIONが1件も関連付けられていないSTRUCTUREの存在も許可する。
 - QUESTIONからSTRUCTUREへの関連は必須とする。
 - 文法・構造はEnumでは管理せず、STRUCTUREのレコードとして追加・変更できるものとする。
 
-    STRUCTURE
-        │
-        │ 1:N
-        ↓
-    QUESTION
+```text
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+```
 
 例えば、
 
-    STRUCTURE
-    structure_id      = 1
-    name              = 因果複文
+```text
+STRUCTURE
 
-    description_zh_cn =
-    原因・理由と、それによって生じる結果を表す複文。
-    「因为～所以～」「既然～就～」など。
+structure_id = 1
+name         = 因果複文
 
-    description_zh_tw =
-    原因・理由と、それによって生じる結果を表す複文。
-    「因為～所以～」「既然～就～」など。
+description_zh_cn =
+原因・理由と、それによって生じる結果を表す複文。
+「因为～所以～」「既然～就～」など。
 
-            │
-            │ 1:N
-            ↓
+description_zh_tw =
+原因・理由と、それによって生じる結果を表す複文。
+「因為～所以～」「既然～就～」など。
 
-    QUESTION
-    ├── 因为下雨，所以我没出去。
-    ├── 既然决定了，就不要放弃。
-    └── 因为太累了，所以他早早就睡了。
+        │
+        │ 1:N
+        ↓
+
+QUESTION
+├── 因为下雨，所以我没出去。
+├── 既然决定了，就不要放弃。
+└── 因为太累了，所以他早早就睡了。
+```
 
 のように管理する。
 
@@ -266,11 +350,11 @@ language_variant
 
 ## 概要
 
-AI生成学習によって生成された問題のうち、ユーザーが理解度を登録した問題を保存するテーブル。
+AI生成学習によって生成された問題のうち、保存対象となった問題を管理するテーブル。
 
 大陸普通話・台湾華語のAI生成問題を共通のAI_GENERATED_QUESTIONテーブルで管理する。
 
-保存されたAI生成問題は、生成したユーザー専用の復習対象として扱う。
+保存されたAI生成問題は、生成したユーザー専用のデータとして扱う。
 
 | カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
 |---|---|---|---|---|---|---|---|
@@ -291,16 +375,18 @@ AI生成学習によって生成された問題のうち、ユーザーが理解
 ## 補足
 
 - AIが問題を生成した時点ではレコードを作成しない。
-- ユーザーが `HARD / GOOD / EASY` のいずれかを選択した場合に初めてINSERTする。
+- 保存条件を満たした場合にAI_GENERATED_QUESTIONへINSERTする。
 - `user_id` によってAI生成問題の所有ユーザーを特定する。
-- AI生成問題は所有ユーザーのみ参照・復習できる。
+- AI生成問題は所有ユーザーのみ参照できる。
 - 他ユーザーの通常学習や復習には使用しない。
 - 通常学習では本テーブルから出題しない。
-- 復習メニューでAI生成問題を対象として選択した場合に再出題できる。
+- 保存されたAI生成問題は、対応する機能から再度参照できる。
 - AI生成問題専用のStudyHistoryテーブルは作成せず、本テーブル自身に最新の評価を保持する。
 - `source_question_id` により生成元となったマスタ問題を追跡する。
 - AI_GENERATED_QUESTION自身には原則として `language_variant` を保持しない。
 - 学習対象言語は生成元となったQUESTIONから判定する。
+- 文法・構造についても生成元QUESTIONを経由してSTRUCTUREから判定する。
+- AI生成問題にも本解答・別解それぞれの拼音・注音を保持できる。
 
 ```text
 AI_GENERATED_QUESTION
@@ -308,11 +394,12 @@ AI_GENERATED_QUESTION
 source_question_id
         ↓
 QUESTION
-        ↓
-language_variant
+        ├── language_variant
+        │
+        └── structure_id
+                ↓
+            STRUCTURE
 ```
-
-生成時点の学習対象言語をAI_GENERATED_QUESTION自身にも保存する必要があるかについては、詳細実装時に必要性を再検討する。
 
 ---
 
@@ -350,8 +437,8 @@ USERでは、内部管理用IDとログインIDを分離する。
 ```text
 USER
 
-id          ← DB内部で使用する不変のID
-login_id    ← ユーザーが使用するログインID
+id       ← DB内部で使用する不変のID
+login_id ← ユーザーが使用するログインID
 ```
 
 例えば以下のユーザーが存在するとする。
@@ -389,14 +476,114 @@ naoki2026
 
 ---
 
-# 11. AI生成問題の保存方針
+# 11. ユーザー設定の管理方針
+
+ユーザーが継続的に使用する、
+
+```text
+学習対象言語
+発音表記
+```
+
+はUSERに保存する。
+
+```text
+USER
+│
+├── language_variant
+└── pronunciation_type
+```
+
+## 学習対象言語
+
+```text
+language_variant
+
+├── MAINLAND
+│   └── 大陸普通話
+│
+└── TAIWAN
+    └── 台湾華語（國語）
+```
+
+デフォルト値は、
+
+```text
+MAINLAND
+```
+
+とする。
+
+## 発音表記
+
+```text
+pronunciation_type
+
+├── PINYIN
+│   └── 拼音
+│
+├── ZHUYIN
+│   └── 注音
+│
+└── NONE
+    └── 表示なし
+```
+
+デフォルト値は、
+
+```text
+PINYIN
+```
+
+とする。
+
+## 永続化
+
+ユーザーが設定画面で設定を変更した場合はUSERを更新する。
+
+```text
+設定変更
+    ↓
+USER更新
+    ↓
+DBへ保存
+```
+
+例えば、
+
+```text
+language_variant   = TAIWAN
+pronunciation_type = ZHUYIN
+```
+
+に変更した場合、
+
+```text
+ログアウト
+    ↓
+セッション破棄
+    ↓
+再ログイン
+    ↓
+USERから設定を取得
+    ↓
+TAIWAN / ZHUYIN を継続
+```
+
+となる。
+
+セッションはアプリケーション利用中の現在値を一時的に保持するために利用できるが、ユーザー設定の永続的な保存先はUSERとする。
+
+---
+
+# 12. AI生成問題の保存方針
 
 AI生成問題については、生成されたすべての問題をDBへ保存しない。
 
 基本的な処理は以下とする。
 
 ```text
-現在の学習対象言語
+USER.language_variant
     ↓
 対応するマスタQUESTION
     ↓
@@ -404,28 +591,12 @@ AIによる問題生成
     ↓
 ユーザーへ出題
     ↓
-回答表示
-    ↓
-Hard / Good / Easy
+保存対象となる操作
     ↓
 AI_GENERATED_QUESTIONへINSERT
 ```
 
-一方、理解度を登録せず終了した場合は、
-
-```text
-マスタQUESTION
-    ↓
-AIによる問題生成
-    ↓
-ユーザーへ出題
-    ↓
-学習終了
-    ↓
-保存しない
-```
-
-とする。
+保存されなかったAI生成問題については、学習終了後に破棄する。
 
 これにより、表示されただけのAI生成問題がDBへ大量に蓄積されることを防ぐ。
 
@@ -433,9 +604,23 @@ AIによる問題生成
 
 **あるユーザーのために生成された問題が、別のユーザーの通常学習に混入することを防止する。**
 
+AI生成問題の学習対象言語は、
+
+```text
+AI_GENERATED_QUESTION
+    ↓
+source_question_id
+    ↓
+QUESTION.language_variant
+```
+
+によって判定する。
+
+AI生成時に使用するLanguage Profileについても、現在の `USER.language_variant` に対応するものを使用する。
+
 ---
 
-# 12. 大陸普通話・台湾華語の管理方針
+# 13. 大陸普通話・台湾華語の管理方針
 
 大陸普通話と台湾華語は、単純な文字変換による同一問題として扱わない。
 
@@ -482,8 +667,8 @@ TAIWAN
 ```text
 QUESTION
 
-question_id      = 100
-language_variant = MAINLAND
+question_id       = 100
+language_variant  = MAINLAND
 ```
 
 と、
@@ -491,8 +676,8 @@ language_variant = MAINLAND
 ```text
 QUESTION
 
-question_id      = 101
-language_variant = TAIWAN
+question_id       = 101
+language_variant  = TAIWAN
 ```
 
 は、それぞれ独立した問題である。
@@ -504,7 +689,7 @@ language_variant = TAIWAN
 ```text
 大陸普通話の問題
         ↓
-文字変換
+     文字変換
         ↓
 台湾華語の問題
 ```
@@ -529,21 +714,43 @@ Favorite、StudyHistory、AiGeneratedQuestionについては、QUESTIONとの関
 
 ---
 
-# 13. 学習対象言語によるデータ取得方針
+# 14. 学習対象言語によるデータ取得方針
 
-通常学習、復習、AI生成学習などでは、現在ユーザーが選択している学習対象言語に応じてQUESTIONを絞り込む。
+通常学習、復習、AI生成学習、ユーザー用問題一覧などでは、ログインユーザーの場合、
+
+```text
+USER.language_variant
+```
+
+を現在の学習対象言語として使用する。
 
 大陸普通話の場合：
 
 ```text
-language_variant = MAINLAND
+USER.language_variant = MAINLAND
 ```
+
+に対応して、
+
+```text
+QUESTION.language_variant = MAINLAND
+```
+
+の問題を取得する。
 
 台湾華語の場合：
 
 ```text
-language_variant = TAIWAN
+USER.language_variant = TAIWAN
 ```
+
+に対応して、
+
+```text
+QUESTION.language_variant = TAIWAN
+```
+
+の問題を取得する。
 
 概念的には以下のような検索となる。
 
@@ -563,9 +770,13 @@ WHERE language_variant = 'TAIWAN';
 
 FavoriteやStudyHistoryを利用する場合も、QUESTIONとのJOINによって現在の学習対象言語に対応するデータを取得する。
 
-例えば概念的には、
+例えば、
 
 ```text
+USER.language_variant = TAIWAN
+
+        ↓
+
 STUDY_HISTORY
       ↓
    QUESTION
@@ -579,11 +790,93 @@ language_variant = TAIWAN
 
 ---
 
-# 14. サイト表記言語との関係
+# 15. 発音表記による表示方針
 
-学習対象言語とサイト表記言語は別の設定として扱う。
+QUESTIONおよびAI_GENERATED_QUESTIONは、ユーザーの現在の設定にかかわらず、
 
-QUESTIONの `language_variant` は、
+```text
+pinyin
+zhuyin
+```
+
+の両方を保持する。
+
+別解についても、
+
+```text
+alternative_answer_pinyin
+alternative_answer_zhuyin
+```
+
+の両方を保持できる。
+
+実際にどちらを表示するかは、
+
+```text
+USER.pronunciation_type
+```
+
+によって決定する。
+
+```text
+USER.pronunciation_type = PINYIN
+
+chinese_text
+└── pinyin
+
+alternative_answer
+└── alternative_answer_pinyin
+```
+
+```text
+USER.pronunciation_type = ZHUYIN
+
+chinese_text
+└── zhuyin
+
+alternative_answer
+└── alternative_answer_zhuyin
+```
+
+```text
+USER.pronunciation_type = NONE
+
+chinese_text
+└── 発音表記なし
+
+alternative_answer
+└── 発音表記なし
+```
+
+学習対象言語と発音表記は独立して扱う。
+
+したがって、
+
+```text
+MAINLAND + PINYIN
+MAINLAND + ZHUYIN
+MAINLAND + NONE
+
+TAIWAN + PINYIN
+TAIWAN + ZHUYIN
+TAIWAN + NONE
+```
+
+のすべての組み合わせを許可する。
+
+---
+
+# 16. サイト表記言語との関係
+
+学習対象言語、発音表記、サイト表記言語はそれぞれ異なる設定として扱う。
+
+## 学習対象言語
+
+```text
+USER.language_variant
+```
+
+は、
 
 ```text
 どちらの中国語を学習するか
@@ -591,7 +884,23 @@ QUESTIONの `language_variant` は、
 
 を表す。
 
-一方、サイト表記言語は、
+## 発音表記
+
+```text
+USER.pronunciation_type
+```
+
+は、
+
+```text
+中国語の発音をどの形式で表示するか
+```
+
+を表す。
+
+## サイト表記言語
+
+サイト表記言語は、
 
 ```text
 サイトのUIをどの言語で表示するか
@@ -613,24 +922,29 @@ English
 ```text
 サイト表記言語 = 日本語
 学習対象言語   = TAIWAN
+発音表記       = PINYIN
 ```
 
 や、
 
 ```text
 サイト表記言語 = 简体中文
-学習対象言語   = TAIWAN
+学習対象言語   = MAINLAND
+発音表記       = ZHUYIN
 ```
 
 といった組み合わせを可能とする。
 
-したがって、サイト表記言語を変更してもQUESTIONの取得条件には影響しない。
+したがって、
 
-サイト表記言語および現在の学習対象言語をDBへ保存するか、Session等で管理するかについては別途詳細設計で決定する。
+- サイト表記言語を変更してもQUESTIONの取得条件には影響しない。
+- 学習対象言語を変更してもサイト表記言語は自動的に変更しない。
+- 発音表記を変更しても学習対象言語は変更しない。
+- 学習対象言語を変更しても発音表記は変更しない。
 
 ---
 
-# 15. 設計上の補足
+# 17. 設計上の補足
 
 - USERは大陸普通話・台湾華語で共通とする。
 - USERは内部管理用の `id` を主キーとして持つ。
@@ -639,10 +953,17 @@ English
 - 他テーブルからユーザーを参照する場合は `USER.id` を使用する。
 - `login_id` を外部キーとして使用しない。
 - ユーザーが `login_id` を変更しても関連テーブルへの影響は発生しない。
+- USERには `language_variant` を保持する。
+- USERには `pronunciation_type` を保持する。
+- `language_variant` は `MAINLAND / TAIWAN` とする。
+- `pronunciation_type` は `PINYIN / ZHUYIN / NONE` とする。
+- 新規ユーザーの `language_variant` のデフォルト値は `MAINLAND` とする。
+- 新規ユーザーの `pronunciation_type` のデフォルト値は `PINYIN` とする。
+- 学習対象言語および発音表記はDBへ永続化する。
+- ログアウト後も学習対象言語および発音表記を維持する。
 - 大陸普通話と台湾華語は異なる問題データとして扱う。
 - QUESTIONは大陸普通話・台湾華語で分離しない。
 - QUESTIONに `language_variant` を持たせる。
-- `language_variant` は `MAINLAND / TAIWAN` を想定する。
 - QUESTIONの問題IDは全体で一意とする。
 - 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
 - FAVORITEは大陸普通話・台湾華語で分離しない。
@@ -656,30 +977,29 @@ English
 - `evaluation` は `HARD / GOOD / EASY` のいずれかとする。
 - AI_GENERATED_QUESTIONは大陸普通話・台湾華語で分離しない。
 - AI生成問題は生成された時点ではDBへ保存しない。
-- AI生成問題はユーザーが理解度を登録した場合に限り保存する。
 - AI生成問題には所有ユーザーの内部IDを保持する。
 - AI生成問題は所有ユーザー専用のデータとして扱う。
 - 他ユーザーのAI生成問題を通常学習・復習・問題一覧へ表示しない。
 - AI生成問題をQUESTIONへ追加しない。
-- AI生成問題は復習メニューから明示的に選択された場合に再出題できる。
 - AI生成問題の最新理解度はAI_GENERATED_QUESTION自身に保持する。
 - `source_question_id` によってAI生成元のQUESTIONを追跡する。
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
+- AI生成問題の文法・構造は生成元QUESTIONから判定する。
 - `allow_ai_variation = true` の問題のみAI生成元として使用する。
 - `subject_type` は `PRONOUN / NON_PRONOUN / ALL` を想定する。
 - `verb_variation` は `FIXED / FLEXIBLE` を想定する。
 - USER.passwordはBCrypt等によってハッシュ化して保存する。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
-- 学習対象言語とサイト表記言語は別の設定として扱う。
+- 学習対象言語、発音表記、サイト表記言語はそれぞれ独立した設定として扱う。
 - AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
 - STRUCTUREは文法・構造を管理するマスタテーブルとする。
 - STRUCTUREは `structure_id`、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
 - 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
 - `description_zh_cn` には大陸普通話向けの説明を保持する。
 - `description_zh_tw` には台湾華語向けの説明を保持する。
-- STRUCTUREの説明を表示する際は、セッションに保存されている現在の学習対象言語に応じて使用する説明を切り替える。
-- `session.languageVariant = MAINLAND` の場合は `description_zh_cn` を使用する。
-- `session.languageVariant = TAIWAN` の場合は `description_zh_tw` を使用する。
+- ログインユーザーについて、STRUCTUREの説明を表示する際は `USER.language_variant` に応じて使用する説明を切り替える。
+- `USER.language_variant = MAINLAND` の場合は `description_zh_cn` を使用する。
+- `USER.language_variant = TAIWAN` の場合は `description_zh_tw` を使用する。
 - STRUCTUREの説明の切り替えはサイト表記言語とは独立して扱う。
 - STRUCTUREとQUESTIONは1対多の関係とする。
 - QUESTIONは `structure_id` によってSTRUCTUREを参照する。
@@ -687,39 +1007,28 @@ English
 - QUESTIONからSTRUCTUREへの関連は必須とし、`structure_id` はNULLを許可しない。
 - 文法・構造名はSTRUCTUREで一元管理し、QUESTIONには重複して保持しない。
 - `condition` は開発者・出題者が設定する解答条件・ヒントとして扱い、NULLを許可する。
-- AI生成問題の文法・構造は生成元QUESTIONに関連付けられたSTRUCTUREから判定し、AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
+- AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
 
 ---
 
----
+# 18. 開発途中で追加・変更したテーブル設計
 
-# 16. 開発途中で追加したテーブル設計
-
-## 16.1 拼音・注音への対応
+## 18.1 拼音・注音への対応
 
 **追加日：2026年8月15日**
 
 当初のテーブル設計では、QUESTIONおよびAI_GENERATED_QUESTIONに中国語本文のみを保存し、発音表記は保存しない設計としていた。
 
-その後、学習時に中国語の発音を確認できるようにするため、QUESTIONおよびAI_GENERATED_QUESTIONに以下のカラムを追加する。
+その後、学習時に中国語の発音を確認できるようにするため、
 
 ```text
 pinyin
 zhuyin
 ```
 
-### QUESTION
+を追加した。
 
-QUESTIONに以下のカラムを追加する。
-
-| カラム名   | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考                       |
-| ------ | -- | -- | -- | ---- | -------- | ------ | ------------------------ |
-| pinyin | 拼音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する拼音   |
-| zhuyin | 注音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する注音符號 |
-
-大陸普通話・台湾華語のどちらの問題についても、拼音・注音の両方を保持する。
-
-したがって、`language_variant` によってどちらか一方のみを保存する構造にはしない。
+QUESTIONおよびAI_GENERATED_QUESTIONでは、大陸普通話・台湾華語のどちらについても拼音・注音の両方を保持する。
 
 ```text
 QUESTION
@@ -730,87 +1039,46 @@ QUESTION
 └── zhuyin
 ```
 
-### AI_GENERATED_QUESTION
-
-AI_GENERATED_QUESTIONにも以下のカラムを追加する。
-
-| カラム名   | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考                       |
-| ------ | -- | -- | -- | ---- | -------- | ------ | ------------------------ |
-| pinyin | 拼音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する拼音   |
-| zhuyin | 注音 | -  | -  | TEXT | ○        | -      | `chinese_text` に対応する注音符號 |
-
-AI生成問題についても、大陸普通話・台湾華語のどちらで生成された問題かにかかわらず、拼音・注音の両方を保持する。
-
-AI生成問題は生成された時点ではDBへ保存せず、既存設計どおり、ユーザーが `HARD / GOOD / EASY` のいずれかを選択した場合にAI_GENERATED_QUESTIONへ保存する。
-
-その際、中国語本文とともに対応する拼音・注音も保存する。
-
-### 発音表記設定との関係
-
-`pinyin` および `zhuyin` は、ユーザーがどちらの発音表記を選択しているかにかかわらず問題データとして保持する。
-
-発音表記設定は、
+表示する発音表記は、
 
 ```text
-PINYIN
-ZHUYIN
-NONE
+USER.pronunciation_type
 ```
 
-を想定し、現在の設定に応じて表示するカラムを切り替える。
+によって決定する。
 
 ```text
 PINYIN
-  ↓
+↓
 pinyin
 
 ZHUYIN
-  ↓
+↓
 zhuyin
+
+NONE
+↓
+表示しない
 ```
 
-発音表記設定は `language_variant` とは独立して扱う。
-
-そのため、
-
-```text
-MAINLAND + PINYIN
-MAINLAND + ZHUYIN
-TAIWAN   + PINYIN
-TAIWAN   + ZHUYIN
-```
-
-のすべての組み合わせを可能とする。
-
-発音表記のデフォルト値は `PINYIN` とする。
-
-発音表記設定自体をUSERテーブルへ保存するか、Session等で管理するかについては詳細設計時に決定する。
+発音表記は学習対象言語とは独立して扱う。
 
 ---
 
-## 16.2 別解の拼音・注音への対応
+## 18.2 別解の拼音・注音への対応
 
 **追加日：2026年8月16日**
 
-`16.1 拼音・注音への対応` では、中国語の模範解答に対応する発音情報として、QUESTIONに以下のカラムを追加した。
+別解が存在する問題についても発音を確認できるようにするため、
 
 ```text
-pinyin
-zhuyin
+alternative_answer_pinyin
+alternative_answer_zhuyin
 ```
 
-その後、別解が存在する問題についても発音を確認できるようにする必要があるため、QUESTIONに別解用の発音情報を追加する。
+を追加した。
 
-### QUESTION
-
-以下のカラムを追加する。
-
-| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
-|---|---|---|---|---|---|---|---|
-| alternative_answer_pinyin | 別解の拼音 | - | - | TEXT | - | - | `alternative_answer` に対応する拼音（NULL可） |
-| alternative_answer_zhuyin | 別解の注音 | - | - | TEXT | - | - | `alternative_answer` に対応する注音符號（NULL可） |
-
-これにより、QUESTIONの中国語解答および発音情報は以下の構成となる。
+QUESTIONでは、
 
 ```text
 QUESTION
@@ -824,35 +1092,9 @@ QUESTION
     └── alternative_answer_zhuyin
 ```
 
-`alternative_answer_pinyin` および `alternative_answer_zhuyin` は、`alternative_answer` が存在する場合に使用する。
+として保持する。
 
-別解自体が任意項目であるため、これらのカラムについてもNULLを許可する。
-
-### 発音表記設定との関係
-
-本解答と別解には同一の発音表記設定を適用する。
-
-```text
-PINYIN
-├── chinese_text       → pinyin
-└── alternative_answer → alternative_answer_pinyin
-
-ZHUYIN
-├── chinese_text       → zhuyin
-└── alternative_answer → alternative_answer_zhuyin
-
-NONE
-├── chinese_text       → 発音表記なし
-└── alternative_answer → 発音表記なし
-```
-
-別解専用の発音表記設定は設けない。
-
-### AI_GENERATED_QUESTION
-
-現時点のAI_GENERATED_QUESTIONには `alternative_answer` を保持する設計がないため、今回の変更では別解用の発音カラムを追加しない。
-
-将来、AI生成問題にも別解を保持する仕様を追加する場合は、
+AI_GENERATED_QUESTIONについても、
 
 ```text
 alternative_answer
@@ -860,45 +1102,46 @@ alternative_answer_pinyin
 alternative_answer_zhuyin
 ```
 
-の追加をあわせて検討する。
+を保持できる設計とする。
 
-## 16.3 問題の文法・構造（structure）の追加
-
-**追加日：2026年8月23日**
-
-問題を文法・構造によって客観的に分類し、復習時の出題条件や問題検索に利用できるようにするため、QUESTIONに `structure` カラムを追加する。
-
-### QUESTION
-
-以下のカラムを追加する。
-
-| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
-|---|---|---|---|---|---|---|---|
-| structure | 文法・構造 | - | - | VARCHAR(50) | ○ | - | 中国語文の根幹となる文法・構造 |
-
-`structure` は、模範解答となる中国語文を文法・構造上分析した際に、**その文章の根幹となる文法・構造を客観的に分類するためのカラム**とする。
-
-例えば、
+本解答と別解には同じ `USER.pronunciation_type` を適用する。
 
 ```text
-chinese_text = 他笑着跟我说话。
-structure    = 動態助詞（着）
+PINYIN
+├── chinese_text        → pinyin
+└── alternative_answer  → alternative_answer_pinyin
+
+ZHUYIN
+├── chinese_text        → zhuyin
+└── alternative_answer  → alternative_answer_zhuyin
+
+NONE
+├── chinese_text        → 発音表記なし
+└── alternative_answer  → 発音表記なし
 ```
 
-```text
-chinese_text = 这么多菜，我们吃不完。
-structure    = 可能補語
-```
-
-のように設定する。
-
-1つの中国語文に複数の文法的要素が含まれている場合でも、文章の根幹となる文法・構造を1つ選択し、**1つのQUESTIONにつき1つの `structure` を保持する**。
+別解専用の発音表記設定は設けない。
 
 ---
 
-### conditionとの違い
+## 18.3 問題の文法・構造の追加
 
-`structure` と既存の `condition` は異なる目的を持つ。
+**追加日：2026年8月23日**
+
+問題を文法・構造によって客観的に分類し、復習時の出題条件や問題検索に利用できるようにするため、QUESTIONへ文法・構造情報を追加する設計とした。
+
+当初は、
+
+```text
+QUESTION
+└── structure VARCHAR(50)
+```
+
+としてQUESTION自身に文字列で保存する設計とした。
+
+`structure` は、中国語文そのものの根幹となる文法・構造を客観的に分類する情報として定義した。
+
+一方、既存の `condition` は、
 
 ```text
 structure
@@ -909,6 +1152,8 @@ condition
 └── その問題をどのように解答させるか
     └── 開発者・出題者が設定する主観的な条件・ヒント
 ```
+
+という違いを持つ。
 
 例えば、
 
@@ -919,200 +1164,32 @@ structure     = 動態助詞（着）
 condition     = 「着」を使う
 ```
 
-の場合、`structure` は中国語文そのものの文法的な分類であり、`condition` は日本語文から中国語へ変換する際に「着」を使用するよう指定する解答条件である。
+のように扱う。
 
-結果として両者が近い内容になる場合もあるが、その役割は異なる。
-
----
-
-### NULL可否
-
-すべての模範解答となる中国語文には、分類対象となる何らかの文法・構造が存在する。
-
-そのため、`structure` は必須項目とし、NULLを許可しない。
-
-```text
-structure
-NOT NULL
-```
-
-一方、`condition` は特定の文法・語彙・言い回しなどを使用して解答させたい場合に設定する項目であり、条件を必要としない問題も存在する。
-
-そのため、`condition` は従来どおりNULLを許可する。
-
-```text
-structure   NOT NULL
-condition   NULL可
-```
+その後、文法・構造をマスタテーブル化する設計へ変更したため、QUESTION自身に文字列の `structure` を保持する設計は廃止した。
 
 ---
 
-### structureの値
-
-`structure` には、中国語文の根幹となる文法・構造を表す統一されたカテゴリ名を保存する。
-
-例えば、以下のような値を想定する。
-
-```text
-動態助詞（了）
-動態助詞（着）
-動態助詞（過）
-結果補語
-方向補語
-可能補語
-程度補語
-把構文
-被構文
-比較構文
-連動文
-兼語文
-存現文
-条件複文
-因果複文
-前置詞句
-慣用表現
-成語
-口語表現
-```
-
-具体的な分類値については、既存問題および今後追加する問題を整理したうえで確定する。
-
----
-
-### 検索条件としての利用
-
-`structure` は問題を文法・構造によって客観的に分類する情報であるため、以下の機能における検索・絞り込み条件として利用する。
-
-- 復習時の出題条件
-- ユーザー用問題検索
-- 管理者用問題検索
-
-例えば、
-
-```text
-structure = 可能補語
-```
-
-を条件とすることで、可能補語を中国語文の根幹とするQUESTIONを取得できる。
-
-一方、`condition` は開発者・出題者が問題ごとに設定する解答条件・ヒントであるため、文法・構造による問題分類の検索条件としては使用しない。
-
----
-
-### AI_GENERATED_QUESTIONとの関係
-
-AI_GENERATED_QUESTIONには `structure` カラムを追加しない。
-
-AI生成問題は `source_question_id` によって生成元QUESTIONを参照できるため、AI生成問題の文法・構造は生成元QUESTIONの `structure` から判定する。
-
-```text
-AI_GENERATED_QUESTION
-        │
-        │ source_question_id
-        ↓
-     QUESTION
-        │
-        └── structure
-```
-
-これにより、AI_GENERATED_QUESTIONに同一の分類情報を重複して保持することを避ける。
-
-AI生成問題は生成元QUESTIONの文法・構造を維持したバリエーションとして生成するため、原則として生成元QUESTIONと同一の `structure` に属するものとして扱う。
-
----
-
-## 16.4 Structureのマスタテーブル化
+## 18.4 STRUCTUREのマスタテーブル化
 
 **変更日：2026年8月24日**
 
-16.3では、問題を文法・構造によって分類するため、QUESTIONに `structure` カラムを追加した。
+文法・構造ごとに、
 
-当初は、
+- 文法・構造名
+- 大陸普通話向け説明
+- 台湾華語向け説明
+
+を保持する必要が生じたため、STRUCTUREを独立したマスタテーブルとして管理する設計へ変更した。
 
 ```text
-QUESTION
+STRUCTURE
 │
-└── structure
+├── structure_id
+├── name
+├── description_zh_cn
+└── description_zh_tw
 ```
-
-として、文法・構造名をQUESTION自身に文字列として保持する設計としていた。
-
-その後、復習メニューに文法・構造による絞り込み機能を実装する中で、ユーザーが文法・構造の名称だけでなく、その内容についても確認できるようにする必要が生じた。
-
-例えば、
-
-```text
-可能補語
-
-動作や結果が実現できるか、
-できないかを表す形式。
-```
-
-のように、文法・構造ごとに説明を保持する必要がある。
-
-このため、文法・構造をQUESTIONの単なる文字列属性として管理するのではなく、独立したマスタデータとして管理する設計へ変更する。
-
-### STRUCTUREの追加
-
-新たにSTRUCTUREテーブルを追加する。
-
-    STRUCTURE
-    │
-    ├── structure_id
-    ├── name
-    ├── description_zh_cn
-    └── description_zh_tw
-
-| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
-|---|---|---|---|---|---|---|---|
-| structure_id | 文法・構造ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
-| name | 文法・構造名 | - | - | VARCHAR(50) | ○ | ○ | 可能補語、把構文、比較構文など |
-| description_zh_cn | 大陸普通話向け説明 | - | - | TEXT | ○ | - | 大陸普通話向けの文法・構造の説明 |
-| description_zh_tw | 台湾華語向け説明 | - | - | TEXT | ○ | - | 台湾華語向けの文法・構造の説明 |
-
-`name` には、これまでQUESTIONの `structure` に直接保存していた文法・構造名を保持する。
-
-文法・構造そのものの分類は、大陸普通話と台湾華語で共通して管理する。
-
-一方、説明内で使用する中国語については、簡体字・繁体字の違いや、大陸普通話・台湾華語で一般的に使用される表現の違いが生じる場合がある。
-
-そのため、単一の `description` ではなく、
-
-    description_zh_cn
-    └── 大陸普通話向け
-
-    description_zh_tw
-    └── 台湾華語向け
-
-の2種類の説明を保持する。
-
-例えば、
-
-    name = 因果複文
-
-    description_zh_cn =
-    原因・理由と、それによって生じる結果を表す複文。
-    「因为～所以～」「既然～就～」など。
-
-    description_zh_tw =
-    原因・理由と、それによって生じる結果を表す複文。
-    「因為～所以～」「既然～就～」など。
-
-のように管理する。
-
-どちらの説明を使用するかは、セッションに保存されている現在の学習対象言語によって決定する。
-
-    session.languageVariant
-
-    ├── MAINLAND
-    │   └── description_zh_cn
-    │
-    └── TAIWAN
-        └── description_zh_tw
-
-この切り替えはサイト表記言語とは独立して扱う。
-
-### QUESTIONの変更
 
 QUESTIONの、
 
@@ -1120,13 +1197,13 @@ QUESTIONの、
 structure VARCHAR(50) NOT NULL
 ```
 
-を廃止し、代わりに、
+を廃止し、
 
 ```text
 structure_id BIGINT NOT NULL
 ```
 
-を追加する。
+へ変更する。
 
 `structure_id` は、
 
@@ -1136,21 +1213,201 @@ STRUCTURE.structure_id
 
 を参照する外部キーとする。
 
+```text
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+    │
+    └── structure_id
+```
+
+1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
+
+AI_GENERATED_QUESTIONには `structure_id` を追加せず、
+
+```text
+AI_GENERATED_QUESTION
+        ↓
+source_question_id
+        ↓
+QUESTION
+        ↓
+structure_id
+        ↓
+STRUCTURE
+```
+
+として取得する。
+
+---
+
+## 18.5 ユーザー設定の永続化
+
+**変更日：2026年8月27日**
+
+当初、学習対象言語および発音表記については、
+
+```text
+Session等で管理するか
+USERへ保存するか
+```
+
+を詳細設計時に決定する方針としていた。
+
+しかし、Sessionのみで管理した場合、
+
+```text
+ログイン
+    ↓
+設定変更
+    ↓
+学習
+    ↓
+ログアウト
+    ↓
+Session破棄
+    ↓
+再ログイン
+    ↓
+デフォルト設定へ戻る
+```
+
+という問題が発生する。
+
+例えば、
+
+```text
+MAINLAND
+↓
+TAIWANへ変更
+↓
+ログアウト
+↓
+再ログイン
+↓
+MAINLAND
+```
+
+となってしまう。
+
+発音表記についても同様に、
+
+```text
+PINYIN
+↓
+ZHUYINへ変更
+↓
+ログアウト
+↓
+再ログイン
+↓
+PINYIN
+```
+
+となってしまう。
+
+学習対象言語と発音表記はユーザーが継続的に使用する設定であるため、USERへ保存する設計に変更する。
+
+USERへ、
+
+```text
+language_variant
+pronunciation_type
+```
+
+を追加する。
+
+```text
+USER
+│
+├── language_variant
+│   ├── MAINLAND
+│   └── TAIWAN
+│
+└── pronunciation_type
+    ├── PINYIN
+    ├── ZHUYIN
+    └── NONE
+```
+
+初期値は、
+
+```text
+language_variant   = MAINLAND
+pronunciation_type = PINYIN
+```
+
+とする。
+
+設定変更時は、
+
+```text
+設定画面
+    ↓
+USER更新
+    ↓
+DBへ保存
+```
+
+とする。
+
+再ログイン時は、
+
+```text
+ログイン
+    ↓
+USER取得
+    ↓
+language_variant取得
+pronunciation_type取得
+    ↓
+保存済み設定を使用
+```
+
+とする。
+
 これにより、
 
 ```text
-変更前
+USER
+├── language_variant   = TAIWAN
+└── pronunciation_type = ZHUYIN
 
-QUESTION
-│
-└── structure
-    （VARCHAR）
+        ↓
+
+ログアウト
+
+        ↓
+
+再ログイン
+
+        ↓
+
+TAIWAN / ZHUYINを継続
 ```
 
-から、
+できる。
+
+Sessionはアプリケーション利用中の一時的な現在値として使用できるが、永続的なユーザー設定の保存先とはしない。
+
+---
+
+# 19. 現在の主要テーブル構成
+
+最終的な主要テーブルの関係は以下とする。
 
 ```text
-変更後
+USER
+│
+├── language_variant
+├── pronunciation_type
+│
+├── 1:N FAVORITE
+├── 1:N STUDY_HISTORY
+└── 1:N AI_GENERATED_QUESTION
+
 
 STRUCTURE
     │
@@ -1158,89 +1415,72 @@ STRUCTURE
     ↓
 QUESTION
     │
-    └── structure_id FK
+    ├── 1:N FAVORITE
+    ├── 1:N STUDY_HISTORY
+    │
+    └── 1:N AI_GENERATED_QUESTION
+            ↑
+            │ source_question_id
 ```
 
-へ変更する。
-
-1つのSTRUCTUREには複数のQUESTIONを関連付けることができる。
-
-一方、1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
+USERは、
 
 ```text
-STRUCTURE 1 : 0..N QUESTION
-QUESTION  N : 1 STRUCTURE
+誰が利用しているか
++
+そのユーザーがどの設定を使用しているか
 ```
 
-そのため、QUESTIONの `structure_id` はNULLを許可しない。
+を管理する。
 
-### conditionとの関係
-
-今回の変更によっても、文法・構造と `condition` の役割の違いは変更しない。
+QUESTIONは、
 
 ```text
-STRUCTURE
-└── 中国語文そのものの根幹となる文法・構造
-    └── 客観的な分類
-
-condition
-└── その問題をどのように解答させるか
-    └── 開発者・出題者が設定する主観的な条件・ヒント
+どの学習対象言語の
+どのマスタ問題であるか
 ```
 
-例えば、
+を管理する。
+
+STRUCTUREは、
 
 ```text
+QUESTIONがどの文法・構造に属するか
+```
+
+を管理する。
+
+FAVORITEおよびSTUDY_HISTORYは、
+
+```text
+USER
++
 QUESTION
-chinese_text = 他笑着跟我说话。
-condition    = 「着」を使う
-structure_id = 1
-                    ↓
-                STRUCTURE
-                name = 動態助詞（着）
 ```
 
-のように管理する。
+の関係を管理する。
 
-QUESTIONには必ずSTRUCTUREを関連付けるが、`condition` は特定の解答条件を必要とする問題にのみ設定するため、引き続きNULLを許可する。
-
-### AI_GENERATED_QUESTIONとの関係
-
-AI_GENERATED_QUESTIONには `structure_id` を追加しない。
-
-AI生成問題の文法・構造は、
+AI_GENERATED_QUESTIONは、
 
 ```text
-AI_GENERATED_QUESTION
-        │
-        │ source_question_id
-        ↓
-     QUESTION
-        │
-        │ structure_id
-        ↓
-    STRUCTURE
+USER
++
+生成元QUESTION
++
+AIによって生成された問題
 ```
 
-として、生成元QUESTIONに関連付けられたSTRUCTUREから判定する。
+を管理する。
 
-これにより、AI_GENERATED_QUESTIONに同じ文法・構造情報を重複して保持することを避ける。
+これにより、
 
-### 変更後の方針
+```text
+ユーザー設定
+問題データ
+文法・構造
+学習履歴
+お気に入り
+AI生成問題
+```
 
-Structureのマスタテーブル化後は、以下の方針とする。
-
-- 文法・構造はSTRUCTUREで一元管理する。
-- QUESTIONには文法・構造名を直接保存しない。
-- QUESTIONは `structure_id` によってSTRUCTUREを参照する。
-- 1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
-- STRUCTUREには文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
-- 文法・構造名は大陸普通話と台湾華語で共通して使用する。
-- `description_zh_cn` には大陸普通話向けの説明を保持する。
-- `description_zh_tw` には台湾華語向けの説明を保持する。
-- 説明を表示する際は、セッションに保存されている現在の学習対象言語に応じて使用する説明を切り替える。
-- 説明の切り替えはサイト表記言語とは独立して扱う。
-- 文法・構造名は重複を許可しない。
-- 新しい文法・構造はEnumではなくSTRUCTUREのレコードとして追加する。
-- 復習時の出題条件や問題検索ではSTRUCTUREを利用する。
-- AI生成問題の文法・構造は生成元QUESTIONを経由してSTRUCTUREから取得する。
+をそれぞれ役割の異なるデータとして管理する。
