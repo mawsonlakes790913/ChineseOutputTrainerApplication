@@ -21,6 +21,8 @@ import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameExce
 import io.github.mawsonlakes790913.chineseoutputforge.form.EditLoginIdForm;
 import io.github.mawsonlakes790913.chineseoutputforge.form.EditPasswordForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -207,6 +209,26 @@ public class UserProfileController {
 	    
 	    return "redirect:/login";
 	    
+	}
+	
+	@PostMapping("/user/delete")
+	public String cancelMembership(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        HttpServletRequest request)
+	        throws ServletException {
+
+	    userAccountService.cancelMembership(
+	            loginUser.getUsername()
+	    );
+
+	    request.logout();
+
+	    return "redirect:/user/canceled";
+	}
+	
+	@GetMapping("/user/canceled")
+	public String getCanceled() {
+		return "user/canceled";
 	}
 	
 	private Users getLoginUser(UserDetails loginUser) {

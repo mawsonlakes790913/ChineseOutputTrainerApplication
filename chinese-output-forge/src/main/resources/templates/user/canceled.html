@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title th:text="#{user.canceled.title}">
+        退会完了
+    </title>
+
+</head>
+
+<body>
+
+    <div class="text-center"
+         layout:fragment="content">
+
+        <h1 th:text="#{user.canceled.heading}">
+            退会完了
+        </h1>
+
+        <p th:text="#{user.canceled.message}">
+            ご利用ありがとうございました。
+        </p>
+
+        <a th:href="@{/}"
+           class="btn btn-secondary mt-3"
+           th:text="#{user.canceled.backToHome}">
+            Homeに戻る
+        </a>
+
+    </div>
+
+</body>
+
+</html>

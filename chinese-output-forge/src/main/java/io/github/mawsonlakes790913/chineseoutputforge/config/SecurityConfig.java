@@ -39,6 +39,7 @@ public class SecurityConfig {
 	            .requestMatchers("/practice/**").permitAll()
 	            .requestMatchers("/signup", "/signup/**").permitAll()
 	            .requestMatchers("/complete").permitAll()
+	            .requestMatchers("/user/canceled").permitAll()
 	            .anyRequest().authenticated()
 	        )
 	        

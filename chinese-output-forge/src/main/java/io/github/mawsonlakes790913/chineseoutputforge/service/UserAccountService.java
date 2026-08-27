@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.FavoriteRepository;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,8 @@ public class UserAccountService {
 	private final UserRepository userRepository;
 	private final MessageSource messageSource;
 	private final PasswordEncoder passwordEncoder;
+	private final FavoriteRepository favoriteRepository;
+	private final StudyHistoryRepository studyHistoryRepository;
 	
 	public Users getUserOne(String loginId) {
 
@@ -94,10 +98,10 @@ public class UserAccountService {
     }
     
 	@Transactional
-	public void updatePassword(String userId, String currentPassword, String newPassword, Locale locale) {
+	public void updatePassword(String loginId, String currentPassword, String newPassword, Locale locale) {
 		
 	    // 現在のユーザーを取得
-	    Users user = getUserOne(userId);
+	    Users user = getUserOne(loginId);
 	    if (user == null) {
 	        throw new IllegalArgumentException(
 	                messageSource.getMessage(
@@ -107,22 +111,6 @@ public class UserAccountService {
 	                )
 	         );
 	    }
-	    
-	    System.out.println(
-	            "current matches = "
-	            + passwordEncoder.matches(
-	                    currentPassword,
-	                    user.getPassword()
-	            )
-	    );
-
-	    System.out.println(
-	            "new matches = "
-	            + passwordEncoder.matches(
-	                    newPassword,
-	                    user.getPassword()
-	            )
-	    );
 	    
 	    // 現在のパスワードが正しいか確認
 	    if (!passwordEncoder.matches(
@@ -157,8 +145,35 @@ public class UserAccountService {
 	    // 更新
 	    userRepository.save(user);
 
-		log.info("パスワード変更 loginId={}", userId);
+		log.info("パスワード変更 loginId={}", loginId);
 
+	}
+	
+	@Transactional
+	public void cancelMembership(String loginId) {
+
+	    // loginIdからユーザーを取得
+	    Users user = getUserOne(loginId);
+
+	    if (user == null) {
+	        throw new IllegalArgumentException(
+	                "ユーザーが存在しません"
+	        );
+	    }
+
+	    // DB上のユーザーIDを取得
+	    Long userId = user.getId();
+
+	    // ① お気に入りを削除
+	    favoriteRepository.deleteByFavoriteKeyUserId(userId);
+
+	    // ② 学習履歴を削除
+	    studyHistoryRepository.deleteByStudyHistoryKeyUserId(userId);
+
+	    // ③ ユーザーを削除
+	    userRepository.delete(user);
+
+	    log.info("退会完了 loginId={}", loginId);
 	}
 
 }

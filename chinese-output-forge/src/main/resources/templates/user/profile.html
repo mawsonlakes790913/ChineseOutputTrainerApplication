@@ -115,6 +115,23 @@
                 </a>
 
             </div>
+            
+            <!-- ========================= -->
+            <!-- 退会する -->
+            <!-- ========================= -->           
+            
+			<div>
+			    <form th:action="@{/user/delete}" method="post">
+			
+			        <button type="submit"
+			                class="btn btn-danger"
+			                th:text="#{user.delete.button}"
+			                th:onclick="|return confirm('#{user.delete.confirm}');|">
+			            退会する
+			        </button>
+			
+			    </form>
+			</div>            
 
         </div>
 
