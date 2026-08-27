@@ -4,10 +4,13 @@ import java.util.Locale;
 
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
+import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
+import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ public class UserAccountService {
 	
 	private final UserRepository userRepository;
 	private final MessageSource messageSource;
+	private final PasswordEncoder passwordEncoder;
 	
 	public Users getUserOne(String loginId) {
 
@@ -88,5 +92,73 @@ public class UserAccountService {
                 newLoginId
         );
     }
+    
+	@Transactional
+	public void updatePassword(String userId, String currentPassword, String newPassword, Locale locale) {
+		
+	    // 現在のユーザーを取得
+	    Users user = getUserOne(userId);
+	    if (user == null) {
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                        "user.edit.password.error.notFound",
+	                        null,
+	                        locale
+	                )
+	         );
+	    }
+	    
+	    System.out.println(
+	            "current matches = "
+	            + passwordEncoder.matches(
+	                    currentPassword,
+	                    user.getPassword()
+	            )
+	    );
+
+	    System.out.println(
+	            "new matches = "
+	            + passwordEncoder.matches(
+	                    newPassword,
+	                    user.getPassword()
+	            )
+	    );
+	    
+	    // 現在のパスワードが正しいか確認
+	    if (!passwordEncoder.matches(
+	            currentPassword,
+	            user.getPassword())) {
+
+	        throw new CurrentPasswordMismatchException(
+	                messageSource.getMessage(
+	                        "user.edit.password.error.currentPassword",
+	                        null,
+	                        locale
+	                )
+	        );
+	    }
+	    // 新しいパスワードが現在のパスワードと同じか確認
+	    if (passwordEncoder.matches(
+	            newPassword,
+	            user.getPassword())) {
+
+	        throw new PasswordSameException(
+	                messageSource.getMessage(
+	                        "user.edit.password.error.same",
+	                        null,
+	                        locale
+	                )
+	        );
+	    }
+	    
+	    // パスワードをハッシュ化して更新
+	    user.setPassword(passwordEncoder.encode(newPassword));
+
+	    // 更新
+	    userRepository.save(user);
+
+		log.info("パスワード変更 loginId={}", userId);
+
+	}
 
 }
