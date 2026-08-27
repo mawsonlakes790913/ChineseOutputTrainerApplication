@@ -60,9 +60,9 @@
                         <input type="text"
                                id="loginId"
                                th:field="*{loginId}"
+                               th:placeholder="#{signup.loginId.placeholder}"
                                th:errorclass="is-invalid"
                                class="form-control">
-
                         <div class="invalid-feedback"
                              th:errors="*{loginId}">
                         </div>
