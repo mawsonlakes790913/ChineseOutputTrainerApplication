@@ -52,13 +52,19 @@ public class UserProfileController {
 	        Model model,
 	        EditLoginIdForm form) {
 
-	    if (form.getLoginId() == null) {
-	        Users user = getLoginUser(loginUser);
-	        form.setLoginId(user.getLoginId());
-	    }
-	    
-	    model.addAttribute("editLoginIdForm", form);
-	    model.addAttribute("currentLoginId", loginUser.getUsername());
+	    Users user = getLoginUser(loginUser);
+
+	    // 現在のユーザーIDを表示するため
+	    model.addAttribute(
+	            "currentLoginId",
+	            user.getLoginId()
+	    );
+
+	    // 新しいユーザーIDの入力フォーム
+	    model.addAttribute(
+	            "editLoginIdForm",
+	            form
+	    );
 
 	    return "user/edit/loginId";
 	}
