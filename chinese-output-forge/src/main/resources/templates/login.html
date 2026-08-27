@@ -19,6 +19,11 @@
                         th:text="#{login.title}">
                         ログイン
                     </h2>
+					<!-- ユーザーID変更完了メッセージ -->
+					<div class="alert alert-success"
+					     th:if="${messageKey != null}"
+					     th:text="#{__${messageKey}__}">
+					</div>                          
 					<!-- ログインエラー -->
 					<div class="text-danger mb-3"
 					     th:if="${loginErrorMessage}"
