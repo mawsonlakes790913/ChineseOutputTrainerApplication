@@ -460,6 +460,511 @@ Tooltipを読みやすいサイズに調整する。
 
 さらに、復習メニューでは各Structureの説明を現在の学習対象言語に応じて表示できるようにした。
 
+---
+
+# 追加修正　8月28日
+
+```bash
+git commit -m "feat: add language variant filter to review menu"
+```
+
+※実装内容に先のチャプターの内容が含まれている。
+
+## 問題点
+
+復習メニューでは、学習対象言語別に復習対象問題を絞り込むことができなかった。
+
+![](../../images/0011-12.png)
+
+そのため、過去に普通話と國語の両方を学習したことがあるユーザーが`/review/menu`へアクセスすると、現在設定している学習対象言語に関係なく、普通話と國語の復習対象問題がすべて問題件数に含まれていた。
+
+そこで、問題一覧画面と同様に以下の仕様へ変更する。
+
+- 復習メニューで学習対象言語別にフィルターをかけられるようにする
+- 初期表示では、現在設定している学習対象言語だけを選択状態にする
+- 選択された学習対象言語だけを問題件数の集計および実際の復習問題取得の対象にする
+
+![](../../images/0011-13.png)
+
+## 1. `StudyHistoryRepository`に学習対象言語の検索条件を追加
+
+復習対象問題の件数取得と問題取得の両方で、選択された学習対象言語による絞り込みを行えるようにする。
+
+### `countReviewQuestions`
+
+復習対象問題数を取得するSQLに、`question.language_variant`による検索条件を追加する。
+
+```java
+@Query(value = """
+        SELECT COUNT(*)
+        FROM study_history sh
+        JOIN question q
+        ON sh.question_id = q.question_id
+        LEFT JOIN favorite f
+        ON sh.user_id = f.user_id
+        AND sh.question_id = f.question_id
+        WHERE sh.user_id = :userId
+        AND q.language_variant IN (:languageVariants)
+        AND sh.evaluation IN (:evaluations)
+        AND q.difficulty IN (:difficulties)
+        AND (
+            :favoriteCondition = 'ALL'
+            OR (
+                :favoriteCondition = 'FAVORITED'
+                AND f.question_id IS NOT NULL
+            )
+            OR (
+                :favoriteCondition = 'NOT_FAVORITED'
+                AND f.question_id IS NULL
+            )
+        )
+        AND q.structure_id IN (:structureIds)
+        """, nativeQuery = true)
+long countReviewQuestions(
+        @Param("userId") Long userId,
+        @Param("languageVariants") List<String> languageVariants,
+        @Param("evaluations") List<String> evaluations,
+        @Param("difficulties") List<String> difficulties,
+        @Param("favoriteCondition") String favoriteCondition,
+        @Param("structureIds") List<Long> structureIds
+);
+```
+
+以下の条件を追加した。
+
+```sql
+AND q.language_variant IN (:languageVariants)
+```
+
+また、メソッドの引数にも以下を追加した。
+
+```java
+@Param("languageVariants") List<String> languageVariants
+```
+
+`IN`を使用することで、普通話のみ、國語のみ、または両方を検索対象にできる。
+
+### `findReviewQuestions`
+
+実際に復習する問題を取得するSQLにも、同じ学習対象言語の条件を追加する。
+
+```java
+@Query(value = """
+        SELECT q.*
+        FROM study_history sh
+        JOIN question q
+          ON sh.question_id = q.question_id
+        LEFT JOIN favorite f
+          ON sh.user_id = f.user_id
+         AND sh.question_id = f.question_id
+        WHERE sh.user_id = :userId
+          AND q.language_variant IN (:languageVariants)
+          AND sh.evaluation IN (:evaluations)
+          AND q.difficulty IN (:difficulties)
+          AND (
+              :favoriteCondition = 'ALL'
+              OR (
+                  :favoriteCondition = 'FAVORITED'
+                  AND f.question_id IS NOT NULL
+              )
+              OR (
+                  :favoriteCondition = 'NOT_FAVORITED'
+                  AND f.question_id IS NULL
+              )
+          )
+          AND q.structure_id IN (:structureIds)
+        """, nativeQuery = true)
+List<Question> findReviewQuestions(
+        @Param("userId") Long userId,
+        @Param("languageVariants") List<String> languageVariants,
+        @Param("evaluations") List<String> evaluations,
+        @Param("difficulties") List<String> difficulties,
+        @Param("favoriteCondition") String favoriteCondition,
+        @Param("structureIds") List<Long> structureIds
+);
+```
+
+これにより、画面上の問題件数だけでなく、実際に出題される問題にも同じ学習対象言語の検索条件が適用される。
+
+## 2. `ReviewService`に学習対象言語を追加
+
+Repositoryへ学習対象言語を渡せるように、`ReviewService`の件数取得処理と問題取得処理を修正する。
+
+### `countReviewQuestions`
+
+引数に`List<LanguageVariant> languageVariants`を追加する。
+
+```java
+// 復習出題数取得
+public long countReviewQuestions(
+        Long userId,
+        List<LanguageVariant> languageVariants,
+        List<Evaluation> evaluations,
+        List<Difficulty> difficulties,
+        FavoriteCondition favoriteCondition,
+        List<Long> structureIds) {
+
+    // ここで変換する
+    List<String> convertedLanguageVariants =
+            searchConditionConverter.convertLanguageVariant(languageVariants);
+
+    List<String> convertedDifficulties =
+            searchConditionConverter.convertDifficulty(difficulties);
+
+    List<String> convertedEvaluations =
+            searchConditionConverter.convertEvaluation(evaluations);
+
+    String convertedFavoriteCondition =
+            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
+
+    return studyHistoryRepository.countReviewQuestions(
+            userId,
+            convertedLanguageVariants,
+            convertedEvaluations,
+            convertedDifficulties,
+            convertedFavoriteCondition,
+            structureIds
+    );
+}
+```
+
+Controllerから受け取った`List<LanguageVariant>`を`SearchConditionConverter`で`List<String>`へ変換し、Repositoryへ渡す。
+
+### `getQuestion`
+
+実際の復習問題取得処理にも`languageVariants`を追加する。
+
+```java
+// 問題取得
+public List<Question> getQuestion(
+        Long userId,
+        List<LanguageVariant> languageVariants,
+        List<Evaluation> evaluations,
+        List<Difficulty> difficulties,
+        FavoriteCondition favoriteCondition,
+        List<Long> structureIds,
+        boolean random) {
+
+    List<Question> extractedQuestions =
+            studyHistoryRepository.findReviewQuestions(
+                    userId,
+                    searchConditionConverter.convertLanguageVariant(languageVariants),
+                    searchConditionConverter.convertEvaluation(evaluations),
+                    searchConditionConverter.convertDifficulty(difficulties),
+                    searchConditionConverter.convertFavoriteCondition(favoriteCondition),
+                    structureIds
+            );
+
+    // シャッフルする
+    if (random) {
+        Collections.shuffle(extractedQuestions);
+    }
+
+    return extractedQuestions;
+}
+```
+
+これにより、復習開始時にも選択された学習対象言語だけを取得できるようになった。
+
+## 3. `ReviewController#getReviewCount`で学習対象言語を受け取る
+
+`/review/count`で、画面から送信された`languageVariants`を受け取れるようにする。
+
+```java
+@GetMapping("/review/count")
+@ResponseBody
+public long getReviewCount(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam(name = "languageVariants", required = false)
+            List<LanguageVariant> languageVariants,
+        @RequestParam(name = "evaluations", required = false)
+            List<Evaluation> evaluations,
+        @RequestParam(name = "difficulties", required = false)
+            List<Difficulty> difficulties,
+        @RequestParam(name = "favoriteCondition", required = false)
+            FavoriteCondition favoriteCondition,
+        @RequestParam(name = "structureIds", required = false)
+            List<Long> structureIds) {
+
+    // user_id(文字列)からUsersを取得
+    Users user = getLoginUser(loginUser);
+    Long userId = user.getId();
+
+    // 出題数を返す
+    return reviewService.countReviewQuestions(
+            userId,
+            languageVariants,
+            evaluations,
+            difficulties,
+            favoriteCondition,
+            structureIds
+    );
+}
+```
+
+これにより、JavaScriptから送信された学習対象言語をServiceへ渡し、問題件数の検索条件として使用できる。
+
+## 4. `ReviewController#getReviewStart`で学習対象言語を受け取る
+
+`/review/start`でも`languageVariants`を受け取るようにする。
+
+```java
+@GetMapping("/review/start")
+public String getReviewStart(
+        HttpSession session,
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam(name = "languageVariants", required = false)
+            List<LanguageVariant> languageVariants,
+        @RequestParam(name = "evaluations", required = false)
+            List<Evaluation> evaluations,
+        @RequestParam(name = "difficulties", required = false)
+            List<Difficulty> difficulties,
+        @RequestParam(name = "favoriteCondition", required = false)
+            FavoriteCondition favoriteCondition,
+        @RequestParam(name = "structureIds", required = false)
+            List<Long> structureIds,
+        @RequestParam(name = "random", required = false)
+            boolean random) {
+
+    // 既存の学習状態を破棄
+    clearReviewSession(session);
+
+    // 先に宣言
+    List<Question> questions;
+
+    // user_id(文字列)からUsersを取得
+    Users user = getLoginUser(loginUser);
+    Long userId = user.getId();
+
+    // 新しい問題セットを作成
+    questions = reviewService.getQuestion(
+            userId,
+            languageVariants,
+            evaluations,
+            difficulties,
+            favoriteCondition,
+            structureIds,
+            random
+    );
+
+    // 問題が1件もない場合は開始しない
+    if (questions.isEmpty()) {
+        return "redirect:/review/menu";
+    }
+
+    session.setAttribute("reviewQuestions", questions);
+    session.setAttribute("reviewCurrentPage", 0);
+
+    return "redirect:/review/question?page=0";
+}
+```
+
+これにより、問題件数の取得だけでなく、復習開始時にも選択した学習対象言語が検索条件として使用される。
+
+## 5. `ReviewController#getReviewMenu`で初期選択する言語を設定
+
+復習メニューを開いた直後は、ユーザーが現在設定している学習対象言語だけを検索対象として選択する。
+
+```java
+@GetMapping("/review/menu")
+public String getReviewMenu(
+        HttpSession session,
+        Model model) {
+
+    // 言語切替後の戻り先
+    model.addAttribute("languageVariantRedirect", "/review/menu");
+
+    // 学習対象言語を取得
+    LanguageVariant languageVariant =
+            (LanguageVariant) session.getAttribute("languageVariant");
+
+    // 未設定の場合は普通話
+    if (languageVariant == null) {
+        languageVariant = LanguageVariant.MAINLAND;
+    }
+
+    // デフォルトの検索対象言語
+    model.addAttribute(
+            "selectedLanguageVariants",
+            List.of(languageVariant)
+    );
+
+    // セッションから情報を取得
+    List<Question> questions =
+            (List<Question>) session.getAttribute("reviewQuestions");
+
+    Integer currentPage =
+            (Integer) session.getAttribute("reviewCurrentPage");
+
+    // 中断したデータがあるか判定
+    boolean canResume = questions != null && currentPage != null;
+
+    // 中断したデータ情報を返す
+    model.addAttribute("canResume", canResume);
+
+    if (canResume) {
+        model.addAttribute("currentPage", currentPage);
+        model.addAttribute("totalCount", questions.size());
+    }
+
+    // 画面表示用structureを取得
+    model.addAttribute(
+            "structures",
+            reviewService.findStructures()
+    );
+
+    return "review/menu";
+}
+```
+
+セッションの`languageVariant`を取得し、
+
+```java
+model.addAttribute(
+        "selectedLanguageVariants",
+        List.of(languageVariant)
+);
+```
+
+として画面へ渡す。
+
+これにより、`/review/menu`を開いた時点では現在設定している学習対象言語だけが選択された状態になる。
+
+## 6. `/review/menu.html`に学習対象言語のチェックボックスを追加
+
+検索フォームの一番上に、普通話と國語を選択するチェックボックスを追加する。
+
+```html
+<!-- ========================= -->
+<!-- 学習対象言語 -->
+<!-- ========================= -->
+
+<div class="col-md-12">
+
+    <label class="form-label fw-bold"
+           th:text="#{review.menu.languageVariant}">
+        学習対象言語
+    </label>
+
+    <div class="d-flex align-items-center gap-4">
+
+        <!-- 普通話 -->
+        <div class="form-check">
+
+            <input class="form-check-input"
+                   type="checkbox"
+                   name="languageVariants"
+                   value="MAINLAND"
+                   id="mainland"
+                   th:checked="${selectedLanguageVariants != null
+                       and selectedLanguageVariants.![name()].contains('MAINLAND')}">
+
+            <label class="form-check-label"
+                   for="mainland"
+                   th:classappend="${session.languageVariant == null
+                       or session.languageVariant.name() == 'MAINLAND'}
+                       ? ' fs-5 fw-bold'
+                       : ''">
+
+                🇨🇳普通话
+
+            </label>
+
+        </div>
+
+        <!-- 國語 -->
+        <div class="form-check">
+
+            <input class="form-check-input"
+                   type="checkbox"
+                   name="languageVariants"
+                   value="TAIWAN"
+                   id="taiwan"
+                   th:checked="${selectedLanguageVariants != null
+                       and selectedLanguageVariants.![name()].contains('TAIWAN')}">
+
+            <label class="form-check-label"
+                   for="taiwan"
+                   th:classappend="${session.languageVariant != null
+                       and session.languageVariant.name() == 'TAIWAN'}
+                       ? ' fs-5 fw-bold'
+                       : ''">
+
+                🇹🇼國語
+
+            </label>
+
+        </div>
+
+    </div>
+
+</div>
+```
+
+`selectedLanguageVariants`に含まれている言語だけを`checked`にすることで、現在設定している学習対象言語を初期検索条件として表示する。
+
+## 7. `menu.js`で学習対象言語を検索条件に追加
+
+問題件数を取得するJavaScriptにも`languageVariants`を追加する。
+
+### 検索条件の変更を検知する
+
+`searchConditions`に学習対象言語のチェックボックスを追加する。
+
+```javascript
+const searchConditions = document.querySelectorAll(
+    "input[name='languageVariants'], " +
+    "input[name='evaluations'], " +
+    "input[name='difficulties'], " +
+    "input[name='conditions'], " +
+    "input[name='favoriteCondition'], " +
+    "input[name='structureIds']"
+);
+```
+
+これにより、普通話・國語のチェック状態を変更した場合にも`updateCount()`が実行される。
+
+### 選択された学習対象言語を`/review/count`へ送信する
+
+`updateCount()`内で、チェックされている`languageVariants`をURLパラメータへ追加する。
+
+```javascript
+// 学習対象言語
+document
+    .querySelectorAll("input[name='languageVariants']:checked")
+    .forEach(cb => {
+        params.append("languageVariants", cb.value);
+    });
+```
+
+たとえば國語だけが選択されている場合は、`languageVariants=TAIWAN`が`/review/count`へ送信される。
+
+これにより、学習対象言語のチェック状態を変更すると、その条件を反映した復習対象問題数が再取得されるようになった。
+
+## 8. 実行確認
+
+`http://localhost:8080/review/menu`へアクセスすると、検索条件に学習対象言語を選択するチェックボックスが表示された。
+
+現在の学習対象言語は國語のため、初期表示では國語のみにチェックが入った。
+
+![](../../images/0011-14.png)
+
+現在、國語の復習対象問題は0件のため、國語のみを選択している状態では問題件数も0問と表示された。
+
+![](../../images/0011-16.png)
+
+学習対象言語を普通話へ切り替えて再度復習メニューを表示すると、初期選択も普通話へ切り替わった。
+
+![](../../images/0011-15.png)
+
+普通話には復習対象問題が8件存在するため、問題件数も8問と表示された。
+
+![](../../images/0011-17.png)
+
+以上により、復習メニューの初期検索対象が現在設定している学習対象言語と一致し、さらに普通話・國語を任意に選択して復習対象問題を絞り込めるようになった。
+
+---
+
 ## 次回の実装
 
 ユーザーメニューの実装を行う。
