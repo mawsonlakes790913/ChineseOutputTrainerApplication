@@ -52,6 +52,9 @@ public class UserQuestionController {
 	        @RequestParam(required = false, defaultValue = "") String chineseKeyword,
 	        HttpSession session,
 	        Model model) {
+		
+		// 言語切替後の戻り先
+		model.addAttribute("languageVariantRedirect", "/user/question/list");
 
 	    Users user = userAccountService.getUserOne(loginUser.getUsername());
 	    Long userId = user.getId();
