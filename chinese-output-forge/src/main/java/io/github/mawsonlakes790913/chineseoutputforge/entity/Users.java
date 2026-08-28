@@ -1,5 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.entity;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,4 +31,12 @@ public class Users {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_variant", nullable = false, length = 20)
+    private LanguageVariant languageVariant = LanguageVariant.MAINLAND;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pronunciation_type", nullable = false, length = 20)
+    private PronunciationType pronunciationType = PronunciationType.PINYIN;
 }
