@@ -71,6 +71,71 @@
           method="get">
 
         <div class="row">
+			
+		<!-- ========================= -->
+		<!-- 学習対象言語 -->
+		<!-- ========================= -->
+		
+		<div class="col-md-12">
+		
+			<label class="form-label fw-bold"
+			       th:text="#{review.menu.languageVariant}">
+			    学習対象言語
+			</label>
+		
+		    <div class="d-flex align-items-center gap-4">
+		
+		        <!-- 普通話 -->
+		        <div class="form-check">
+		
+		            <input class="form-check-input"
+		                   type="checkbox"
+		                   name="languageVariants"
+		                   value="MAINLAND"
+		                   id="mainland"
+		                   th:checked="${selectedLanguageVariants != null
+		                       and selectedLanguageVariants.![name()].contains('MAINLAND')}">
+		
+		            <label class="form-check-label"
+		                   for="mainland"
+		                   th:classappend="${session.languageVariant == null
+		                       or session.languageVariant.name() == 'MAINLAND'}
+		                       ? ' fs-5 fw-bold'
+		                       : ''">
+		
+		                🇨🇳普通话
+		
+		            </label>
+		
+		        </div>
+		
+		        <!-- 國語 -->
+		        <div class="form-check">
+		
+		            <input class="form-check-input"
+		                   type="checkbox"
+		                   name="languageVariants"
+		                   value="TAIWAN"
+		                   id="taiwan"
+		                   th:checked="${selectedLanguageVariants != null
+		                       and selectedLanguageVariants.![name()].contains('TAIWAN')}">
+		
+		            <label class="form-check-label"
+		                   for="taiwan"
+		                   th:classappend="${session.languageVariant != null
+		                       and session.languageVariant.name() == 'TAIWAN'}
+		                       ? ' fs-5 fw-bold'
+		                       : ''">
+		
+		                🇹🇼國語
+		
+		            </label>
+		
+		        </div>
+		
+		    </div>
+		
+		</div>			
 
 
 			<!-- ============================= -->

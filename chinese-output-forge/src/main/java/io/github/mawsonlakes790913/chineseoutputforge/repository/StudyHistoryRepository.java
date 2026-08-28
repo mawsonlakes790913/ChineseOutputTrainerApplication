@@ -26,6 +26,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        ON sh.user_id = f.user_id
 	        AND sh.question_id = f.question_id
 	        WHERE sh.user_id = :userId
+	        AND q.language_variant IN (:languageVariants)
 	        AND sh.evaluation IN (:evaluations)
 	        AND q.difficulty IN (:difficulties)
 	        AND (
@@ -43,6 +44,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        """, nativeQuery = true)
 	long countReviewQuestions(
 	        @Param("userId") Long userId,
+	        @Param("languageVariants") List<String> languageVariants,
 	        @Param("evaluations") List<String> evaluations,
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,
@@ -58,6 +60,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	          ON sh.user_id = f.user_id
 	         AND sh.question_id = f.question_id
 	        WHERE sh.user_id = :userId
+	          AND q.language_variant IN (:languageVariants)
 	          AND sh.evaluation IN (:evaluations)
 	          AND q.difficulty IN (:difficulties)
 	          AND (
@@ -75,6 +78,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        """, nativeQuery = true)
 	List<Question> findReviewQuestions(
 	        @Param("userId") Long userId,
+	        @Param("languageVariants") List<String> languageVariants,
 	        @Param("evaluations") List<String> evaluations,
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,

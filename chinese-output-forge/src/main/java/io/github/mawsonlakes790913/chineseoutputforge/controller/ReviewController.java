@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
@@ -42,6 +43,21 @@ public class ReviewController {
 		
 		// 言語切替後の戻り先
 		model.addAttribute("languageVariantRedirect", "/review/menu");
+		
+	    // 学習対象言語を取得
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    // 未設定の場合は普通話
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
+
+	    // デフォルトの検索対象言語
+	    model.addAttribute(
+	            "selectedLanguageVariants",
+	            List.of(languageVariant)
+	    );
 	    
 	    // セッションから情報を取得
 	    List<Question> questions =
@@ -72,6 +88,8 @@ public class ReviewController {
 	@GetMapping("/review/count")
 	@ResponseBody
 	public long getReviewCount(@AuthenticationPrincipal UserDetails loginUser,
+	        					@RequestParam(name = "languageVariants", required = false)
+    								List<LanguageVariant> languageVariants,
 								@RequestParam(name = "evaluations", required = false) 
 									List<Evaluation> evaluations,
 								@RequestParam(name = "difficulties", required = false) 
@@ -89,6 +107,7 @@ public class ReviewController {
 	    // 出題数を返す
 	    return reviewService.countReviewQuestions(
 	            userId,
+	            languageVariants,
 	            evaluations,
 	            difficulties,
 	            favoriteCondition,
@@ -99,6 +118,8 @@ public class ReviewController {
 	public String getReviewStart(
 							 HttpSession session,
 							 @AuthenticationPrincipal UserDetails loginUser,
+					         @RequestParam(name = "languageVariants", required = false)
+							 		List<LanguageVariant> languageVariants,							 
 							 @RequestParam(name = "evaluations", required = false) 
 									List<Evaluation> evaluations,
 							 @RequestParam(name = "difficulties", required = false) 
@@ -121,7 +142,7 @@ public class ReviewController {
 	    Long userId = user.getId();
 	    
 	    // 新しい問題セットを作成
-	    questions = reviewService.getQuestion(userId, evaluations, difficulties, favoriteCondition, structureIds, random);
+	    questions = reviewService.getQuestion(userId, languageVariants, evaluations, difficulties, favoriteCondition, structureIds, random);
 
 	    // 問題が1件もない場合は開始しない
 	    if (questions.isEmpty()) {

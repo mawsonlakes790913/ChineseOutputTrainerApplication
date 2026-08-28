@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
@@ -25,18 +26,21 @@ public class ReviewService {
 	private final StructureRepository structureRepository;
 	
 	//復習出題数取得
-	public long countReviewQuestions(Long userId, List<Evaluation> evaluations, 
+	public long countReviewQuestions(Long userId, List<LanguageVariant> languageVariants,
+												  List<Evaluation> evaluations, 
 												  List<Difficulty> difficulties,
 												  FavoriteCondition favoriteCondition,
 												  List<Long> structureIds) {
 		
 		// ここで変換する
+		List<String> convertedLanguageVariants = searchConditionConverter.convertLanguageVariant(languageVariants);
 		List<String> convertedDifficulties = searchConditionConverter.convertDifficulty(difficulties);
 		List<String> convertedEvaluations = searchConditionConverter.convertEvaluation(evaluations);
 		String convertedFavoriteCondition = searchConditionConverter.convertFavoriteCondition(favoriteCondition);
 		
 	    return studyHistoryRepository.countReviewQuestions(
 	    		userId,
+	    		convertedLanguageVariants,
 	    		convertedEvaluations,
 	    		convertedDifficulties,
 	    		convertedFavoriteCondition,
@@ -46,6 +50,7 @@ public class ReviewService {
 	
 	//問題取得
 	public List<Question> getQuestion(Long userId, 
+									  List<LanguageVariant> languageVariants,
 									  List<Evaluation> evaluations, 
 									  List<Difficulty> difficulties,
 									  FavoriteCondition favoriteCondition,
@@ -53,6 +58,7 @@ public class ReviewService {
 									  boolean random){
 		
 		List<Question> extractedQuestions = studyHistoryRepository.findReviewQuestions(userId,
+				searchConditionConverter.convertLanguageVariant(languageVariants),
 				searchConditionConverter.convertEvaluation(evaluations),
 				searchConditionConverter.convertDifficulty(difficulties),
 				searchConditionConverter.convertFavoriteCondition(favoriteCondition),
