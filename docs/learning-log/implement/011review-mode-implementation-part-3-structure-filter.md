@@ -1079,3 +1079,286 @@ descriptionは普通話・國語の2種類
 今回については要件定義の詰めが甘かった部分がある一方、実装して実際にアプリケーションを使ったからこそ発見できた要求もあった。
 
 そして、必要性に気づいた時点で後回しにせず、データ構造とrequirementsまで遡って修正できたことは、今後の機能追加を考えれば結果的によかったと思う。
+
+---
+
+# 追加修正　8月28日
+
+## 復習メニューに学習対象言語による絞り込みを追加
+
+### 1. 工夫した点
+
+#### 1-1. 問題件数の取得と実際の問題取得の両方に言語条件を追加した
+
+復習メニューでは、画面に表示する復習対象問題数を取得する`countReviewQuestions`と、実際に復習する問題を取得する`findReviewQuestions`が別々に存在する。
+
+そのため、学習対象言語による絞り込みを実装する際は、件数取得側だけではなく問題取得側にも同じ条件を追加した。
+
+```sql
+AND q.language_variant IN (:languageVariants)
+```
+
+もし`countReviewQuestions`だけにこの条件を追加すると、画面には「國語 5問」と表示されているにもかかわらず、実際に復習を開始すると普通話の問題まで出題される、といった不整合が発生する可能性がある。
+
+検索条件を追加するときは、**画面表示用の検索処理と実際のデータ取得処理で条件が一致しているか確認する必要がある**と分かった。
+
+#### 1-2. `IN`を使用して複数の学習対象言語に対応した
+
+学習対象言語の条件には、
+
+```sql
+AND q.language_variant = :languageVariant
+```
+
+ではなく、
+
+```sql
+AND q.language_variant IN (:languageVariants)
+```
+
+を使用した。
+
+これは復習メニューでは普通話と國語をチェックボックスで選択でき、
+
+```text
+普通話のみ
+國語のみ
+普通話 + 國語
+```
+
+という複数の検索パターンを扱う必要があるためである。
+
+Controllerでは、
+
+```java
+@RequestParam(name = "languageVariants", required = false)
+    List<LanguageVariant> languageVariants
+```
+
+として複数の値を受け取り、Serviceで、
+
+```java
+List<String> convertedLanguageVariants =
+        searchConditionConverter.convertLanguageVariant(languageVariants);
+```
+
+と変換してRepositoryへ渡している。
+
+これにより、既存の難易度や理解度などと同じように、学習対象言語も複数選択可能な検索条件として扱えるようにした。
+
+#### 1-3. 現在の学習対象言語をデフォルトの検索条件にした
+
+復習メニューを開いたときに普通話と國語を無条件ですべて検索対象にするのではなく、現在ユーザーが設定している学習対象言語だけを最初から選択するようにした。
+
+```java
+LanguageVariant languageVariant =
+        (LanguageVariant) session.getAttribute("languageVariant");
+
+if (languageVariant == null) {
+    languageVariant = LanguageVariant.MAINLAND;
+}
+
+model.addAttribute(
+        "selectedLanguageVariants",
+        List.of(languageVariant)
+);
+```
+
+たとえば現在の学習対象言語が國語なら、
+
+```text
+☐ 普通話
+☑ 國語
+```
+
+という状態で復習メニューを表示する。
+
+ただし、普通話のチェックボックス自体を非表示にはしていないため、必要であればユーザーが普通話にもチェックを入れて両方を復習対象にできる。
+
+**「現在の学習対象言語」と「検索可能な言語」を分けて考えることで、初期状態はユーザー設定に合わせつつ、検索機能としての自由度も残した。**
+
+#### 1-4. JavaScript側でも学習対象言語を検索条件として扱った
+
+復習対象問題数は画面を再読み込みして取得するのではなく、JavaScriptから`/review/count`へリクエストを送信して取得している。
+
+そのため、HTMLにチェックボックスを追加するだけでは不十分で、JavaScript側にも`languageVariants`を追加する必要があった。
+
+```javascript
+const searchConditions = document.querySelectorAll(
+    "input[name='languageVariants'], " +
+    "input[name='evaluations'], " +
+    "input[name='difficulties'], " +
+    "input[name='conditions'], " +
+    "input[name='favoriteCondition'], " +
+    "input[name='structureIds']"
+);
+```
+
+さらに、チェックされている学習対象言語を取得し、
+
+```javascript
+document
+    .querySelectorAll("input[name='languageVariants']:checked")
+    .forEach(cb => {
+        params.append("languageVariants", cb.value);
+    });
+```
+
+として`URLSearchParams`へ追加した。
+
+これにより、学習対象言語のチェックを変更した場合にも、その条件を反映した問題件数が取得されるようになった。
+
+---
+
+### 2. 気づいた点・勉強になった点
+
+#### 2-1. `required = false`の場合、パラメータが送信されなければ`null`になる
+
+今回、学習対象言語の実装途中で以下のエラーが発生した。
+
+```text
+java.lang.NullPointerException:
+Cannot invoke "java.util.List.iterator()"
+because "languageVariants" is null
+```
+
+Controllerでは、
+
+```java
+@RequestParam(name = "languageVariants", required = false)
+    List<LanguageVariant> languageVariants
+```
+
+としていた。
+
+`required = false`は「値がなくてもリクエストを受け付ける」という意味であり、値が存在しない場合に自動的に空の`List`が生成されるわけではない。
+
+リクエストに`languageVariants`自体が存在しなければ、
+
+```java
+languageVariants == null
+```
+
+となる。
+
+その状態で、
+
+```java
+searchConditionConverter.convertLanguageVariant(languageVariants);
+```
+
+を呼び出し、Converter内でListを走査しようとしたため`NullPointerException`が発生した。
+
+今回の場合、原因はJavaScript側から`languageVariants`を送信していなかったことだった。
+
+#### 2-2. HTMLに`name`を設定しただけでは`fetch()`のパラメータにはならない
+
+通常のHTMLフォーム送信であれば、
+
+```html
+<input
+    type="checkbox"
+    name="languageVariants"
+    value="TAIWAN">
+```
+
+のように`name`を設定しておけば、チェックされた値をフォームパラメータとして送信できる。
+
+しかし今回の問題件数取得では、
+
+```javascript
+const params = new URLSearchParams();
+```
+
+を使用してJavaScript側でパラメータを組み立て、
+
+```javascript
+fetch("/review/count?" + params);
+```
+
+としてリクエストしている。
+
+この場合、HTMLに`name="languageVariants"`を追加しただけでは自動的に`params`へ含まれるわけではない。
+
+明示的に、
+
+```javascript
+params.append("languageVariants", cb.value);
+```
+
+とする必要がある。
+
+今回のエラーから、**フォームの通常送信とJavaScriptによる`fetch()`では、リクエストパラメータが作られる仕組みが異なる**ことを確認できた。
+
+#### 2-3. `URLSearchParams.append()`を複数回使用するとSpring側で`List`として受け取れる
+
+複数のチェックボックスが選択された場合、
+
+```javascript
+params.append("languageVariants", cb.value);
+```
+
+がそれぞれに対して実行される。
+
+たとえば普通話と國語の両方を選択すると、リクエストには概念的に、
+
+```text
+languageVariants=MAINLAND&languageVariants=TAIWAN
+```
+
+という形で同じ名前のパラメータが複数送信される。
+
+Spring MVCではこれを、
+
+```java
+@RequestParam(name = "languageVariants")
+List<LanguageVariant> languageVariants
+```
+
+として受け取ることができ、
+
+```java
+[MAINLAND, TAIWAN]
+```
+
+のようなListとして扱える。
+
+そのため、HTMLの複数チェックボックス、JavaScriptの`URLSearchParams`、Spring MVCの`List`、SQLの`IN`を組み合わせることで、複数選択型の検索条件を実装できることが分かった。
+
+#### 2-4. `COUNT(*)`が0件になること自体はエラーではない
+
+実装確認時、現在の学習対象言語である國語には復習対象問題が存在しなかったため、問題件数は0件になった。
+
+当初は0件であることがエラーの原因に見えたが、SQLの、
+
+```sql
+SELECT COUNT(*)
+```
+
+は該当レコードが存在しない場合でも`0`を返す。
+
+今回発生していたエラーは0件であることではなく、その前段階で`languageVariants`が`null`のまま`SearchConditionConverter`へ渡されていたことが原因だった。
+
+このことから、エラーが発生したときは画面上の現象だけから原因を判断せず、**スタックトレースを確認して、最初に自分のコードで例外が発生している箇所を特定することが重要**だと分かった。
+
+---
+
+### 3. 実装結果
+
+現在の学習対象言語が國語の場合、復習メニューでは國語だけがデフォルトで選択されるようになった。
+
+![](../../images/0011-14.png)
+
+國語には現在復習対象問題が存在しないため、問題件数は0問と表示される。
+
+![](../../images/0011-16.png)
+
+学習対象言語を普通話へ切り替えると、復習メニューでも普通話がデフォルトで選択される。
+
+![](../../images/0011-15.png)
+
+普通話には復習対象問題が8件存在するため、問題件数も8問と表示された。
+
+![](../../images/0011-17.png)
+
+これにより、現在設定している学習対象言語と復習メニューの初期検索条件が一致し、必要に応じて普通話・國語を選択して復習対象を絞り込めるようになった。
