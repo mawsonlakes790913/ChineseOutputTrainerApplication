@@ -39,6 +39,9 @@ public class ReviewController {
 	@GetMapping("/review/menu")
 	public String getReviewMenu(HttpSession session,
 			   					Model model) {
+		
+		// 言語切替後の戻り先
+		model.addAttribute("languageVariantRedirect", "/review/menu");
 	    
 	    // セッションから情報を取得
 	    List<Question> questions =
