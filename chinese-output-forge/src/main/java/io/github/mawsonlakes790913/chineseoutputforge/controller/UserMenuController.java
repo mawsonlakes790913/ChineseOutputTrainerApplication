@@ -10,5 +10,10 @@ public class UserMenuController {
 	public String getUserMenu() {
 		return "/user/menu";
 	}
+	
+	@GetMapping("/user/settings")
+	public String getSettings() {
+	    return "user/settings";
+	}
 
 }

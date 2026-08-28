@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <meta charset="UTF-8">
+
+    <title th:text="#{settings.title}">
+        設定
+    </title>
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="w-100">
+
+    <h2 class="mb-4"
+        th:text="#{settings.title}">
+        設定
+    </h2>
+
+    <div class="table-responsive">
+
+        <table class="table table-bordered align-middle">
+
+            <tbody>
+
+                <!-- ========================= -->
+                <!-- 学習対象言語 -->
+                <!-- ========================= -->
+
+                <tr>
+                    <th class="bg-light w-25"
+                        th:text="#{settings.languageVariant}">
+                        学習対象言語
+                    </th>
+
+                    <td>
+                        <div class="d-flex flex-wrap gap-3">
+
+							<!-- 普通話 -->
+							<a class="btn btn-outline-danger"
+							   th:classappend="${session.languageVariant != null
+							       && session.languageVariant.name() == 'MAINLAND'}
+							       ? ' disabled'"
+							   th:href="@{/language-variant(
+							       languageVariant='MAINLAND',
+							       redirect='/user/settings'
+							   )}"
+							   th:onclick="return confirm([[#{settings.languageVariant.mainland.confirm}]])">
+							    🇨🇳
+							    <span th:text="#{settings.languageVariant.mainland}">
+							        普通話
+							    </span>
+							</a>
+							
+							<!-- 國語 -->
+							<a class="btn btn-outline-success"
+							   th:classappend="${session.languageVariant != null
+							       && session.languageVariant.name() == 'TAIWAN'}
+							       ? ' disabled'"
+							   th:href="@{/language-variant(
+							       languageVariant='TAIWAN',
+							       redirect='/user/settings'
+							   )}"
+							   th:onclick="return confirm([[#{settings.languageVariant.taiwan.confirm}]])">
+							    🇹🇼
+							    <span th:text="#{settings.languageVariant.taiwan}">
+							        國語
+							    </span>
+							</a>
+
+                        </div>
+                    </td>
+                </tr>
+
+
+                <!-- ========================= -->
+                <!-- 表示発音記号 -->
+                <!-- ========================= -->
+
+                <tr>
+                    <th class="bg-light w-25"
+                        th:text="#{settings.pronunciationType}">
+                        表示発音記号
+                    </th>
+
+                    <td>
+                        <div class="d-flex flex-wrap gap-3">
+
+							<!-- 拼音 -->
+							<a class="btn btn-outline-primary px-4"
+							   th:classappend="${session.pronunciationType != null
+							       && session.pronunciationType.name() == 'PINYIN'}
+							       ? ' disabled'"
+							   th:href="@{/pronunciation-type(
+							       pronunciationType='PINYIN'
+							   )}"
+							   th:onclick="return confirm([[#{settings.pronunciationType.pinyin.confirm}]])">
+							
+							    <ruby>
+							        拼音
+							        <rt>pīnyīn</rt>
+							    </ruby>
+							
+							</a>
+							
+							<!-- 注音 -->
+							<a class="btn btn-outline-info px-4"
+							   th:classappend="${session.pronunciationType != null
+							       && session.pronunciationType.name() == 'ZHUYIN'}
+							       ? ' disabled'"
+							   th:href="@{/pronunciation-type(
+							       pronunciationType='ZHUYIN'
+							   )}"
+							   th:onclick="return confirm([[#{settings.pronunciationType.zhuyin.confirm}]])">
+							
+							    <ruby>
+							        注音
+							        <rt>ㄓㄨˋ ㄧㄣ</rt>
+							    </ruby>
+							
+							</a>
+							
+							<!-- 表示しない -->
+							<a class="btn btn-outline-secondary"
+							   th:classappend="${session.pronunciationType != null
+							       && session.pronunciationType.name() == 'NONE'}
+							       ? ' disabled'"
+							   th:href="@{/pronunciation-type(
+							       pronunciationType='NONE'
+							   )}"
+							   th:onclick="return confirm([[#{settings.pronunciationType.none.confirm}]])"
+							   th:text="#{settings.pronunciationType.none}">
+							
+							    表示しない
+							
+							</a>
+
+                        </div>
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- 戻る -->
+    <!-- ========================= -->
+
+    <div class="text-center mt-4 mb-3">
+
+        <a th:href="@{/user/menu}"
+           class="btn btn-secondary"
+           th:text="#{user.profile.back}">
+            ユーザーメニューに戻る
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

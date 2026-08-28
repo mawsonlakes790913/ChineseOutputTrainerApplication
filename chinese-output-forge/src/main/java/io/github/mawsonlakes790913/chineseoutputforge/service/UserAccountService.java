@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
@@ -174,6 +176,64 @@ public class UserAccountService {
 	    userRepository.delete(user);
 
 	    log.info("退会完了 loginId={}", loginId);
+	}
+	
+	@Transactional
+	public void updateLanguageVariant(
+	        String loginId,
+	        LanguageVariant languageVariant,
+	        Locale locale) {
+
+	    Users user = getUserOne(loginId);
+
+	    if (user == null) {
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                		"user.settings.error.notFound",
+	                        null,
+	                        locale
+	                )
+	        );
+	    }
+
+	    user.setLanguageVariant(languageVariant);
+
+	    userRepository.save(user);
+
+	    log.info(
+	            "学習対象言語変更 loginId={}, languageVariant={}",
+	            user.getLoginId(),
+	            languageVariant
+	    );
+	}
+	
+	@Transactional
+	public void updatePronunciationType(
+	        String loginId,
+	        PronunciationType pronunciationType,
+	        Locale locale) {
+
+	    Users user = getUserOne(loginId);
+
+	    if (user == null) {
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                		"user.settings.error.notFound",
+	                        null,
+	                        locale
+	                )
+	        );
+	    }
+
+	    user.setPronunciationType(pronunciationType);
+
+	    userRepository.save(user);
+
+	    log.info(
+	            "表示発音記号変更 loginId={}, pronunciationType={}",
+	            user.getLoginId(),
+	            pronunciationType
+	    );
 	}
 
 }
