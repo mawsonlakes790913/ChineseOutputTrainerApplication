@@ -855,3 +855,35 @@ th:href="@{/language-variant(
 ```
 
 これにより、復習メニュー上で学習対象言語を変更した場合も、変更後に`/review/menu`へ戻るようになった。
+
+---
+
+## 14. 問題一覧画面で学習対象言語を変更した場合の戻り先を修正
+
+```bash
+git commit -m "fix: preserve user question list after language switch"
+```
+
+問題一覧画面でも復習メニューと同様に、学習対象言語を変更した後の戻り先が設定されていなかったため、言語変更後にHome画面へ戻っていた。
+
+そこで、`UserQuestionListController#getUserQuestionList`に以下を追加した。
+
+```java
+// 言語切替後の戻り先
+model.addAttribute(
+        "languageVariantRedirect",
+        "/user/question/list"
+);
+```
+
+ヘッダーでは、この`languageVariantRedirect`を`redirect`パラメータとして`LanguageVariantController`へ渡している。
+
+```html
+th:href="@{/language-variant(
+    languageVariant='TAIWAN',
+    redirect=${languageVariantRedirect}
+)}"
+```
+
+これにより、問題一覧画面上で学習対象言語を変更した場合も、変更後に`/user/question/list`へ戻るようになった。
+
