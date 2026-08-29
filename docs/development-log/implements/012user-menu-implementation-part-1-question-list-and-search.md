@@ -2777,3 +2777,157 @@ Hard / Good / Easyすべてチェック
 
 ---
 
+## 追加修正　8月29日
+
+**git commit**
+
+```bash
+git commit -m "refactor: remove redundant filter defaults from user question service"
+```
+
+### `UserQuestionService.getFilteredUserQuestionList`の重複処理を削除
+
+`UserQuestionService.getFilteredUserQuestionList`を確認したところ、検索条件が未指定だった場合の初期値設定が、`SearchConditionConverter`の処理と重複していることが判明した。
+
+これまで、以下の処理によって難易度・理解度・学習条件・お気に入り条件が未指定の場合の値を設定していた。
+
+```java
+// 難易度
+if (difficulties == null || difficulties.isEmpty()) {
+    difficulties = Arrays.asList(Difficulty.values());
+}
+
+// 理解度
+if (evaluations == null || evaluations.isEmpty()) {
+    evaluations = Arrays.asList(Evaluation.values());
+}
+
+// 学習条件
+if (studyCondition == null) {
+    studyCondition = StudyCondition.ALL;
+}
+
+// お気に入り条件
+if (favoriteCondition == null) {
+    favoriteCondition = FavoriteCondition.ALL;
+}
+```
+
+これらは、各検索条件が`null`または空の場合に、すべての項目を検索対象として扱うための処理である。
+
+しかし、その後の処理では以下のように`SearchConditionConverter`を使用している。
+
+```java
+// ここで変換する
+List<String> convertedDifficulties =
+        searchConditionConverter.convertDifficulty(difficulties);
+
+List<String> convertedEvaluations =
+        searchConditionConverter.convertEvaluation(evaluations);
+
+String convertedStudyCondition =
+        searchConditionConverter.convertStudyCondition(studyCondition);
+
+String convertedFavoriteCondition =
+        searchConditionConverter.convertFavoriteCondition(favoriteCondition);
+```
+
+`SearchConditionConverter`の各メソッドでは、検索条件をRepositoryへ渡す形式に変換するだけでなく、`null`または空の場合の初期値設定も行っている。
+
+例えば、`convertDifficulty`では`difficulties`が`null`または空の場合、すべての難易度を検索対象とする。
+
+```java
+if (difficulties == null || difficulties.isEmpty()) {
+
+    difficultyList = List.of(
+            Difficulty.BEGINNER.name(),
+            Difficulty.INTERMEDIATE.name(),
+            Difficulty.ADVANCED.name());
+
+}
+```
+
+`convertEvaluation`でも同様に、未指定の場合はすべての理解度を検索対象とする。
+
+```java
+if (evaluations == null || evaluations.isEmpty()) {
+
+    evaluationList = List.of(
+            Evaluation.HARD.name(),
+            Evaluation.GOOD.name(),
+            Evaluation.EASY.name());
+
+}
+```
+
+また、`convertStudyCondition`では`null`の場合に`ALL`へ変換する。
+
+```java
+if (studyCondition == null) {
+
+    convertedStudyCondition =
+            StudyCondition.ALL.name();
+
+}
+```
+
+`convertFavoriteCondition`についても、`null`の場合は`ALL`へ変換している。
+
+```java
+if (favoriteCondition == null) {
+
+    convertedFavoriteCondition =
+            FavoriteCondition.ALL.name();
+
+}
+```
+
+そのため、`UserQuestionService`側で同じ初期値設定を行う必要はない。
+
+### 修正後
+
+重複していた以下の処理を削除する。
+
+```java
+// 難易度
+if (difficulties == null || difficulties.isEmpty()) {
+    difficulties = Arrays.asList(Difficulty.values());
+}
+
+// 理解度
+if (evaluations == null || evaluations.isEmpty()) {
+    evaluations = Arrays.asList(Evaluation.values());
+}
+
+// 学習条件
+if (studyCondition == null) {
+    studyCondition = StudyCondition.ALL;
+}
+
+// お気に入り条件
+if (favoriteCondition == null) {
+    favoriteCondition = FavoriteCondition.ALL;
+}
+```
+
+検索条件が未指定だった場合の処理は、後段の`SearchConditionConverter`に任せる。
+
+一方、文法・構造とキーワードについては`SearchConditionConverter`で未指定時の処理を行っていないため、以下の処理は引き続き`UserQuestionService`に残す。
+
+```java
+// 文法・構造
+if (structureIds == null || structureIds.isEmpty()) {
+    structureIds = structureRepository.findAllStructureIds();
+}
+
+// キーワード
+if (japaneseKeyword == null) {
+    japaneseKeyword = "";
+}
+
+if (chineseKeyword == null) {
+    chineseKeyword = "";
+}
+```
+
+これにより、難易度・理解度・学習条件・お気に入り条件について、未指定時の処理を`SearchConditionConverter`に集約し、`UserQuestionService`内の重複した処理を削除できた。
