@@ -1362,3 +1362,103 @@ SELECT COUNT(*)
 ![](../../images/0011-17.png)
 
 これにより、現在設定している学習対象言語と復習メニューの初期検索条件が一致し、必要に応じて普通話・國語を選択して復習対象を絞り込めるようになった。
+
+---
+
+# 追加修正　8月29日
+
+**git commit**
+
+```bash
+git commit -m "fix: apply all structures when review filter is empty"
+```
+
+### 文法・構造欄が無選択のときはすべて選択扱いにする
+
+復習メニューでは、難易度や理解度などの検索条件が無選択の場合、すべての項目を選択したものとして問題件数を取得する仕様になっている。
+
+一方、文法・構造については、すべてのチェックを外すと本当に無選択のままとなり、他の検索条件と挙動が統一されていなかった。
+
+![](../../images/0011-18.png)
+
+検索条件によって無選択時の挙動が異なるとユーザーの混乱を招くため、文法・構造についても無選択の場合はすべて選択したものとして扱うように修正する。
+
+### `ReviewService`
+
+`structureIds`が`null`または空の場合、`StructureRepository`からすべての`structure_id`を取得する処理を追加する。
+
+```java
+// 復習出題数取得
+public long countReviewQuestions(
+        Long userId,
+        List<LanguageVariant> languageVariants,
+        List<Evaluation> evaluations,
+        List<Difficulty> difficulties,
+        FavoriteCondition favoriteCondition,
+        List<Long> structureIds) {
+
+    // 文法・構造
+    if (structureIds == null || structureIds.isEmpty()) {
+        structureIds = structureRepository.findAllStructureIds();
+    }
+
+    // ここで変換する
+    List<String> convertedLanguageVariants =
+            searchConditionConverter.convertLanguageVariant(languageVariants);
+
+    List<String> convertedDifficulties =
+            searchConditionConverter.convertDifficulty(difficulties);
+
+    List<String> convertedEvaluations =
+            searchConditionConverter.convertEvaluation(evaluations);
+
+    String convertedFavoriteCondition =
+            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
+
+    return studyHistoryRepository.countReviewQuestions(
+            userId,
+            convertedLanguageVariants,
+            convertedEvaluations,
+            convertedDifficulties,
+            convertedFavoriteCondition,
+            structureIds
+    );
+}
+```
+
+追加したのは以下の処理である。
+
+```java
+// 文法・構造
+if (structureIds == null || structureIds.isEmpty()) {
+    structureIds = structureRepository.findAllStructureIds();
+}
+```
+
+画面から`structureIds`が送信されなかった場合、または空だった場合に、
+
+```java
+structureRepository.findAllStructureIds();
+```
+
+ですべての文法・構造IDを取得する。
+
+これにより、文法・構造が無選択の場合でも、すべての文法・構造を検索対象として問題件数を取得できるようになった。
+
+### 実行・確認
+
+以下にアクセスする。
+
+```text
+http://localhost:8080/review/menu
+```
+
+文法・構造欄のすべてのチェックを外しても、問題件数についてはすべての文法・構造を選択した場合と同じ件数が表示されることを確認した。
+
+![](../../images/0011-19.png)
+
+これにより、難易度や理解度などの他の検索条件と同様に、
+
+**無選択 = すべてを検索対象とする**
+
+という挙動に統一できた。
