@@ -256,4 +256,60 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        Pageable pageable
 	);
 	
+	@Query(value = """
+
+	        SELECT COUNT (*)
+	        FROM question q
+	        JOIN study_history sh
+	        ON (
+	            q.question_id = sh.question_id
+	            AND sh.user_id = :userId
+	        )
+	        LEFT JOIN favorite f
+	        ON (
+	            q.question_id = f.question_id
+	            AND f.user_id = :userId
+	        )
+	        WHERE q.difficulty IN (:difficulties)
+	        AND sh.evaluation IN (:evaluations)
+	        AND (
+	            :favoriteCondition = 'ALL'
+	            OR (
+	                :favoriteCondition = 'FAVORITED'
+	                AND f.question_id IS NOT NULL
+	            )
+	            OR (
+	                :favoriteCondition = 'NOT_FAVORITED'
+	                AND f.question_id IS NULL
+	            )
+	        )
+	        AND q.structure_id IN (:structureIds)
+	        AND q.language_variant = :languageVariant
+	        AND q.allow_ai_variation = true
+	        """,
+	        nativeQuery = true)
+
+	Long countAiGenerationSourceQuestions(
+
+	        @Param("userId")
+	        long userId,
+
+	        @Param("difficulties")
+	        List<String> difficulties,
+
+	        @Param("evaluations")
+	        List<String> evaluations,
+
+	        @Param("favoriteCondition")
+	        String favoriteCondition,
+
+	        @Param("structureIds")
+	        List<Long> structureIds,
+	        
+	        @Param("languageVariant")
+	        String languageVariant
+
+	);
+	
+	
 }
