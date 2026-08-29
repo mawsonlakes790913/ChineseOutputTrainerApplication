@@ -1,6 +1,5 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
-import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -29,21 +28,6 @@ public class AiPracticeService {
 												 List<Long> structureIds,
 												 LanguageVariant languageVariant) {
 		
-		// 難易度
-		if (difficulties == null || difficulties.isEmpty()) {
-		difficulties = Arrays.asList(Difficulty.values());
-		}
-		
-		// 理解度
-		if (evaluations == null || evaluations.isEmpty()) {
-		evaluations = Arrays.asList(Evaluation.values());
-		}
-		
-		// お気に入り条件
-		if (favoriteCondition == null) {
-		favoriteCondition = FavoriteCondition.ALL;
-		}
-		
 		// 文法・構造
 		if (structureIds == null || structureIds.isEmpty()) {
 			structureIds = structureRepository.findAllStructureIds();
@@ -59,5 +43,7 @@ public class AiPracticeService {
 				
 																	
 	}
+	
+
 
 }
