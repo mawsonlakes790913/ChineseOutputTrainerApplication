@@ -32,6 +32,11 @@ public class ReviewService {
 												  FavoriteCondition favoriteCondition,
 												  List<Long> structureIds) {
 		
+		// 文法・構造
+		if (structureIds == null || structureIds.isEmpty()) {
+			structureIds = structureRepository.findAllStructureIds();
+		}
+		
 		// ここで変換する
 		List<String> convertedLanguageVariants = searchConditionConverter.convertLanguageVariant(languageVariants);
 		List<String> convertedDifficulties = searchConditionConverter.convertDifficulty(difficulties);
