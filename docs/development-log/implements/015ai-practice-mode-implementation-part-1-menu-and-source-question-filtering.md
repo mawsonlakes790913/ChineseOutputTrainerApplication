@@ -1218,3 +1218,126 @@ allow_ai_variation
 を条件としてAI生成元Questionを絞り込み、メニュー画面に対象問題数を表示するところまで実装できた。
 
 今回の時点では、`/ai-practice/start`以降のQuestion取得、AIへのリクエスト、AI生成済み問題セットの作成、トレーニング画面での出題処理についてはまだ実装していない。
+
+---
+
+## 追加修正　8月29日
+
+**git commit**
+
+```bash
+git commit -m "refactor: remove redundant filter defaults from AI practice service"
+```
+
+### `AiPracticeService.countAiGenerationSourceQuestions`の重複処理を削除
+
+`AiPracticeService.countAiGenerationSourceQuestions`を確認したところ、検索条件が未指定だった場合の初期値設定が、`SearchConditionConverter`の処理と重複していることが判明した。
+
+これまで、以下の処理によって難易度・理解度・お気に入り条件が未指定の場合の値を設定していた。
+
+```java
+// 難易度
+if (difficulties == null || difficulties.isEmpty()) {
+    difficulties = Arrays.asList(Difficulty.values());
+}
+
+// 理解度
+if (evaluations == null || evaluations.isEmpty()) {
+    evaluations = Arrays.asList(Evaluation.values());
+}
+
+// お気に入り条件
+if (favoriteCondition == null) {
+    favoriteCondition = FavoriteCondition.ALL;
+}
+```
+
+この処理は、それぞれの検索条件が`null`または空の場合に、すべての項目を検索対象として扱うためのものである。
+
+しかし、Repositoryへ検索条件を渡す際には、すでに以下の`SearchConditionConverter`を使用している。
+
+```java
+searchConditionConverter.convertDifficulty(difficulties),
+searchConditionConverter.convertEvaluation(evaluations),
+searchConditionConverter.convertFavoriteCondition(favoriteCondition),
+```
+
+`SearchConditionConverter`の各メソッドでは、検索条件が`null`または空の場合の処理も行っている。
+
+例えば`convertDifficulty`では、`difficulties`が`null`または空の場合に、すべての難易度を検索対象としている。
+
+```java
+if (difficulties == null || difficulties.isEmpty()) {
+
+    difficultyList = List.of(
+            Difficulty.BEGINNER.name(),
+            Difficulty.INTERMEDIATE.name(),
+            Difficulty.ADVANCED.name());
+
+}
+```
+
+`convertEvaluation`でも同様に、未指定の場合はすべての理解度を検索対象とする。
+
+```java
+if (evaluations == null || evaluations.isEmpty()) {
+
+    evaluationList = List.of(
+            Evaluation.HARD.name(),
+            Evaluation.GOOD.name(),
+            Evaluation.EASY.name());
+
+}
+```
+
+`convertFavoriteCondition`についても、`null`の場合は`ALL`に変換している。
+
+```java
+if (favoriteCondition == null) {
+
+    convertedFavoriteCondition =
+            FavoriteCondition.ALL.name();
+
+}
+```
+
+そのため、`AiPracticeService`側で同じ初期値設定を行う必要はない。
+
+### 修正後
+
+重複していた初期値設定を削除し、検索条件の未指定時の処理は`SearchConditionConverter`に任せる。
+
+```java
+public Long countAiGenerationSourceQuestions(
+        long userId,
+        List<Difficulty> difficulties,
+        List<Evaluation> evaluations,
+        FavoriteCondition favoriteCondition,
+        List<Long> structureIds,
+        LanguageVariant languageVariant) {
+
+    // 文法・構造
+    if (structureIds == null || structureIds.isEmpty()) {
+        structureIds = structureRepository.findAllStructureIds();
+    }
+
+    return questionRepository.countAiGenerationSourceQuestions(
+            userId,
+            searchConditionConverter.convertDifficulty(difficulties),
+            searchConditionConverter.convertEvaluation(evaluations),
+            searchConditionConverter.convertFavoriteCondition(favoriteCondition),
+            structureIds,
+            languageVariant.name()
+    );
+}
+```
+
+なお、文法・構造については`SearchConditionConverter`で未指定時の処理を行っていないため、以下の処理は引き続き`AiPracticeService`に残す。
+
+```java
+if (structureIds == null || structureIds.isEmpty()) {
+    structureIds = structureRepository.findAllStructureIds();
+}
+```
+
+これにより、難易度・理解度・お気に入り条件については未指定時の処理を`SearchConditionConverter`に集約し、`AiPracticeService`内の重複した処理を削除できた。
