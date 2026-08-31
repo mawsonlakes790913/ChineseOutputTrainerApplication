@@ -40,6 +40,15 @@
     </p>
 
     <div class="mt-3">
+		
+		<!-- 問題の難易度 -->
+		<span class="badge"
+		      th:classappend="${question.difficulty.name() == 'BEGINNER'} ? 'bg-danger' :
+		                      (${question.difficulty.name() == 'INTERMEDIATE'} ? 'bg-primary' : 'bg-success')"
+		      th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
+		               (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
+		    難易度
+		</span>			
 
         <!-- 現在の問題番号 -->
         <span th:text="${nextPageIndex + '/' + totalPages}">
