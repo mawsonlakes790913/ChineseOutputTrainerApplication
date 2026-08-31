@@ -527,6 +527,64 @@ git commit -m "feat: add pronunciation display for alternative answers"
 
 ---
 
+# 追加修正 8月31日
+
+```bash
+git commit -m "feat: display question difficulty on practice page"
+```
+
+問題ページに、現在出題されている問題の難易度を表示するようにする。
+
+通常学習モードでは異なる難易度の問題が同時に出題されることは少ないが、今後実装する復習モードやAI問題生成モードでは、複数の難易度を選択して問題セットを作成できるため、異なる難易度の問題が混在することがある。
+
+その場合、現在表示されている問題の難易度が分かる方がユーザーにとって分かりやすい。
+
+また、問題画面の仕様に一貫性を持たせるため、通常学習モードの問題画面にも難易度を表示する。
+
+## 1. 問題の難易度を表示する
+
+### `/practice/question.html`
+
+問題文の上部に、現在の問題の難易度を表示するバッジを追加する。
+
+```html
+<!-- 問題の難易度 -->
+<span class="badge"
+      th:classappend="${question.difficulty.name() == 'BEGINNER'} ? 'bg-danger' :
+                      (${question.difficulty.name() == 'INTERMEDIATE'} ? 'bg-primary' : 'bg-success')"
+      th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
+               (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
+    難易度
+</span>
+```
+
+`question.difficulty`の値によって、表示する難易度とバッジの背景色を切り替える。
+
+| `Difficulty`   | 表示 | Bootstrapクラス |
+| -------------- | -- | ------------ |
+| `BEGINNER`     | 初級 | `bg-danger`  |
+| `INTERMEDIATE` | 中級 | `bg-primary` |
+| `ADVANCED`     | 上級 | `bg-success` |
+
+難易度名については`messages.properties`から取得する。
+
+## 2. 実行
+
+任意の条件で通常学習を開始し、
+
+```text
+http://localhost:8080/practice/question
+```
+
+にアクセスする。
+
+問題文の上部に、現在出題されている問題の難易度が表示されることを確認した。
+
+![](../../images/0005-08.png)
+
+
+---
+
 # 次回の実装
 
 お気に入り登録、未学習問題のトレーニング、理解度の保存など、通常学習機能をさらに拡張する予定。
