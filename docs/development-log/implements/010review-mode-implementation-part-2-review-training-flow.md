@@ -791,3 +791,57 @@ http://localhost:8080/review/menu
 
 ![](../../images/0010-01.png)
 
+---
+
+# 追加修正 8月31日
+
+```bash
+git commit -m "feat: display question difficulty on review page"
+```
+
+通常学習モードと同様に、復習モードの問題ページにも現在出題されている問題の難易度を表示するようにする。
+
+復習モードでは複数の難易度を選択して問題セットを作成できるため、異なる難易度の問題が混在して出題されることがある。
+
+その場合、現在表示されている問題の難易度が分かる方がユーザーにとって分かりやすいため、問題文の上部に難易度を表示する。
+
+## 1. 問題の難易度を表示する
+
+### `/review/question.html`
+
+問題文の上部に、現在の問題の難易度を表示するバッジを追加する。
+
+```html
+<!-- 問題の難易度 -->
+<span class="badge"
+      th:classappend="${question.difficulty.name() == 'BEGINNER'} ? 'bg-danger' :
+                      (${question.difficulty.name() == 'INTERMEDIATE'} ? 'bg-primary' : 'bg-success')"
+      th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
+               (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
+    難易度
+</span>
+```
+
+`question.difficulty`の値によって、表示する難易度とバッジの背景色を切り替える。
+
+| `Difficulty`   | 表示 | Bootstrapクラス |
+| -------------- | -- | ------------ |
+| `BEGINNER`     | 初級 | `bg-danger`  |
+| `INTERMEDIATE` | 中級 | `bg-primary` |
+| `ADVANCED`     | 上級 | `bg-success` |
+
+難易度名については`messages.properties`から取得する。
+
+## 2. 実行
+
+任意の条件で復習モードを開始し、
+
+```text
+http://localhost:8080/review/question
+```
+
+にアクセスする。
+
+問題文の上部に、現在出題されている問題の難易度が表示されることを確認した。
+
+![](../../images/0010-02.png)
