@@ -1,13 +1,21 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGenerationSourceDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
@@ -21,6 +29,10 @@ public class AiPracticeService {
 	private final StructureRepository structureRepository;
 	private final QuestionRepository questionRepository;
 	private final SearchConditionConverter searchConditionConverter;
+	private final AiPromptService aiPromptService;
+	private final ObjectMapper objectMapper;
+	private final OpenAIClient openAIClient;
+	private final MessageSource messageSource;
 	
 	public Long countAiGenerationSourceQuestions(long userId,
 												 List<Difficulty> difficulties,
@@ -68,6 +80,68 @@ public class AiPracticeService {
 		
 	}
 	
+	public List<AiGeneratedQuestionDto> generateQuestions(
+	        List<Question> sourceQuestions,
+	        LanguageVariant languageVariant,
+	        Locale locale) {
+		
+		// AI問題生成の共通ルールを取得
+		String commonPrompt =
+		        aiPromptService.getCommonPrompt(locale);
+		
+		// 言語別ルールを取得
+		String languageProfile =
+		        aiPromptService.getLanguageProfile(languageVariant, locale);
+		
+		// ソース問題を取得
+		List<AiGenerationSourceDto> generationSources = new ArrayList<>();
+		
+		for(int i = 0; i < sourceQuestions.size(); i++) {
+			Question sourceQuestion = sourceQuestions.get(i);
+	        AiGenerationSourceDto source =
+	                new AiGenerationSourceDto();
+			source.setSourceIndex(i);
+			source.setJapaneseText(sourceQuestion.getJapaneseText());
+			source.setChineseText(sourceQuestion.getChineseText());
+			source.setTemplate(sourceQuestion.getTemplate());
+			source.setSubjectType(
+			        sourceQuestion.getSubjectType());
+
+			source.setVerbVariation(
+			        sourceQuestion.getVerbVariation());
+			
+			generationSources.add(source);
+		}
+		
+		// 生成元問題をJSON形式に変換
+		String generationSourcesJson;
+
+		try {
+
+		    generationSourcesJson =
+		            objectMapper.writeValueAsString(
+		                    generationSources);
+
+		} catch (JsonProcessingException e) {
+
+		    throw new IllegalStateException(
+		            messageSource.getMessage(
+		                    "ai.generation.error.json",
+		                    null,
+		                    locale),
+		            e);
+		}
+		
+		// ルールとリストをAPIリクエストに組み込む
+		
+		
+		
+		
+		
+		
+		
+		
+	}
 
 
 }
