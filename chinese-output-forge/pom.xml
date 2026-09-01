@@ -114,7 +114,13 @@
 		    <groupId>org.webjars.npm</groupId>
 		    <artifactId>bootstrap-icons</artifactId>
 		    <version>1.11.3</version>
-		</dependency>		
+		</dependency>	
+		<!-- OpenAI Java SDK -->
+		<dependency>
+		    <groupId>com.openai</groupId>
+		    <artifactId>openai-java</artifactId>
+		    <version>4.54.0</version>
+		</dependency>				
 	</dependencies>
 
 	<build>
