@@ -27,6 +27,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGenerationSourceDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.TemporaryGeneratedQuestionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.TemporaryGeneratedQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
@@ -174,7 +175,14 @@ public class AiPracticeService {
 		                    locale);
 		}
 		
-		// 最終的なAiGeneratedQuestionDtoを作成(未実装)
+		// 画面表示用DTOへ変換
+		List<AiGeneratedQuestionDto> generatedQuestions =
+		        convertToGeneratedQuestions(
+		                temporaryGeneratedQuestionListDto,
+		                sourceQuestions);
+
+		return generatedQuestions;		
+		
 		
 	}
 	
@@ -336,6 +344,58 @@ public class AiPracticeService {
 		
 		return temporaryGeneratedQuestionListDto;
 		
+	}
+	
+	private List<AiGeneratedQuestionDto> convertToGeneratedQuestions(
+	        TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto,
+	        List<Question> sourceQuestions) {
+
+		// DTOの中から生成された複数の問題を取得
+	    List<TemporaryGeneratedQuestionDto> temporaryGeneratedQuestionDtos =
+	            temporaryGeneratedQuestionListDto.getQuestions();
+
+	 // 最終的なAI生成問題を格納するListを作成
+	    List<AiGeneratedQuestionDto> generatedQuestions =
+	            new ArrayList<>();
+
+	 // AIが生成した問題を順番に処理
+	    for (int i = 0; i < temporaryGeneratedQuestionDtos.size(); i++) {
+
+	        TemporaryGeneratedQuestionDto temporaryGeneratedQuestionDto =
+	                temporaryGeneratedQuestionDtos.get(i);
+
+	        // sourceIndexを基に生成元問題を取得
+	        Question sourceQuestion =
+	                sourceQuestions.get(
+	                        temporaryGeneratedQuestionDto.getSourceIndex());
+
+	        // 最終的なAI生成問題DTOを作成
+	        AiGeneratedQuestionDto generatedQuestion =
+	                new AiGeneratedQuestionDto();
+
+	        generatedQuestion.setSourceQuestionId(
+	                sourceQuestion.getQuestionId());
+
+	        generatedQuestion.setJapaneseText(
+	                temporaryGeneratedQuestionDto.getJapaneseText());
+
+	        generatedQuestion.setChineseText(
+	                temporaryGeneratedQuestionDto.getChineseText());
+
+	        generatedQuestion.setPinyin(
+	                temporaryGeneratedQuestionDto.getPinyin());
+
+	        generatedQuestion.setZhuyin(
+	                temporaryGeneratedQuestionDto.getZhuyin());
+
+	        generatedQuestion.setDifficulty(
+	                sourceQuestion.getDifficulty());
+
+	        // Listへ追加
+	        generatedQuestions.add(generatedQuestion);
+	    }
+
+	    return generatedQuestions;
 	}
 
 }
