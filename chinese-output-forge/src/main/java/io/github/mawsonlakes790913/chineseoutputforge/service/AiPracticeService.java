@@ -31,7 +31,6 @@ public class AiPracticeService {
 	private final SearchConditionConverter searchConditionConverter;
 	private final AiPromptService aiPromptService;
 	private final ObjectMapper objectMapper;
-	private final OpenAIClient openAIClient;
 	private final MessageSource messageSource;
 	
 	public Long countAiGenerationSourceQuestions(long userId,
@@ -132,16 +131,23 @@ public class AiPracticeService {
 		            e);
 		}
 		
-		// ルールとリストをAPIリクエストに組み込む
+		// AIへ送信する入力を作成
+		String input =
+		        commonPrompt
+		        + "\n\n"
+		        + languageProfile
+		        + "\n\n"
+		        + "## 生成元問題\n"
+		        + generationSourcesJson;
 		
+		// ChatGPTで生成(未実装)
+//		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto = 
+//				generateQuestionsWithChatGPT(input, locale);
 		
-		
-		
-		
-		
-		
+		// Geminiで生成(未実装)
+//		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto = 
+//				generateQuestionsWithGemini(input, locale);
 		
 	}
-
 
 }
