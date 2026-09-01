@@ -120,7 +120,13 @@
 		    <groupId>com.openai</groupId>
 		    <artifactId>openai-java</artifactId>
 		    <version>4.54.0</version>
-		</dependency>				
+		</dependency>	
+		<!-- Google Gen AI Java SDK -->
+		<dependency>
+		    <groupId>com.google.genai</groupId>
+		    <artifactId>google-genai</artifactId>
+		    <version>1.67.0</version>
+		</dependency>						
 	</dependencies>
 
 	<build>
