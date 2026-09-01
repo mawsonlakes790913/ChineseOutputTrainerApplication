@@ -3,12 +3,18 @@ package io.github.mawsonlakes790913.chineseoutputforge.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.genai.Client;
+import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.Schema;
+import com.google.genai.types.Type;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.ResponseCreateParams;
@@ -39,6 +45,7 @@ public class AiPracticeService {
 	private final ObjectMapper objectMapper;
 	private final MessageSource messageSource;
 	private final OpenAIClient openAIClient;
+	private final Client geminiClient;
 	
 	public Long countAiGenerationSourceQuestions(long userId,
 												 List<Difficulty> difficulties,
@@ -147,13 +154,27 @@ public class AiPracticeService {
 		        + "## 生成元問題\n"
 		        + generationSourcesJson;
 		
-		// ChatGPTで生成(未実装)
-		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto = 
-				generateQuestionsWithChatGPT(input, locale);
+		// 使用するAIを一時的に切り替える
+		boolean useChatGPT = true;
+
+		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto;
+
+		if (useChatGPT) {
+
+		    temporaryGeneratedQuestionListDto =
+		            generateQuestionsWithChatGPT(
+		                    input,
+		                    locale);
+
+		} else {
+
+		    temporaryGeneratedQuestionListDto =
+		            generateQuestionsWithGemini(
+		                    input,
+		                    locale);
+		}
 		
-		// Geminiで生成(未実装)
-//		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto = 
-//				generateQuestionsWithGemini(input, locale);
+		// 最終的なAiGeneratedQuestionDtoを作成(未実装)
 		
 	}
 	
@@ -219,6 +240,102 @@ public class AiPracticeService {
 		}
 
 	    return temporaryGeneratedQuestionListDto;
+	}
+	
+	private TemporaryGeneratedQuestionListDto generateQuestionsWithGemini(
+	        String input,
+	        Locale locale) {
+		
+		// 3. APIリクエストを作成(Gemini)
+		// 1問分の出力形式を定義する
+		// Structured OutputsのJSON Schemaを作成
+		Schema questionSchema =
+		        Schema.builder()
+		                .type(Type.Known.OBJECT)
+		                .properties(Map.of(
+		                        "sourceIndex",
+		                        Schema.builder()
+		                                .type(Type.Known.INTEGER)
+		                                .build(),
+		                        "japaneseText",
+		                        Schema.builder()
+		                                .type(Type.Known.STRING)
+		                                .build(),
+		                        "chineseText",
+		                        Schema.builder()
+		                                .type(Type.Known.STRING)
+		                                .build(),
+		                        "pinyin",
+		                        Schema.builder()
+		                                .type(Type.Known.STRING)
+		                                .build(),
+		                        "zhuyin",
+		                        Schema.builder()
+		                                .type(Type.Known.STRING)
+		                                .build()
+		                ))
+		                .required(List.of(
+		                        "sourceIndex",
+		                        "japaneseText",
+		                        "chineseText",
+		                        "pinyin",
+		                        "zhuyin"))
+		                .build();
+
+		// レスポンス全体の出力形式を定義する
+
+		Schema responseSchema =
+		        Schema.builder()
+		                .type(Type.Known.OBJECT)
+		                .properties(Map.of(
+		                        "questions",
+		                        Schema.builder()
+		                                .type(Type.Known.ARRAY)
+		                                .items(questionSchema)
+		                                .build()
+		                ))
+		                .required(List.of("questions"))
+		                .build();
+
+
+				// APIリクエストを作成(Gemini)
+				GenerateContentConfig config =
+				        GenerateContentConfig.builder()
+				                .responseMimeType("application/json")
+				                .responseSchema(responseSchema)
+				                .build();
+
+		// 4. APIへリクエストを送信
+		GenerateContentResponse response =
+		        geminiClient.models.generateContent(
+		                "gemini-3.7-flash",
+		                input,
+		                config);
+
+		// 5. AIが生成したJSONを取得
+		String responseJson =
+		        response.text();
+
+		// JSONをDTOへ変換
+		TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto;
+
+		try {
+		    temporaryGeneratedQuestionListDto =
+		            objectMapper.readValue(
+		                    responseJson,
+		                    TemporaryGeneratedQuestionListDto.class);
+
+		} catch (JsonProcessingException e) {
+		    throw new IllegalStateException(
+		            messageSource.getMessage(
+		                    "ai.generation.error.response",
+		                    null,
+		                    locale),
+		            e);
+		}
+		
+		return temporaryGeneratedQuestionListDto;
+		
 	}
 
 }
