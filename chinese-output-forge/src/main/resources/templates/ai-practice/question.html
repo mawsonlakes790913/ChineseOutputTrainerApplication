@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title th:text="#{aiPractice.question.pageTitle}">
+        Chinese Output Forge
+    </title>
+
+    <link rel="stylesheet"
+          th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+
+    <script th:src="@{/js/practice.js}" defer></script>
+
+</head>
+
+<body>
+
+<div layout:fragment="content" class="text-center">
+
+    <!-- タイトル -->
+    <h1 th:text="#{aiPractice.question.title}">
+        AI問題生成モード
+    </h1>
+
+    <p th:text="#{aiPractice.question.message}">
+        AIが生成した問題に挑戦しましょう
+    </p>
+
+    <div class="mt-3">
+
+        <!-- 問題の難易度 -->
+        <span class="badge"
+              th:classappend="${question.difficulty.name() == 'BEGINNER'} ? 'bg-danger' :
+                              (${question.difficulty.name() == 'INTERMEDIATE'} ? 'bg-primary' : 'bg-success')"
+              th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
+                       (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
+            難易度
+        </span>
+
+        <!-- 現在の問題番号 -->
+        <span th:text="${nextPageIndex + '/' + totalPages}">
+            1/10
+        </span>
+
+        <!-- 日本語問題 -->
+        <div class="d-flex justify-content-center align-items-center gap-3">
+
+            <h2 class="mb-0"
+                th:text="${question.japaneseText}">
+                日本語問題
+            </h2>
+
+        </div>
+
+        <!-- 解答 -->
+        <div class="mt-4"
+             style="min-height:150px;">
+
+            <button id="answerButton"
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="showAnswer()"
+                    th:text="#{aiPractice.question.showAnswer}">
+                解答を見る
+            </button>
+
+            <div id="answerArea"
+                 style="display:none;">
+
+                <!-- 発音 -->
+                <p class="mb-2"
+                   th:if="${pronunciation != null}">
+
+                    <span th:text="${pronunciation}">
+                        Pronunciation
+                    </span>
+
+                </p>
+
+                <!-- 解答 -->
+                <p class="mb-2">
+
+                    <span th:text="#{aiPractice.question.answer}">
+                        解答：
+                    </span>
+
+                    <span class="fs-3"
+                          th:text="${question.chineseText}">
+                        Chinese Answer
+                    </span>
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ============================= -->
+    <!-- 前へ・次へ -->
+    <!-- ============================= -->
+
+    <div class="mb-5 d-flex justify-content-center gap-4"
+         style="margin-top:60px;">
+
+        <!-- 前の問題 -->
+        <a th:if="${hasPrevious}"
+           th:href="@{/ai-practice/question(page=${nextPageIndex - 2})}"
+           class="btn btn-outline-primary"
+           th:text="#{aiPractice.question.previous}">
+            前の問題へ
+        </a>
+
+        <!-- 次の問題 -->
+        <a th:if="${hasNext}"
+           th:href="@{/ai-practice/question(page=${nextPageIndex})}"
+           class="btn btn-outline-primary"
+           th:text="#{aiPractice.question.next}">
+            次の問題へ
+        </a>
+
+        <!-- 完了 -->
+        <a th:if="${!hasNext}"
+           th:href="@{/ai-practice/complete}"
+           class="btn btn-info"
+           th:text="#{aiPractice.question.complete}">
+            完了
+        </a>
+
+    </div>
+
+    <!-- ============================= -->
+    <!-- 学習中断・終了 -->
+    <!-- ============================= -->
+
+    <div class="d-flex justify-content-center gap-3"
+         style="margin-top:40px;">
+
+        <!-- 中断 -->
+        <a th:href="@{/ai-practice/suspend(page=${nextPageIndex - 1})}"
+           th:attr="onclick=|return confirm('#{aiPractice.question.suspend.confirm}');|"
+           class="btn btn-outline-danger btn-sm"
+           style="width:100px;"
+           th:text="#{aiPractice.question.suspend}">
+            中断する
+        </a>
+
+        <!-- 終了 -->
+        <a th:href="@{/ai-practice/quit}"
+           th:attr="onclick=|return confirm('#{aiPractice.question.quit.confirm}');|"
+           class="btn btn-outline-danger btn-sm"
+           style="width:100px;"
+           th:text="#{aiPractice.question.quit}">
+            やめる
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
