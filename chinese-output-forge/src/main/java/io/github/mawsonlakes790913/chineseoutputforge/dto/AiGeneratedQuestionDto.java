@@ -7,6 +7,10 @@ import lombok.Data;
 public class AiGeneratedQuestionDto {
 
     private Long sourceQuestionId;
+    
+    private String sourceJapaneseText;
+
+    private String sourceChineseText;
 
     private String japaneseText;
 

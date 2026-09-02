@@ -96,6 +96,26 @@
                     </span>
 
                 </p>
+                
+				<!-- 生成元問題 -->
+				<div class="mt-4 text-muted small">
+				
+				    <p class="mb-1"
+				       th:text="#{aiPractice.question.sourceQuestion}">
+				        生成元問題
+				    </p>
+				
+				    <p class="mb-1"
+				       th:text="${question.sourceJapaneseText}">
+				        生成元の日本語
+				    </p>
+				
+				    <p class="mb-0"
+				       th:text="${question.sourceChineseText}">
+				        生成元の中国語
+				    </p>
+				
+				</div>                
 
             </div>
 

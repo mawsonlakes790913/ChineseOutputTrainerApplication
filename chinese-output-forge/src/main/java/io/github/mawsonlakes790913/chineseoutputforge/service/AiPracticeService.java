@@ -375,6 +375,12 @@ public class AiPracticeService {
 
 	        generatedQuestion.setSourceQuestionId(
 	                sourceQuestion.getQuestionId());
+	        
+	        generatedQuestion.setSourceJapaneseText(
+	                sourceQuestion.getJapaneseText());
+
+	        generatedQuestion.setSourceChineseText(
+	                sourceQuestion.getChineseText());
 
 	        generatedQuestion.setJapaneseText(
 	                temporaryGeneratedQuestionDto.getJapaneseText());
