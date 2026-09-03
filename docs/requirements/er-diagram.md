@@ -85,7 +85,8 @@ erDiagram
 
 
     USER {
-        string user_id PK
+        bigint id PK
+        string login_id
         string password
         string role
         string language_variant
@@ -122,13 +123,13 @@ erDiagram
 
 
     FAVORITE {
-        string user_id PK, FK
+        bigint user_id PK, FK
         bigint question_id PK, FK
     }
 
 
     STUDY_HISTORY {
-        string user_id PK, FK
+        bigint user_id PK, FK
         bigint question_id PK, FK
         string evaluation
         datetime first_studied_at
