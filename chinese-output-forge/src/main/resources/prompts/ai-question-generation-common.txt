@@ -36,6 +36,9 @@
 
    {predicate}
    → その位置に自然に入る動詞・形容詞などの述語
+   
+   {classifier}
+   → 量詞
    ```
 
    プレースホルダ名の末尾に`_reusable`が付いている場合も、基本となるプレースホルダと同じ文法的役割を持ちます。
@@ -58,6 +61,9 @@
 
    {predicate_reusable}
    → その位置に自然に入る動詞・形容詞などの述語
+   
+   {classifier_reusable}
+   → 量詞
    ```
 
    `_reusable`は文法的役割を変更するものではなく、元の`chineseText`で対応する位置に使用されている語句を再利用してもよいことを表します。
@@ -164,4 +170,8 @@ zhuyin
 同一の`sourceIndex`から生成する3候補の`candidateIndex`には、0、1、2をそれぞれ設定してください。
 `japaneseText`、`chineseText`、`pinyin`、`zhuyin`は、すべて同じ生成文に対応する内容にしてください。
 
+{classifier}または{classifier_reusable}を使用する場合は、
+直後の名詞に対して自然な量詞を使用してください。
 
+{classifier}と{noun}が連続している場合は、それぞれを独立して選択するのではなく、
+量詞と名詞の組み合わせとして自然になるように生成してください。
