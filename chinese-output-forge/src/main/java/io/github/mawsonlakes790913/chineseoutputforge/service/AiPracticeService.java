@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
@@ -265,6 +266,10 @@ public class AiPracticeService {
 		                        Schema.builder()
 		                                .type(Type.Known.INTEGER)
 		                                .build(),
+                                "candidateIndex",
+                                Schema.builder()
+                                        .type(Type.Known.INTEGER)
+                                        .build(),		                                
 		                        "japaneseText",
 		                        Schema.builder()
 		                                .type(Type.Known.STRING)
@@ -284,6 +289,7 @@ public class AiPracticeService {
 		                ))
 		                .required(List.of(
 		                        "sourceIndex",
+		                        "candidateIndex",
 		                        "japaneseText",
 		                        "chineseText",
 		                        "pinyin",
@@ -350,55 +356,77 @@ public class AiPracticeService {
 	        TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto,
 	        List<Question> sourceQuestions) {
 
-		// DTOの中から生成された複数の問題を取得
+	    // DTOの中から生成された複数の問題を取得
 	    List<TemporaryGeneratedQuestionDto> temporaryGeneratedQuestionDtos =
 	            temporaryGeneratedQuestionListDto.getQuestions();
 
-	 // 最終的なAI生成問題を格納するListを作成
+	    // 最終的なAI生成問題を格納するListを作成
 	    List<AiGeneratedQuestionDto> generatedQuestions =
 	            new ArrayList<>();
 
-	 // AIが生成した問題を順番に処理
-	    for (int i = 0; i < temporaryGeneratedQuestionDtos.size(); i++) {
+	    // 3候補から1つをランダムに選択するためのRandomを作成
+	    Random random = new Random();
 
-	        TemporaryGeneratedQuestionDto temporaryGeneratedQuestionDto =
-	                temporaryGeneratedQuestionDtos.get(i);
+	    // 各生成元問題について1問ずつ最終的な生成問題を作成
+	    for (int sourceIndex = 0;
+	            sourceIndex < sourceQuestions.size();
+	            sourceIndex++) {
 
-	        // sourceIndexを基に生成元問題を取得
-	        Question sourceQuestion =
-	                sourceQuestions.get(
-	                        temporaryGeneratedQuestionDto.getSourceIndex());
+	        // candidateIndex 0～2の中から採用する候補をランダムに決定
+	        int randomIndex = random.nextInt(3);
 
-	        // 最終的なAI生成問題DTOを作成
-	        AiGeneratedQuestionDto generatedQuestion =
-	                new AiGeneratedQuestionDto();
+	        // AIから返された全候補を先頭から走査
+	        for (int i = 0;
+	                i < temporaryGeneratedQuestionDtos.size();
+	                i++) {
 
-	        generatedQuestion.setSourceQuestionId(
-	                sourceQuestion.getQuestionId());
-	        
-	        generatedQuestion.setSourceJapaneseText(
-	                sourceQuestion.getJapaneseText());
+	            TemporaryGeneratedQuestionDto temporaryGeneratedQuestionDto =
+	                    temporaryGeneratedQuestionDtos.get(i);
 
-	        generatedQuestion.setSourceChineseText(
-	                sourceQuestion.getChineseText());
+	            // 現在の生成元問題かつランダムに選択された候補かを確認
+	            if (temporaryGeneratedQuestionDto.getSourceIndex() == sourceIndex
+	                    && temporaryGeneratedQuestionDto.getCandidateIndex() == randomIndex) {
 
-	        generatedQuestion.setJapaneseText(
-	                temporaryGeneratedQuestionDto.getJapaneseText());
+	                // sourceIndexを基に生成元問題を取得
+	                Question sourceQuestion =
+	                        sourceQuestions.get(
+	                                temporaryGeneratedQuestionDto.getSourceIndex());
 
-	        generatedQuestion.setChineseText(
-	                temporaryGeneratedQuestionDto.getChineseText());
+	                // 最終的なAI生成問題DTOを作成
+	                AiGeneratedQuestionDto generatedQuestion =
+	                        new AiGeneratedQuestionDto();
 
-	        generatedQuestion.setPinyin(
-	                temporaryGeneratedQuestionDto.getPinyin());
+	                generatedQuestion.setSourceQuestionId(
+	                        sourceQuestion.getQuestionId());
 
-	        generatedQuestion.setZhuyin(
-	                temporaryGeneratedQuestionDto.getZhuyin());
+	                generatedQuestion.setSourceJapaneseText(
+	                        sourceQuestion.getJapaneseText());
 
-	        generatedQuestion.setDifficulty(
-	                sourceQuestion.getDifficulty());
+	                generatedQuestion.setSourceChineseText(
+	                        sourceQuestion.getChineseText());
 
-	        // Listへ追加
-	        generatedQuestions.add(generatedQuestion);
+	                generatedQuestion.setJapaneseText(
+	                        temporaryGeneratedQuestionDto.getJapaneseText());
+
+	                generatedQuestion.setChineseText(
+	                        temporaryGeneratedQuestionDto.getChineseText());
+
+	                generatedQuestion.setPinyin(
+	                        temporaryGeneratedQuestionDto.getPinyin());
+
+	                generatedQuestion.setZhuyin(
+	                        temporaryGeneratedQuestionDto.getZhuyin());
+
+	                generatedQuestion.setDifficulty(
+	                        sourceQuestion.getDifficulty());
+
+	                // Listへ追加
+	                generatedQuestions.add(generatedQuestion);
+
+	                // 選択する候補が見つかったため内側のforを終了
+	                break;
+	            }
+	        }
 	    }
 
 	    return generatedQuestions;

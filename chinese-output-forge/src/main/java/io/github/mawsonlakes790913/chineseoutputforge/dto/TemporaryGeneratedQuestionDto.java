@@ -6,6 +6,8 @@ import lombok.Data;
 public class TemporaryGeneratedQuestionDto {
 
 	private int sourceIndex;
+	
+    private int candidateIndex;
 
 	private String japaneseText;
 
