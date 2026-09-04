@@ -12,7 +12,7 @@ public interface AiGenerationHistoryRepository
         extends JpaRepository<AiGenerationHistory, Long> {
 
 	List<AiGenerationHistory>
-    findTop5ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
+    findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
             Long userId,
             Long questionId);
 }
