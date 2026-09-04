@@ -1,5 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.dto;
 
+import java.util.List;
+
 import io.github.mawsonlakes790913.chineseoutputforge.constant.SubjectType;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.VerbVariation;
 import lombok.Data;
@@ -18,4 +20,6 @@ public class AiGenerationSourceDto {
     private SubjectType subjectType;
 
     private VerbVariation verbVariation;
+    
+    private List<String> generationHistory;
 }

@@ -156,6 +156,7 @@ public class AiPracticeController {
 	    List<AiGeneratedQuestionDto> aiPracticeQuestions;
 
 	    aiPracticeQuestions = aiPracticeService.generateQuestions(
+	    		user,
 	    		sourceQuestions,
 	    		languageVariant,
 	    		locale);

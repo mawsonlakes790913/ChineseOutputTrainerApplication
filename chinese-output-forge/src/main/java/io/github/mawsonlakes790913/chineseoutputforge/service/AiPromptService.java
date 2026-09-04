@@ -16,10 +16,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AiPromptService {
 
-    private static final String COMMON_PROMPT_PATH =
-            "prompts/ai-question-generation-common.txt";
+//    private static final String COMMON_PROMPT_PATH =
+//            "prompts/ai-question-generation-common.txt";
 //    private static final String COMMON_PROMPT_PATH =
 //            "prompts/ai-question-generation-common-test.txt";
+    private static final String COMMON_PROMPT_PATH =
+            "prompts/ai-question-generation-common-test2.txt";
 
     private static final String MAINLAND_PROFILE_PATH =
             "prompts/language-profile-mainland.txt";

@@ -7,7 +7,7 @@ public class TemporaryGeneratedQuestionDto {
 
 	private int sourceIndex;
 	
-    private int candidateIndex;
+//    private int candidateIndex;
 
 	private String japaneseText;
 
