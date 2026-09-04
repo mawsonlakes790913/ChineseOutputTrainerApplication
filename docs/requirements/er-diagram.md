@@ -121,8 +121,6 @@ erDiagram
         string difficulty
         boolean allow_ai_variation
         text template
-        string subject_type
-        string verb_variation
     }
 
 
@@ -1141,6 +1139,13 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題には必ず所有ユーザーを設定する。
 - AI生成問題は通常学習用のQUESTIONへ追加しない。
 - AI生成問題は生成したユーザー自身の復習でのみ再利用する。
+- AI生成対象となるQUESTIONは `allow_ai_variation` により明示的に区別する。
+- QUESTIONはAI生成時の変更可能範囲を `template` によって定義する。
+- AIによる変更を許可する部分は、`template` 内のプレースホルダとして表現する。
+- AIによる変更を許可しない部分は、`template` の固定部分として保持する。
+- 主語の種類など問題ごとに異なる生成制約は、可能な限りプレースホルダの種類によって表現する。
+- QUESTIONには `subject_type` を保持しない。
+- QUESTIONには `verb_variation` を保持しない。
 - AI生成問題は生成元となったQUESTIONを外部キーで保持する。
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
@@ -1843,3 +1848,117 @@ QUESTION 1 : 0..N AI_GENERATION_HISTORY
 ```
 
 AI_GENERATION_HISTORYはAI問題生成のための内部的な生成履歴として扱い、通常の学習履歴およびユーザー専用のAI生成問題とは明確に分離して管理する。
+
+---
+
+### 16.7 AI生成制御属性の廃止
+
+**設計変更日：2026年9月4日**
+
+AI問題生成では当初、QUESTIONに以下の属性を保持し、問題ごとのAI生成内容を制御する設計としていた。
+
+```text
+subject_type
+verb_variation
+```
+
+`subject_type` は、AIによって主語を変更する際に、代名詞・非代名詞など生成可能な主語の種類を指定するための属性として使用していた。
+
+`verb_variation` は、動詞に関する時間関係・アスペクト・モダリティなどの変更可否を制御するための属性として使用していた。
+
+しかし、AI生成用テンプレートの設計を進めた結果、これらの生成制約はQUESTIONの独立した属性として保持するのではなく、テンプレートおよびプレースホルダによって表現する方針へ変更する。
+
+変更後は、
+
+```text
+QUESTION
+│
+├── allow_ai_variation
+│     └── AI生成対象であるか
+│
+└── template
+      ├── 固定部分
+      │     └── AIによる変更を許可しない
+      │
+      └── プレースホルダ
+            └── AIによる変更を許可する
+```
+
+という構造をAI生成制御の基本とする。
+
+主語については、例えば、
+
+```text
+{subject}
+{subject_non_pronoun}
+{subject_all}
+```
+
+のようにプレースホルダを分けることで、その位置に生成可能な主語の種類を表現する。
+
+これにより、
+
+```text
+QUESTION.subject_type
+```
+
+を参照することなく、テンプレート自体から生成可能な内容を判断できる。
+
+また、動詞の時間関係・アスペクト・モダリティなど、生成後も維持する必要がある要素については、原則としてテンプレートの固定部分として保持する。
+
+例えば、
+
+```text
+我去過{noun}。
+```
+
+では、`過` はプレースホルダの外側に存在するため、AIによる変更対象とはしない。
+
+AIによる変更を許可する部分のみをプレースホルダとして表現することで、
+
+```text
+QUESTION.verb_variation
+```
+
+を参照することなく変更可能な範囲を制御する。
+
+そのため、QUESTIONから以下の属性を削除する。
+
+```text
+subject_type
+verb_variation
+```
+
+変更前：
+
+```text
+QUESTION
+│
+├── allow_ai_variation
+├── template
+├── subject_type
+└── verb_variation
+```
+
+変更後：
+
+```text
+QUESTION
+│
+├── allow_ai_variation
+└── template
+```
+
+今回削除する `subject_type` および `verb_variation` はQUESTION自身の属性であり、他のエンティティから参照される外部キーではない。
+
+そのため、今回の変更によってエンティティ間のリレーションは変更しない。
+
+```text
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+```
+
+などの既存のリレーションはそのまま維持する。

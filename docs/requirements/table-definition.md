@@ -138,7 +138,7 @@ pronunciation_type   = ZHUYIN
 
 ## 概要
 
-大陸普通話・台湾華語のマスタ問題、およびAI生成に必要な問題単位の制御情報を管理するテーブル。
+大陸普通話・台湾華語のマスタ問題、およびAI生成に使用するテンプレート・生成可否情報を管理するテーブル。
 
 両方の学習対象言語を同一テーブルで管理し、`language_variant` によって識別する。
 
@@ -158,8 +158,6 @@ pronunciation_type   = ZHUYIN
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
 | allow_ai_variation | AI生成可否 | - | - | BOOLEAN | ○ | - | AI生成対象かどうか |
 | template | AI生成用テンプレート | - | - | TEXT | - | - | AI生成対象外の場合はNULL可 |
-| subject_type | 主語生成タイプ | - | - | VARCHAR(20) | - | - | PRONOUN / NON_PRONOUN / ALL |
-| verb_variation | 動詞生成タイプ | - | - | VARCHAR(20) | - | - | FIXED / FLEXIBLE |
 
 ## `language_variant`
 
@@ -183,7 +181,12 @@ pronunciation_type   = ZHUYIN
 - AI生成学習では `allow_ai_variation = true` の問題をAI生成元として使用できる。
 - `allow_ai_variation = false` の問題は固定問題としてのみ使用する。
 - AIによって生成された問題そのものを本テーブルへ追加しない。
-- `template`、`subject_type`、`verb_variation` は問題内容に応じてNULLを許容する。
+- `template` は問題内容に応じてNULLを許容する。
+- AI生成時の変更可能範囲は `template` によって定義する。
+- AIによる変更を許可する部分は `template` 内のプレースホルダとして表現する。
+- AIによる変更を許可しない部分は `template` の固定部分として保持する。
+- 主語の種類など問題ごとに異なる生成制約は、可能な限りプレースホルダの種類によって表現する。
+- `subject_type` および `verb_variation` のような独立したAI生成制御カラムは保持しない。
 - QUESTIONは `structure_id` によってSTRUCTUREを参照する。
 - 1つのQUESTIONにつき1つのSTRUCTUREを関連付ける。
 - STRUCTUREとの関連はすべてのQUESTIONで必須とし、`structure_id` はNULLを許可しない。
@@ -1309,8 +1312,12 @@ English
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題の文法・構造は生成元QUESTIONから判定する。
 - `allow_ai_variation = true` の問題のみAI生成元として使用する。
-- `subject_type` は `PRONOUN / NON_PRONOUN / ALL` を想定する。
-- `verb_variation` は `FIXED / FLEXIBLE` を想定する。
+- AI生成時の変更可能範囲はQUESTIONの `template` によって定義する。
+- AIによる変更を許可する部分は `template` 内のプレースホルダとして表現する。
+- AIによる変更を許可しない部分は `template` の固定部分として保持する。
+- 主語の種類など問題ごとに異なる生成制約は、可能な限りプレースホルダの種類によって表現する。
+- QUESTIONには `subject_type` を保持しない。
+- QUESTIONには `verb_variation` を保持しない。
 - USER.passwordはBCrypt等によってハッシュ化して保存する。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - 学習対象言語、発音表記、サイト表記言語はそれぞれ独立した設定として扱う。
@@ -1825,6 +1832,112 @@ AI_GENERATION_HISTORY
 ```
 
 として生成元QUESTIONから取得する。
+
+---
+
+## 18.7 AI生成制御属性の廃止
+
+**変更日：2026年9月4日**
+
+AI問題生成では当初、QUESTIONに以下のカラムを保持し、問題ごとのAI生成内容を制御する設計としていた。
+
+```text
+subject_type
+verb_variation
+```
+
+`subject_type` は、AIによって主語を変更する際に、
+
+```text
+PRONOUN
+NON_PRONOUN
+ALL
+```
+
+などの値によって生成可能な主語の種類を指定するために使用していた。
+
+また、`verb_variation` は、
+
+```text
+FIXED
+FLEXIBLE
+```
+
+などの値によって、動詞に関する変更可否を指定するために使用していた。
+
+しかし、AI生成用テンプレートの設計を進めた結果、これらの生成制約はQUESTIONの独立したカラムとして保持するのではなく、テンプレートおよびプレースホルダによって表現する方針へ変更した。
+
+主語については、例えば、
+
+```text
+{subject}
+{subject_non_pronoun}
+{subject_all}
+```
+
+のようにプレースホルダの種類を分けることで、その位置に生成可能な主語の種類を指定する。
+
+これにより、
+
+```text
+subject_type
++
+template
+```
+
+のように複数のカラムを組み合わせて生成条件を判断する必要がなくなり、テンプレート自体から生成条件を判断できる。
+
+また、動詞の時間関係・アスペクト・モダリティなど、AI生成後も維持する必要がある要素については、原則としてテンプレートの固定部分として保持する。
+
+例えば、
+
+```text
+我去過{noun}。
+```
+
+の場合、`過` はプレースホルダの外側に存在するため、AIによる変更対象とはしない。
+
+AIによる変更を許可する部分のみをプレースホルダとして表現することで、`verb_variation` のような独立したカラムを使用せずに変更範囲を制御する。
+
+そのため、QUESTIONから以下のカラムを削除する。
+
+```text
+subject_type
+verb_variation
+```
+
+変更前：
+
+```text
+QUESTION
+│
+├── allow_ai_variation
+├── template
+├── subject_type
+└── verb_variation
+```
+
+変更後：
+
+```text
+QUESTION
+│
+├── allow_ai_variation
+└── template
+```
+
+変更後、QUESTIONが保持するAI生成に直接関係する情報は、基本的に以下とする。
+
+```text
+allow_ai_variation
+template
+```
+
+`allow_ai_variation` によってAI生成対象であるかを判定し、`template` によってAIが変更可能な範囲および生成条件を定義する。
+
+具体的な生成制約は、必要に応じてテンプレート内のプレースホルダの種類によって表現する。
+
+これにより、AI生成に関する制御情報を複数のQUESTIONカラムへ分散させず、テンプレートを中心として管理する。
 
 ---
 
