@@ -11,6 +11,7 @@ Chinese Output Forge において、
 - お気に入り情報
 - 学習履歴
 - AI生成問題
+- AI生成履歴
 - AI問題生成に必要な制御情報
 
 を管理するためのデータ構造を定義する。
@@ -70,6 +71,7 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 | StudyHistory | マスタ問題の学習履歴・理解度 |
 | AiGeneratedQuestion | ユーザー専用のAI生成問題 |
 | AiSetting | AI問題生成に関する共通設定 |
+| AiGenerationHistory | ユーザー・生成元問題ごとのAI生成履歴 |
 
 大陸普通話・台湾華語の違いによってエンティティを分離せず、必要なエンティティに学習対象言語を識別する情報を持たせる。
 
@@ -182,28 +184,149 @@ Structureの説明を表示する機能では、現在の学習対象言語に�
 
 ---
 
+### AiGenerationHistory
+
+AI問題生成時に、同じ語彙や表現が短期間に繰り返し生成されることを抑制するため、過去に生成された中国語文を管理する。
+
+保持する情報：
+
+- AI生成履歴ID
+- ユーザー
+- 生成元Question
+- 生成された中国語文
+- 生成日時
+
+AiGenerationHistoryは、Userと生成元Questionの組み合わせごとに管理する。
+
+概念的には、
+
+    User
+      │
+      └── AiGenerationHistory
+                │
+                └── Question
+
+という関係とする。
+
+1つのUserは複数のAiGenerationHistoryを持つことができ、1つのQuestionについても複数のUser・複数のAiGenerationHistoryが存在できる。
+
+同一User・同一Questionの組み合わせについて保持する履歴は、直近5件までとする。
+
+    User A
+      │
+      └── Question 10
+            ├── 生成履歴1（最新）
+            ├── 生成履歴2
+            ├── 生成履歴3
+            ├── 生成履歴4
+            └── 生成履歴5（最古）
+
+新しい問題が生成された時点で履歴を追加する。
+
+すでに同一User・同一Questionについて5件の履歴が存在する場合は、最も古い履歴を削除してから新しい履歴を追加し、常に直近5件までを保持する。
+
+AI問題生成時には、この履歴から直近の生成結果を取得し、生成元Questionの情報とともにAIへ渡す。
+
+これにより、AIが直近に生成した語彙や表現を考慮して、新しい問題を生成できるようにする。
+
+AiGenerationHistoryはStudyHistoryとは目的が異なる。
+
+    StudyHistory
+    └── ユーザーの学習状態・理解度を管理する
+
+    AiGenerationHistory
+    └── AIの過去の生成結果を管理し、
+        次回生成時の重複抑制に利用する
+
+また、AiGeneratedQuestionとも目的が異なる。
+
+    AiGeneratedQuestion
+    └── ユーザーの学習データとして保存するAI生成問題
+
+    AiGenerationHistory
+    └── 次回のAI問題生成を制御するための生成履歴
+
+そのため、AiGenerationHistoryはStudyHistoryおよびAiGeneratedQuestionとは分離して管理する。
+
+---
+
+## 14. データ構造概要
+
 ## 14. データ構造概要
 
 全体の関係は概念的に以下のようになる。
 
                              User
                               │
-                    ┌─────────┼────────────┐
-                    │         │            │
-                    ▼         ▼            ▼
-                Favorite  StudyHistory  AiGeneratedQuestion
-                    │         │            │
-                    └────┬────┘            │
-                         ▼                 │
-                      Question ◀───────────┘
-                         │
-                  ┌──────┴────────┐
-                  │               │
-                  ▼               ▼
-              Structure     language_variant
-                              ┌────┴────┐
-                              │         │
-                           MAINLAND   TAIWAN
+              ┌───────────────┼───────────────────┐
+              │               │                   │
+              ▼               ▼                   ▼
+          Favorite       StudyHistory      AiGeneratedQuestion
+              │               │                   │
+              └───────┬───────┘                   │
+                      │                           │
+                      ▼                           │
+                   Question ◀─────────────────────┘
+                      ▲
+                      │
+              AiGenerationHistory
+                      ▲
+                      │
+                     User
+                      │
+                    1:N
+                      │
+                      ▼
+                   Question
+                      │
+                ┌─────┴─────┐
+                │           │
+                ▼           ▼
+            Structure  language_variant
+                           ┌───┴───┐
+                           │       │
+                        MAINLAND TAIWAN
+
+AiGenerationHistoryは、UserとQuestionの両方に関連付ける。
+
+    User
+      │
+      │ 1:N
+      ▼
+    AiGenerationHistory
+      ▲
+      │ N:1
+      │
+    Question
+
+これにより、
+
+    User × Question
+
+の組み合わせごとにAI生成履歴を管理する。
+
+例えば、同じQuestionからAI問題を生成した場合でも、生成履歴はユーザーごとに独立する。
+
+    User A
+      └── Question 10
+            └── User Aの生成履歴
+
+    User B
+      └── Question 10
+            └── User Bの生成履歴
+
+AiGenerationHistory自身には `language_variant` や `structure` を保持しない。
+
+生成履歴の学習対象言語および文法・構造が必要な場合は、関連するQuestionを経由して取得する。
+
+    AiGenerationHistory
+            │
+            ▼
+         Question
+            │
+            ├── language_variant
+            │
+            └── Structure
 
 また、Userはユーザーごとの設定として、学習対象言語および発音表記を保持する。
 
@@ -382,6 +505,20 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 - AI生成制御情報は問題単位で管理する。
 - AI共通設定は問題単位の設定から分離する。
 - AI生成時には現在の学習対象言語に対応するLanguage Profileを使用する。
+- AiGenerationHistoryはAI問題生成時の重複抑制に使用する生成履歴として管理する。
+- AiGenerationHistoryは必ず生成したUserと関連付ける。
+- AiGenerationHistoryは必ず生成元となったQuestionと関連付ける。
+- AiGenerationHistoryはUserとQuestionの組み合わせごとに管理する。
+- 同一User・同一Questionについて保持するAiGenerationHistoryは直近5件までとする。
+- 新しいAI生成履歴を保存する際、すでに5件存在する場合は最も古い履歴を削除する。
+- AiGenerationHistoryにはAIによって生成された中国語文を保持する。
+- AiGenerationHistoryには生成日時を保持し、生成履歴の新旧を判定できるようにする。
+- AI問題生成時には、対象となるUser・Questionに対応する直近のAiGenerationHistoryを取得し、生成内容の重複抑制に利用する。
+- AiGenerationHistoryはStudyHistoryとは分離して管理する。
+- AiGenerationHistoryはAiGeneratedQuestionとは分離して管理する。
+- AiGenerationHistoryはユーザーの理解度評価とは関係なく、AI問題が生成された時点で更新する。
+- AiGenerationHistory自身には学習対象言語を保持せず、関連するQuestionから判定する。
+- AiGenerationHistory自身にはStructureを保持せず、関連するQuestionを経由して取得する。
 - 管理者は大陸普通話・台湾華語双方のマスタ問題およびAI生成設定を管理できる。
 - 学習対象言語とサイト表記言語は独立した設定として扱う。
 - 文法・構造は独立したStructureとして管理する。

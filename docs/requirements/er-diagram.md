@@ -12,6 +12,7 @@ Chinese Output Forge で使用する主要エンティティと、そのリレ�
 - Favorite
 - StudyHistory
 - AiGeneratedQuestion
+- AiGenerationHistory
 
 Userは、認証・権限に関する情報だけでなく、ユーザーごとの設定として以下の情報を保持する。
 
@@ -61,7 +62,7 @@ TAIWAN
 
 によって大陸普通話と台湾華語を区別する。
 
-Favorite、StudyHistory、AiGeneratedQuestionについても、大陸普通話用・台湾華語用には分離せず共通テーブルとして管理する。
+Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryについても、大陸普通話用・台湾華語用には分離せず共通テーブルとして管理する。
 
 AI生成問題は通常のマスタ問題とは別エンティティとし、生成したユーザーにのみ紐づく個人用データとして管理する。
 
@@ -80,6 +81,9 @@ erDiagram
 
     USER ||--o{ AI_GENERATED_QUESTION : owns
     QUESTION ||--o{ AI_GENERATED_QUESTION : generates
+
+    USER ||--o{ AI_GENERATION_HISTORY : has
+    QUESTION ||--o{ AI_GENERATION_HISTORY : source
 
     STRUCTURE ||--o{ QUESTION : classifies
 
@@ -149,6 +153,15 @@ erDiagram
         datetime created_at
         datetime evaluation_updated_at
     }
+
+
+    AI_GENERATION_HISTORY {
+        bigint id PK
+        bigint user_id FK
+        bigint question_id FK
+        text chinese_text
+        datetime created_at
+    }
 ```
 
 ---
@@ -174,7 +187,14 @@ USER
   │              │
   │              └── STRUCTURE
   │
-  └── AI_GENERATED_QUESTION
+  ├── AI_GENERATED_QUESTION
+  │       │
+  │       └── QUESTION
+  │              │
+  │              └── STRUCTURE
+  │           （生成元）
+  │
+  └── AI_GENERATION_HISTORY
           │
           └── QUESTION
                  │
@@ -259,6 +279,8 @@ STRUCTURE
 FavoriteやStudyHistoryなどに学習対象言語やStructureを重複して保持する必要はなく、関連するQuestionを参照することで判定できる。
 
 AI_GENERATED_QUESTIONについても、生成元QUESTIONを経由して学習対象言語およびStructureを判定する。
+
+AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を保持しない。
 
 ---
 
@@ -902,6 +924,108 @@ AI_GENERATED_QUESTION
 
 ---
 
+### 12.1 AI生成履歴
+
+AI_GENERATION_HISTORYは、AI問題生成時に同じ語彙や表現が短期間に繰り返し生成されることを抑制するため、過去に生成された中国語文を保持する。
+
+AI_GENERATION_HISTORYはUSERおよび生成元QUESTIONの両方と関連付ける。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATION_HISTORY
+  ↑
+  │ N:1
+QUESTION
+```
+
+1人のユーザーは複数のAI生成履歴を持つことができる。
+
+また、1つのQUESTIONから複数のAI生成履歴が作成される可能性がある。
+
+AI_GENERATION_HISTORYは、
+
+```text
+user_id
+question_id
+```
+
+によって、どのユーザーがどのマスタ問題から生成した履歴であるかを識別する。
+
+例えば、
+
+```text
+USER
+user_id = 1
+    │
+    ▼
+AI_GENERATION_HISTORY
+user_id     = 1
+question_id = 10
+chinese_text = 過去に生成された中国語文
+    │
+    ▼
+QUESTION
+question_id = 10
+```
+
+という関係となる。
+
+同一USER・同一QUESTIONについて保持するAI生成履歴は、直近5件までとする。
+
+```text
+USER 1
+  │
+  └── QUESTION 10
+        │
+        ├── 履歴1（最新）
+        ├── 履歴2
+        ├── 履歴3
+        ├── 履歴4
+        └── 履歴5（最古）
+```
+
+新しいAI生成結果を保存する際、すでに同一USER・同一QUESTIONについて5件の履歴が存在する場合は、最も古い履歴を削除してから新しい履歴を保存する。
+
+AI問題生成時には、対象となるUSER・QUESTIONに対応するAI_GENERATION_HISTORYを生成日時の新しい順に取得し、直近の生成結果をAIへ渡す。
+
+AI_GENERATION_HISTORYは、AI_GENERATED_QUESTIONとは異なる目的を持つ。
+
+```text
+AI_GENERATED_QUESTION
+└── ユーザーの学習データとして保存するAI生成問題
+
+AI_GENERATION_HISTORY
+└── 次回のAI問題生成時に参照する生成履歴
+```
+
+AI_GENERATED_QUESTIONはユーザーが生成問題に対して理解度を与えた場合に保存する。
+
+一方、AI_GENERATION_HISTORYは理解度評価とは関係なく、AI問題が生成された時点で更新する。
+
+また、AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を保持しない。
+
+```text
+AI_GENERATION_HISTORY
+        │
+        │ question_id
+        ▼
+     QUESTION
+        │
+        ├── language_variant
+        │
+        └── structure_id
+                │
+                ▼
+            STRUCTURE
+```
+
+学習対象言語および文法・構造が必要な場合は、生成元QUESTIONを経由して取得する。
+
+---
+
 ## 13. 大陸普通話・台湾華語の管理
 
 大陸普通話と台湾華語は、**論理的には異なる問題データとして扱うが、物理的なテーブルは共通化する。**
@@ -931,6 +1055,7 @@ QUESTION
 FAVORITE
 STUDY_HISTORY
 AI_GENERATED_QUESTION
+AI_GENERATION_HISTORY
 ```
 
 へ統合する。
@@ -1020,6 +1145,20 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
 - AiSettingは保存方式が確定するまでER図には含めない。
+- AI_GENERATION_HISTORYは大陸普通話・台湾華語で分離しない。
+- AI_GENERATION_HISTORYはAI問題生成時の重複抑制に使用する。
+- AI_GENERATION_HISTORYには必ず生成したUSERを設定する。
+- AI_GENERATION_HISTORYには必ず生成元QUESTIONを設定する。
+- AI_GENERATION_HISTORYはUSERとQUESTIONの組み合わせごとに管理する。
+- 同一USER・同一QUESTIONについて保持するAI生成履歴は直近5件までとする。
+- AI_GENERATION_HISTORYには生成された中国語文を保持する。
+- AI_GENERATION_HISTORYには生成日時を保持する。
+- AI_GENERATION_HISTORYは理解度評価とは独立して、AI問題が生成された時点で更新する。
+- AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは分離して管理する。
+- AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
+- AI_GENERATION_HISTORYの学習対象言語は生成元QUESTIONから判定する。
+- AI_GENERATION_HISTORYのStructureは生成元QUESTIONから判定する。
+- AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を重複して保持しない。
 - 文法・構造は独立したSTRUCTUREとして管理する。
 - STRUCTUREは文法・構造ID、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
 - 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
@@ -1426,3 +1565,281 @@ QUESTION.language_variant
 通常学習や復習などでは、USERに保存されている `language_variant` を基準として、対応する `QUESTION.language_variant` の問題を取得する。
 
 発音表示では、USERに保存されている `pronunciation_type` を基準として、QUESTIONまたはAI_GENERATED_QUESTIONが保持する拼音・注音のどちらを表示するか、または発音表記を表示しないかを決定する。
+
+---
+
+### 16.6 AI生成履歴の追加
+
+**設計変更日：2026年9月4日**
+
+AI問題生成では、同一の生成元QUESTIONから繰り返し問題を生成した場合、過去に生成された問題と同じ語句や似た内容が短期間に繰り返し生成されることがある。
+
+AIは、それまでに生成した問題を自動的に把握しているわけではないため、過去の生成結果を次回の生成時に参照できる仕組みが必要となる。
+
+そこで、ユーザーごと・生成元QUESTIONごとに直近のAI生成結果を保持するため、新たに `AI_GENERATION_HISTORY` を追加する。
+
+#### AI_GENERATION_HISTORYの追加
+
+AI_GENERATION_HISTORYは以下の情報を保持する。
+
+```text
+AI_GENERATION_HISTORY
+│
+├── id
+├── user_id
+├── question_id
+├── chinese_text
+└── created_at
+```
+
+各属性の役割は以下のとおりとする。
+
+| 属性 | 役割 |
+| --- | --- |
+| `id` | AI生成履歴を一意に識別するID |
+| `user_id` | AI問題を生成したUSER |
+| `question_id` | 生成元となったQUESTION |
+| `chinese_text` | AIによって生成された中国語文 |
+| `created_at` | AI生成履歴が作成された日時 |
+
+`id` をAI_GENERATION_HISTORYの主キーとする。
+
+`user_id` はUSERを参照する外部キーとする。
+
+`question_id` は生成元となったQUESTIONを参照する外部キーとする。
+
+#### USERとのリレーション
+
+USERとAI_GENERATION_HISTORYは1対多の関係とする。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATION_HISTORY
+```
+
+1人のユーザーは、複数のAI生成履歴を持つことができる。
+
+AI生成履歴はユーザーごとに独立して管理する。
+
+そのため、同じQUESTIONからAI問題を生成した場合でも、異なるユーザーの生成履歴を共有しない。
+
+例えば、
+
+```text
+USER A
+  │
+  └── QUESTION 10
+        └── USER Aの生成履歴
+
+USER B
+  │
+  └── QUESTION 10
+        └── USER Bの生成履歴
+```
+
+のように、それぞれ独立した履歴として扱う。
+
+#### QUESTIONとのリレーション
+
+QUESTIONとAI_GENERATION_HISTORYも1対多の関係とする。
+
+```text
+QUESTION
+   │
+   │ 1:N
+   ↓
+AI_GENERATION_HISTORY
+```
+
+1つのQUESTIONを生成元として、複数のAI生成履歴が作成される可能性がある。
+
+AI_GENERATION_HISTORYは `question_id` によって生成元となったQUESTIONを参照する。
+
+したがって、USERとQUESTIONはAI_GENERATION_HISTORYを介して以下の関係となる。
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATION_HISTORY
+  ↑
+  │ N:1
+QUESTION
+```
+
+AI生成履歴は、
+
+```text
+USER × QUESTION
+```
+
+の組み合わせごとに管理する。
+
+#### 直近5件の生成履歴を保持する
+
+AI_GENERATION_HISTORYは、同一USER・同一QUESTIONについて無制限に保存するのではなく、**直近5件まで**保持する。
+
+例えば、
+
+```text
+USER 1
+  │
+  └── QUESTION 10
+        │
+        ├── 履歴1  ← 最新
+        ├── 履歴2
+        ├── 履歴3
+        ├── 履歴4
+        └── 履歴5  ← 最古
+```
+
+という状態とする。
+
+新しいAI問題が生成された際、同一USER・同一QUESTIONについて保存されている履歴が5件未満の場合は、そのまま新しい履歴を追加する。
+
+すでに5件の履歴が存在する場合は、`created_at` が最も古い履歴を削除したうえで、新しい履歴を追加する。
+
+```text
+生成前
+
+履歴1  ← 最新
+履歴2
+履歴3
+履歴4
+履歴5  ← 最古
+
+        ↓ 新しい問題を生成
+
+履歴5を削除
+
+        ↓
+
+新しい履歴 ← 最新
+履歴1
+履歴2
+履歴3
+履歴4       ← 最古
+```
+
+これにより、同一USER・同一QUESTIONについて常に直近5件の生成結果を参照できるようにする。
+
+#### AI問題生成時の利用
+
+AI問題を生成する際には、対象となるUSERと生成元QUESTIONに対応するAI_GENERATION_HISTORYを、`created_at` の新しい順に最大5件取得する。
+
+```text
+USER
+  │
+  └── QUESTION
+        │
+        └── AI_GENERATION_HISTORY
+              │
+              ├── 直近の生成結果
+              ├── 2件前の生成結果
+              ├── 3件前の生成結果
+              ├── 4件前の生成結果
+              └── 5件前の生成結果
+                        │
+                        ▼
+                       AI
+                        │
+                        ▼
+                  新しい問題を生成
+```
+
+取得した過去の中国語文をAIへ渡し、直近の生成結果を考慮したうえで新しい問題を生成させる。
+
+これにより、同一の生成元QUESTIONから問題を繰り返し生成した場合でも、直近に使用された語句や内容が短期間に繰り返し生成されることを抑制する。
+
+ただし、AI_GENERATION_HISTORYは過去に使用した語句を永久に使用禁止とするためのものではない。
+
+保持する履歴を直近5件に限定することで、短期間の重複を抑制しつつ、過去に使用された自然な語彙や表現を将来的に再び使用できるものとする。
+
+#### AI_GENERATED_QUESTIONとの違い
+
+AI_GENERATION_HISTORYとAI_GENERATED_QUESTIONは、どちらもAIによる生成結果に関係するが、目的が異なる。
+
+```text
+AI_GENERATED_QUESTION
+└── ユーザーが学習したAI生成問題を保存する
+
+AI_GENERATION_HISTORY
+└── 次回のAI問題生成時に過去の生成結果を参照する
+```
+
+AI_GENERATED_QUESTIONは、AIによって問題が生成されただけでは永続化せず、ユーザーがその問題に対して `HARD / GOOD / EASY` のいずれかの理解度を与えた場合に保存する。
+
+一方、AI_GENERATION_HISTORYはユーザーの理解度評価を管理するためのものではない。
+
+AI問題の生成が正常に完了した時点で生成された中国語文を記録し、次回以降のAI問題生成に利用する。
+
+したがって、同じAI生成結果について、
+
+```text
+AI問題を生成
+      │
+      ├── AI_GENERATION_HISTORY
+      │     └── 生成時点で記録
+      │
+      └── AI_GENERATED_QUESTION
+            └── HARD / GOOD / EASYが
+                選択された場合に保存
+```
+
+という異なるタイミング・目的でデータを管理する。
+
+#### STUDY_HISTORYとの違い
+
+STUDY_HISTORYは、USERとマスタQUESTIONの組み合わせについて、ユーザーの学習状態や最新の理解度を管理するためのエンティティである。
+
+一方、AI_GENERATION_HISTORYは学習状態や理解度を管理しない。
+
+```text
+STUDY_HISTORY
+└── USER × QUESTIONの学習状態・理解度を管理
+
+AI_GENERATION_HISTORY
+└── USER × QUESTIONの直近のAI生成結果を管理
+```
+
+そのため、AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
+
+また、STUDY_HISTORYは同一USER・同一QUESTIONについて1レコードを保持するのに対し、AI_GENERATION_HISTORYは同一USER・同一QUESTIONについて直近5件までのレコードを保持する。
+
+#### 学習対象言語・Structureとの関係
+
+AI_GENERATION_HISTORY自身には、`language_variant` および `structure_id` を保持しない。
+
+AI_GENERATION_HISTORYは生成元QUESTIONを参照しているため、
+
+```text
+AI_GENERATION_HISTORY
+        │
+        │ question_id
+        ▼
+     QUESTION
+        │
+        ├── language_variant
+        │
+        └── structure_id
+                │
+                ▼
+            STRUCTURE
+```
+
+という関係から、生成元問題の学習対象言語および文法・構造を判定できる。
+
+そのため、AI_GENERATION_HISTORYにこれらの情報を重複して保持しない。
+
+今回の変更により、以下のリレーションをER図へ追加する。
+
+```text
+USER 1 : 0..N AI_GENERATION_HISTORY
+QUESTION 1 : 0..N AI_GENERATION_HISTORY
+```
+
+AI_GENERATION_HISTORYはAI問題生成のための内部的な生成履歴として扱い、通常の学習履歴およびユーザー専用のAI生成問題とは明確に分離して管理する。

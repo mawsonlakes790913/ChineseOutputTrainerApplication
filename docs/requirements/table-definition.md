@@ -14,6 +14,7 @@ Chinese Output Forgeで使用するデータベーステーブルを定義する
 - FAVORITE
 - STUDY_HISTORY
 - AI_GENERATED_QUESTION
+- AI_GENERATION_HISTORY
 
 について、大陸普通話用と台湾華語用で別テーブルを持つのではなく、共通テーブルで管理する。
 
@@ -403,6 +404,325 @@ QUESTION
 
 ---
 
+## 7.1 AI_GENERATION_HISTORY
+
+### 概要
+
+AI問題生成時に、同一ユーザー・同一生成元問題から同じ語句や内容が短期間に繰り返し生成されることを抑制するため、過去のAI生成結果を管理するテーブル。
+
+AI_GENERATED_QUESTIONがユーザーの学習データとして保存されたAI生成問題を管理するのに対し、AI_GENERATION_HISTORYは次回以降のAI問題生成を制御するための内部的な生成履歴を管理する。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| id | AI生成履歴ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
+| user_id | 内部ユーザーID | - | ○ | BIGINT | ○ | - | USER.id参照 |
+| question_id | 生成元問題ID | - | ○ | BIGINT | ○ | - | QUESTION.question_id参照 |
+| chinese_text | 生成された中国語文 | - | - | TEXT | ○ | - | AIによって生成された中国語文 |
+| created_at | 生成日時 | - | - | TIMESTAMP | ○ | - | AI生成履歴を保存した日時 |
+
+### 主キー
+
+AI_GENERATION_HISTORYでは、
+
+```text
+id
+```
+
+を主キーとする。
+
+同一ユーザー・同一生成元問題について複数の生成履歴を保持する必要があるため、
+
+```text
+(user_id, question_id)
+```
+
+を主キーとはしない。
+
+例えば、
+
+```text
+AI_GENERATION_HISTORY
+
+id = 101
+user_id = 1
+question_id = 10
+chinese_text = 服務台在哪裡？
+
+id = 102
+user_id = 1
+question_id = 10
+chinese_text = 電梯在哪裡？
+
+id = 103
+user_id = 1
+question_id = 10
+chinese_text = 捷運站在哪裡？
+```
+
+のように、同じ `user_id` と `question_id` の組み合わせについて複数レコードを保持できるものとする。
+
+### USERとの関係
+
+`user_id` は、
+
+```text
+USER.id
+```
+
+を参照する外部キーとする。
+
+```text
+USER
+  │
+  │ id
+  ↓
+AI_GENERATION_HISTORY
+  │
+  └── user_id
+```
+
+1人のユーザーは複数のAI生成履歴を持つことができる。
+
+AI生成履歴はユーザーごとに独立して管理し、他のユーザーの生成履歴をAI問題生成時に使用しない。
+
+### QUESTIONとの関係
+
+`question_id` は、
+
+```text
+QUESTION.question_id
+```
+
+を参照する外部キーとする。
+
+```text
+QUESTION
+   │
+   │ question_id
+   ↓
+AI_GENERATION_HISTORY
+   │
+   └── question_id
+```
+
+`question_id` には、AIによって生成された問題そのもののIDではなく、**AI生成の元となったマスタQUESTIONのID**を保存する。
+
+これにより、
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATION_HISTORY
+  ↑
+  │ N:1
+QUESTION
+```
+
+という関係で、ユーザー・生成元問題ごとのAI生成履歴を管理する。
+
+### `chinese_text`
+
+`chinese_text` には、AIによって新しく生成された中国語文を保存する。
+
+例えば、生成元QUESTIONが、
+
+```text
+QUESTION
+
+question_id  = 10
+chinese_text = 請問，洗手間在哪裡？
+template     = 請問，{noun}在哪裡？
+```
+
+であり、AIが、
+
+```text
+請問，服務台在哪裡？
+```
+
+を生成した場合、
+
+```text
+AI_GENERATION_HISTORY
+
+user_id      = 1
+question_id  = 10
+chinese_text = 請問，服務台在哪裡？
+```
+
+として保存する。
+
+プレースホルダへ代入された語句だけではなく、**生成された中国語文全体を保存する。**
+
+### `created_at`
+
+`created_at` には、そのAI生成履歴を保存した日時を保持する。
+
+AI問題生成時には `created_at` の新しい順に履歴を取得する。
+
+概念的には、
+
+```text
+ORDER BY created_at DESC
+```
+
+として扱う。
+
+また、保持件数が上限に達した場合には、`created_at` が最も古い履歴を削除対象とする。
+
+### 履歴の保持件数
+
+AI_GENERATION_HISTORYは、同一 `user_id`・同一 `question_id` の組み合わせについて、**直近5件まで**保持する。
+
+```text
+user_id = 1
+question_id = 10
+
+        created_at
+            ↓
+
+履歴1    最新
+履歴2
+履歴3
+履歴4
+履歴5    最古
+```
+
+新しいAI生成結果を保存する際、同一 `user_id`・`question_id` の履歴が5件未満であれば、そのままINSERTする。
+
+すでに5件存在する場合は、最も古い履歴をDELETEしてから、新しい履歴をINSERTする。
+
+```text
+既存履歴 = 5件
+      ↓
+最も古い履歴をDELETE
+      ↓
+新しい履歴をINSERT
+      ↓
+5件を維持
+```
+
+これにより、AI問題生成時に参照する履歴を直近5件に限定する。
+
+### AI問題生成時の利用
+
+AI問題生成時には、
+
+```text
+user_id
++
+question_id
+```
+
+を条件としてAI_GENERATION_HISTORYを検索する。
+
+さらに、
+
+```text
+created_at DESC
+```
+
+で新しい順に並べ、最大5件を取得する。
+
+取得した `chinese_text` を過去の生成結果としてAIへ渡す。
+
+```text
+USER
++
+生成元QUESTION
+      ↓
+AI_GENERATION_HISTORY検索
+      ↓
+直近5件のchinese_text
+      ↓
+AIへ入力
+      ↓
+新しい問題を生成
+```
+
+これにより、AIが直近の生成結果を考慮し、同じ語句や内容が短期間に繰り返し生成されることを抑制する。
+
+### AI_GENERATED_QUESTIONとの違い
+
+AI_GENERATION_HISTORYとAI_GENERATED_QUESTIONは、保存目的と保存タイミングが異なる。
+
+| テーブル | 目的 | 保存タイミング |
+|---|---|---|
+| AI_GENERATION_HISTORY | 次回以降のAI生成時の重複抑制 | AI問題の生成が正常に完了した時点 |
+| AI_GENERATED_QUESTION | ユーザーが学習したAI生成問題の保存 | HARD / GOOD / EASYのいずれかが選択された場合 |
+
+そのため、AI_GENERATION_HISTORYには、
+
+```text
+evaluation
+pinyin
+zhuyin
+japanese_text
+```
+
+など、学習問題として必要な情報は保持しない。
+
+AI_GENERATION_HISTORYでは、次回のAI問題生成に必要となる、
+
+```text
+user_id
+question_id
+chinese_text
+created_at
+```
+
+のみを保持する。
+
+### 学習対象言語・文法・構造
+
+AI_GENERATION_HISTORY自身には、
+
+```text
+language_variant
+structure_id
+```
+
+を保持しない。
+
+これらは生成元QUESTIONから取得する。
+
+```text
+AI_GENERATION_HISTORY
+        │
+        │ question_id
+        ↓
+     QUESTION
+        │
+        ├── language_variant
+        │
+        └── structure_id
+                │
+                ▼
+            STRUCTURE
+```
+
+これにより、生成元QUESTIONと同じ情報をAI_GENERATION_HISTORYへ重複して保存することを避ける。
+
+### 補足
+
+- AI_GENERATION_HISTORYは大陸普通話・台湾華語でテーブルを分離しない。
+- `user_id` にはUSERの内部IDである `USER.id` を保存する。
+- `question_id` には生成元となった `QUESTION.question_id` を保存する。
+- `chinese_text` にはAIによって生成された中国語文全体を保存する。
+- AI問題の生成が正常に完了した時点で履歴を保存する。
+- ユーザーによる理解度評価の有無は、AI_GENERATION_HISTORYの保存条件としない。
+- 同一ユーザー・同一生成元問題について直近5件まで保持する。
+- 6件目を保存する場合は最も古い履歴を削除する。
+- AI問題生成時には生成日時の新しい順に最大5件取得する。
+- AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
+- AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは分離して管理する。
+- AI_GENERATION_HISTORY自身には `language_variant` を保持しない。
+- AI_GENERATION_HISTORY自身には `structure_id` を保持しない。
+
+---
+
 # 8. 外部キー一覧
 
 | テーブル | カラム | 参照先 |
@@ -414,6 +734,8 @@ QUESTION
 | STUDY_HISTORY | question_id | QUESTION.question_id |
 | AI_GENERATED_QUESTION | user_id | USER.id |
 | AI_GENERATED_QUESTION | source_question_id | QUESTION.question_id |
+| AI_GENERATION_HISTORY | user_id | USER.id |
+| AI_GENERATION_HISTORY | question_id | QUESTION.question_id |
 
 ---
 
@@ -427,6 +749,7 @@ QUESTION
 | FAVORITE | user_id + question_id |
 | STUDY_HISTORY | user_id + question_id |
 | AI_GENERATED_QUESTION | generated_question_id |
+| AI_GENERATION_HISTORY | id |
 
 ---
 
@@ -470,7 +793,7 @@ naoki
 naoki2026
 ```
 
-のように変更した場合でも、Favorite、StudyHistory、AiGeneratedQuestionなどの関連データを変更する必要がない。
+のように変更した場合でも、Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryなどの関連データを変更する必要がない。
 
 内部的なユーザー識別は常に `USER.id` によって行う。
 
@@ -710,7 +1033,7 @@ QUESTION
 
 として管理する。
 
-Favorite、StudyHistory、AiGeneratedQuestionについては、QUESTIONとの関連から学習対象言語を判定できるため、それぞれに `language_variant` を重複して保持しない。
+Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryについては、QUESTIONとの関連から学習対象言語を判定できるため、それぞれに `language_variant` を重複して保持しない。
 
 ---
 
@@ -1008,6 +1331,22 @@ English
 - 文法・構造名はSTRUCTUREで一元管理し、QUESTIONには重複して保持しない。
 - `condition` は開発者・出題者が設定する解答条件・ヒントとして扱い、NULLを許可する。
 - AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
+- AI_GENERATION_HISTORYは大陸普通話・台湾華語で分離しない。
+- AI_GENERATION_HISTORYはAI問題生成時の重複抑制に使用する。
+- AI_GENERATION_HISTORYの主キーは `id` とする。
+- AI_GENERATION_HISTORYの `user_id` は `USER.id` を参照する。
+- AI_GENERATION_HISTORYの `question_id` は生成元となる `QUESTION.question_id` を参照する。
+- AI_GENERATION_HISTORYにはAIによって生成された中国語文全体を `chinese_text` として保持する。
+- AI_GENERATION_HISTORYには生成日時を `created_at` として保持する。
+- AI_GENERATION_HISTORYは同一ユーザー・同一生成元問題について直近5件まで保持する。
+- 6件目を保存する場合は、同一ユーザー・同一生成元問題について最も古い履歴を削除する。
+- AI_GENERATION_HISTORYはAI問題が正常に生成された時点で更新する。
+- AI_GENERATION_HISTORYの保存はユーザーの理解度評価とは独立して行う。
+- AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
+- AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは分離して管理する。
+- AI_GENERATION_HISTORY自身には `language_variant` を保持しない。
+- AI_GENERATION_HISTORY自身には `structure_id` を保持しない。
+- AI_GENERATION_HISTORYの学習対象言語および文法・構造は生成元QUESTIONから判定する。
 
 ---
 
@@ -1394,6 +1733,101 @@ Sessionはアプリケーション利用中の一時的な現在値として使�
 
 ---
 
+## 18.6 AI生成履歴テーブルの追加
+
+**追加日：2026年9月4日**
+
+AI問題生成を繰り返した際に、同一ユーザー・同一生成元問題から同じ語句や内容が短期間に繰り返し生成されることを抑制するため、AI生成結果の履歴をDBへ保存する設計を追加した。
+
+新たに、
+
+```text
+AI_GENERATION_HISTORY
+```
+
+テーブルを追加する。
+
+テーブル構成は以下とする。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| id | AI生成履歴ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
+| user_id | 内部ユーザーID | - | ○ | BIGINT | ○ | - | USER.id参照 |
+| question_id | 生成元問題ID | - | ○ | BIGINT | ○ | - | QUESTION.question_id参照 |
+| chinese_text | 生成された中国語文 | - | - | TEXT | ○ | - | AIによって生成された中国語文 |
+| created_at | 生成日時 | - | - | TIMESTAMP | ○ | - | AI生成履歴を保存した日時 |
+
+AI_GENERATION_HISTORYは、
+
+```text
+USER
+  │
+  │ 1:N
+  ↓
+AI_GENERATION_HISTORY
+  ↑
+  │ N:1
+QUESTION
+```
+
+という関係とする。
+
+`user_id` によって生成を行ったユーザーを識別し、`question_id` によって生成元となったマスタ問題を識別する。
+
+同一 `user_id`・同一 `question_id` の組み合わせについて、直近5件までの生成履歴を保持する。
+
+```text
+USER
++
+QUESTION
+    ↓
+AI_GENERATION_HISTORY
+    ↓
+直近5件
+```
+
+すでに5件存在する状態で新しい生成結果を保存する場合は、最も古い履歴を削除してから新しい履歴を保存する。
+
+AI問題生成時には、対象となる `user_id`・`question_id` の履歴を `created_at` の新しい順に最大5件取得し、過去の生成結果としてAIへ渡す。
+
+これにより、直近に生成された語句や内容が短期間に繰り返されることを抑制する。
+
+AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは目的を分離する。
+
+```text
+AI_GENERATION_HISTORY
+└── 次回以降のAI問題生成を制御するための履歴
+
+AI_GENERATED_QUESTION
+└── ユーザーの学習データとして保存するAI生成問題
+```
+
+AI_GENERATION_HISTORYはAI問題の生成が正常に完了した時点で更新する。
+
+一方、AI_GENERATED_QUESTIONはユーザーが `HARD / GOOD / EASY` のいずれかの理解度を与えた場合に保存する。
+
+そのため、AI_GENERATION_HISTORYの保存はユーザーの理解度評価とは独立して行う。
+
+また、AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を保持しない。
+
+これらの情報が必要な場合は、
+
+```text
+AI_GENERATION_HISTORY
+        ↓
+    question_id
+        ↓
+     QUESTION
+        ├── language_variant
+        └── structure_id
+                ↓
+            STRUCTURE
+```
+
+として生成元QUESTIONから取得する。
+
+---
+
 # 19. 現在の主要テーブル構成
 
 最終的な主要テーブルの関係は以下とする。
@@ -1406,7 +1840,8 @@ USER
 │
 ├── 1:N FAVORITE
 ├── 1:N STUDY_HISTORY
-└── 1:N AI_GENERATED_QUESTION
+├── 1:N AI_GENERATED_QUESTION
+└── 1:N AI_GENERATION_HISTORY
 
 
 STRUCTURE
@@ -1417,10 +1852,11 @@ QUESTION
     │
     ├── 1:N FAVORITE
     ├── 1:N STUDY_HISTORY
+    ├── 1:N AI_GENERATED_QUESTION
+    │       └── source_question_id
     │
-    └── 1:N AI_GENERATED_QUESTION
-            ↑
-            │ source_question_id
+    └── 1:N AI_GENERATION_HISTORY
+            └── question_id
 ```
 
 USERは、
@@ -1472,6 +1908,22 @@ AIによって生成された問題
 
 を管理する。
 
+AI_GENERATION_HISTORYは、
+
+```text
+USER
++
+生成元QUESTION
++
+過去にAIによって生成された中国語文
+```
+
+を管理する。
+
+AI_GENERATION_HISTORYは、同一USER・同一生成元QUESTIONについて直近5件まで保持する。
+
+保持された生成履歴は、次回のAI問題生成時に参照し、同じ語句や内容が短期間に繰り返し生成されることを抑制するために使用する。
+
 これにより、
 
 ```text
@@ -1481,6 +1933,7 @@ AIによって生成された問題
 学習履歴
 お気に入り
 AI生成問題
+AI生成履歴
 ```
 
 をそれぞれ役割の異なるデータとして管理する。
