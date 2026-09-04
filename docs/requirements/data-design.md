@@ -227,7 +227,9 @@ AiGenerationHistoryは、Userと生成元Questionの組み合わせごとに管�
 
 AI問題生成時には、この履歴から直近の生成結果を取得し、生成元Questionの情報とともにAIへ渡す。
 
-これにより、AIが直近に生成した語彙や表現を考慮して、新しい問題を生成できるようにする。
+これにより、AIが直近の生成結果を考慮し、過去の生成結果と同一または過度に類似した問題が繰り返し生成されることを抑制する。
+
+過去の生成結果に含まれる個々の語句については、再利用そのものを禁止せず、文章全体として十分な変化がある場合は再利用を許可する。
 
 AiGenerationHistoryはStudyHistoryとは目的が異なる。
 
@@ -517,6 +519,7 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 - AiGenerationHistoryにはAIによって生成された中国語文を保持する。
 - AiGenerationHistoryには生成日時を保持し、生成履歴の新旧を判定できるようにする。
 - AI問題生成時には、対象となるUser・Questionに対応する直近のAiGenerationHistoryを取得し、生成内容の重複抑制に利用する。
+- AiGenerationHistoryは生成文全体の重複・過度な類似を抑制するために使用し、過去の生成結果に含まれる個々の語句の再利用は禁止しない。
 - AiGenerationHistoryはStudyHistoryとは分離して管理する。
 - AiGenerationHistoryはAiGeneratedQuestionとは分離して管理する。
 - AiGenerationHistoryはユーザーの理解度評価とは関係なく、AI問題が生成された時点で更新する。
@@ -698,8 +701,9 @@ verb_variation
 
 ```text
 {subject}
+{subject_pronoun}
 {subject_non_pronoun}
-{subject_all}
+{subject_family}
 ```
 
 のようにプレースホルダ自体を分けることで、生成可能な主語の種類を指定する。
@@ -749,6 +753,6 @@ Question
             └── AIによる変更を許可する
 ```
 
-プレースホルダの種類によって、生成可能な内容の種類や生成元・生成履歴に含まれる語句の再利用可否など、必要な生成制約を表現する。
+プレースホルダの種類によって、生成可能な内容の種類など、必要な生成制約を表現する。
 
 これにより、AI生成に関する制御情報を複数のQuestion属性へ分散させず、テンプレートを中心として管理する。
