@@ -174,7 +174,7 @@ verbVariation
 generationHistory
 ```
 
-`generationHistory`には、同じ生成元問題から過去に生成された中国語文が新しいものから最大3件含まれます。
+`generationHistory`には、同じ生成元問題から過去に生成された中国語文が新しいものから最大5件含まれます。
 
 過去の生成結果が存在しない場合、`generationHistory`は空です。
 

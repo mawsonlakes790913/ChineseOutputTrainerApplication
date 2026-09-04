@@ -614,7 +614,7 @@ public class AiPracticeService {
 	        // ログインユーザーの生成元問題に対する直近3件のAI生成履歴を取得
 	        List<AiGenerationHistory> aiGenerationHistories =
 	                aiGenerationHistoryRepository
-	                        .findTop3ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
+	                        .findTop5ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
 	                                user.getId(),
 	                                sourceQuestion.getQuestionId());
 
@@ -1003,12 +1003,12 @@ public class AiPracticeService {
 	        // Userと生成元問題に紐づく直近3件のAI生成履歴を取得
 	        List<AiGenerationHistory> aiGenerationHistories =
 	                aiGenerationHistoryRepository
-	                        .findTop3ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
+	                        .findTop5ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
 	                                user.getId(),
 	                                sourceQuestion.getQuestionId());
 
-	        // すでに3件ある場合は最も古い履歴を削除
-	        if (aiGenerationHistories.size() >= 3) {
+	        // すでに5件ある場合は最も古い履歴を削除
+	        if (aiGenerationHistories.size() >= 5) {
 
 	            AiGenerationHistory oldestHistory =
 	                    aiGenerationHistories.get(
