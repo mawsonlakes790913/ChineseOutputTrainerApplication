@@ -14,6 +14,8 @@ import com.google.genai.Client;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.Schema;
+import com.google.genai.types.ThinkingConfig;
+import com.google.genai.types.ThinkingLevel;
 import com.google.genai.types.Type;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
@@ -866,12 +868,19 @@ public class AiPracticeService {
 	                    ))
 	                    .required(List.of("questions"))
 	                    .build();
-
+	    
+	    // Thinking LevelをLOWに設定
+	    ThinkingConfig thinkingConfig =
+	            ThinkingConfig.builder()
+	                    .thinkingLevel(ThinkingLevel.Known.LOW)
+	                    .build();
+	    
 	    // APIリクエストを作成(Gemini)
 	    GenerateContentConfig config =
 	            GenerateContentConfig.builder()
 	                    .responseMimeType("application/json")
 	                    .responseSchema(responseSchema)
+	                    .thinkingConfig(thinkingConfig)
 	                    .build();
 
 	    // APIへリクエストを送信
