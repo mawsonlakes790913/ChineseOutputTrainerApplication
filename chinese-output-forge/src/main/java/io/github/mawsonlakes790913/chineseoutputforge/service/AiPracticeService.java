@@ -630,10 +630,6 @@ public class AiPracticeService {
 	                sourceQuestion.getChineseText());
 	        source.setTemplate(
 	                sourceQuestion.getTemplate());
-	        source.setSubjectType(
-	                sourceQuestion.getSubjectType());
-	        source.setVerbVariation(
-	                sourceQuestion.getVerbVariation());
 
 	        // AI生成履歴から生成済みの中国語文を取得
 	        List<String> chineseListHistory =
@@ -749,6 +745,45 @@ public class AiPracticeService {
 	            + " ms");
 
 	    return generatedQuestions;
+	}
+	
+	public Question saveGeneratedQuestion(
+			Users user,
+			AiGeneratedQuestionDto aiGeneratedQuestionDto,
+			Locale locale
+			) {
+		
+	    // 同じ中国語文がすでに登録されている場合は保存しない
+		if (questionRepository.existsByChineseText(
+		        aiGeneratedQuestionDto.getChineseText())) {
+
+		    throw new IllegalStateException(
+		            messageSource.getMessage(
+		                    "aiPractice.save.error.duplicate",
+		                    null,
+		                    locale));
+		}
+		
+		Question sourceQuestion = questionRepository
+		        .findById(aiGeneratedQuestionDto.getSourceQuestionId())
+		        .orElseThrow();
+		
+		Question savedQuestion = new Question();
+		
+		savedQuestion.setLanguageVariant(sourceQuestion.getLanguageVariant());
+		savedQuestion.setJapaneseText(aiGeneratedQuestionDto.getJapaneseText());
+		savedQuestion.setChineseText(aiGeneratedQuestionDto.getChineseText());
+		savedQuestion.setPinyin(aiGeneratedQuestionDto.getPinyin());
+		savedQuestion.setZhuyin(aiGeneratedQuestionDto.getZhuyin());
+		savedQuestion.setStructure(sourceQuestion.getStructure());
+		savedQuestion.setDifficulty(sourceQuestion.getDifficulty());
+		savedQuestion.setAllowAiVariation(false);
+		savedQuestion.setAiGenerated(true);
+		savedQuestion.setOwner(user);
+		
+		return questionRepository.save(savedQuestion);
+		
+		
 	}
 
 	private TemporaryGeneratedQuestionListDto generateQuestionsWithChatGPT(

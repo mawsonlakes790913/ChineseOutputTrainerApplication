@@ -20,6 +20,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			Difficulty difficulty
 	);
 	
+	boolean existsByChineseText(String chineseText);
+	
 	
 	@Query(value = """
 			SELECT *

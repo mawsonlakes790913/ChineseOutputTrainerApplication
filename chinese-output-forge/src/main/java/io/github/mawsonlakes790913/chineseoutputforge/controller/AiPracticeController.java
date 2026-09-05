@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
@@ -255,6 +256,31 @@ public class AiPracticeController {
 		clearAiPracticeSession(session);
 
 	    return "redirect:/";
+	}
+	
+	@PostMapping("/ai-practice/save")
+	@ResponseBody
+	public Long postAiPracticeSave(
+	        HttpSession session,
+	        @RequestParam int page,
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        Locale locale
+			) {
+		
+	    // Sessionからquestions取得
+	    List<AiGeneratedQuestionDto> questions =
+	            (List<AiGeneratedQuestionDto>) session.getAttribute("aiPracticeQuestions");
+
+	    // 現在表示する問題を取得
+	    AiGeneratedQuestionDto question = questions.get(page);
+
+	    Question savedQuestion = aiPracticeService.saveGeneratedQuestion(
+	    		getLoginUser(loginUser),
+	    		question,
+	    		locale
+	    		);
+
+	    return savedQuestion.getQuestionId();
 	}
 	
 	private void clearAiPracticeSession(HttpSession session) {

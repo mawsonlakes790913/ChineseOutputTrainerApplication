@@ -16,6 +16,13 @@
           th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
 
     <script th:src="@{/js/practice.js}" defer></script>
+    <script th:src="@{/js/ai-practice/question.js}" defer></script>
+    
+    <meta name="_csrf"
+      th:content="${_csrf.token}">
+
+	<meta name="_csrf_header"
+	      th:content="${_csrf.headerName}">
 
 </head>
 
@@ -48,15 +55,33 @@
             1/10
         </span>
 
-        <!-- 日本語問題 -->
-        <div class="d-flex justify-content-center align-items-center gap-3">
-
-            <h2 class="mb-0"
-                th:text="${question.japaneseText}">
-                日本語問題
-            </h2>
-
-        </div>
+		<!-- 日本語問題 -->
+		<div class="d-flex justify-content-center align-items-center gap-3">
+		
+		    <h2 class="mb-0"
+		        th:text="${question.japaneseText}">
+		        日本語問題
+		    </h2>
+		
+		    <!-- お気に入りボタン -->
+		    <!-- Question保存後に表示 -->
+		    <div id="favoriteArea"
+		         class="d-none"
+		         sec:authorize="isAuthenticated()">
+		
+		        <button id="favoriteButton"
+		                type="button"
+		                class="btn p-0 border-0 bg-transparent">
+		
+		            <i id="favoriteIcon"
+		               class="bi bi-heart fs-2 text-secondary">
+		            </i>
+		
+		        </button>
+		
+		    </div>
+		
+		</div>
 
         <!-- 解答 -->
         <div class="mt-4"
@@ -115,13 +140,114 @@
 				        生成元の日本語
 				    </p>
 				
-				</div>                
+				</div>     				           
 
             </div>
 
         </div>
 
     </div>
+    
+	<!-- ============================= -->
+	<!-- AI生成問題の保存 -->
+	<!-- ============================= -->
+	
+	<div id="saveQuestionArea"
+	     class="mt-4">
+	
+	    <button id="saveQuestionButton"
+	            type="button"
+	            class="btn btn-outline-primary"
+	            th:data-page="${nextPageIndex - 1}"
+	            th:text="#{aiPractice.question.save}">
+	        この問題を保存する
+	    </button>
+	
+	</div>
+	
+	<!-- ============================= -->
+	<!-- 保存後の操作 -->
+	<!-- ============================= -->
+	
+	<div id="savedQuestionActions"
+	     class="d-none mt-3">
+	
+	    <!-- 理解度 -->
+	    <div id="evaluationArea"
+	         class="mt-1 d-flex justify-content-center gap-5">
+	
+	        <!-- HARD -->
+	        <form th:action="@{/practice/evaluation}" method="post">
+	
+	            <input type="hidden"
+	                   name="questionId"
+	                   class="savedQuestionId">
+	
+	            <input type="hidden"
+	                   name="evaluation"
+	                   value="HARD">
+	
+	            <input type="hidden"
+	                   name="page"
+	                   th:value="${nextPageIndex - 1}">
+	
+	            <button type="submit"
+	                    class="btn btn-danger btn-lg"
+	                    th:text="#{practice.question.evaluation.hard}">
+	                Hard（難しかった）
+	            </button>
+	
+	        </form>
+	
+	        <!-- GOOD -->
+	        <form th:action="@{/practice/evaluation}" method="post">
+	
+	            <input type="hidden"
+	                   name="questionId"
+	                   class="savedQuestionId">
+	
+	            <input type="hidden"
+	                   name="evaluation"
+	                   value="GOOD">
+	
+	            <input type="hidden"
+	                   name="page"
+	                   th:value="${nextPageIndex - 1}">
+	
+	            <button type="submit"
+	                    class="btn btn-primary btn-lg"
+	                    th:text="#{practice.question.evaluation.good}">
+	                Good（少し考えた）
+	            </button>
+	
+	        </form>
+	
+	        <!-- EASY -->
+	        <form th:action="@{/practice/evaluation}" method="post">
+	
+	            <input type="hidden"
+	                   name="questionId"
+	                   class="savedQuestionId">
+	
+	            <input type="hidden"
+	                   name="evaluation"
+	                   value="EASY">
+	
+	            <input type="hidden"
+	                   name="page"
+	                   th:value="${nextPageIndex - 1}">
+	
+	            <button type="submit"
+	                    class="btn btn-success btn-lg"
+	                    th:text="#{practice.question.evaluation.easy}">
+	                Easy（余裕だった）
+	            </button>
+	
+	        </form>
+	
+	    </div>
+	
+	</div>    
 
     <!-- ============================= -->
     <!-- 前へ・次へ -->
