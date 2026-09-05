@@ -2,8 +2,6 @@ package io.github.mawsonlakes790913.chineseoutputforge.entity;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
-import io.github.mawsonlakes790913.chineseoutputforge.constant.SubjectType;
-import io.github.mawsonlakes790913.chineseoutputforge.constant.VerbVariation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -70,12 +68,19 @@ public class Question {
     @Column(name = "template")
     private String template;
     
-    @Column(name = "subject_type")
-    @Enumerated(EnumType.STRING)
-    private SubjectType subjectType;
+//    @Column(name = "subject_type")
+//    @Enumerated(EnumType.STRING)
+//    private SubjectType subjectType;
+//    
+//    @Column(name = "verb_variation")
+//    @Enumerated(EnumType.STRING)
+//    private VerbVariation verbVariation;
     
-    @Column(name = "verb_variation")
-    @Enumerated(EnumType.STRING)
-    private VerbVariation verbVariation;
+    @Column(name = "ai_generated", nullable = false)
+    private boolean aiGenerated = false;
+
+    @ManyToOne
+    @JoinColumn(name = "owner_user_id")
+    private Users owner;
 
 }
