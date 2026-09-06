@@ -1,6 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +23,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	
 	boolean existsByChineseText(String chineseText);
 	
+	Optional<Question> findByOwnerIdAndChineseText(
+	        Long userId,
+	        String chineseText);	
 	
 	@Query(value = """
 			SELECT *

@@ -2,6 +2,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,8 +20,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
@@ -38,6 +41,8 @@ public class AiPracticeController {
 	private final AiPracticeService aiPracticeService;
 	private final QuestionModelUtil questionModelUtil;
 	private final EvaluationService evaluationService;
+	private final QuestionRepository questionRepository;
+	private final FavoriteService favoriteService;
 	
 	@GetMapping("/ai-practice/menu")
 	public String getAiPracticeMenu(
@@ -194,9 +199,26 @@ public class AiPracticeController {
 
 	    // 現在表示する問題を取得
 	    AiGeneratedQuestionDto question = questions.get(page);
-
+	    
 	    // 現在ページをSessionへ保存
 	    session.setAttribute("aiPracticeQuestionsCurrentPage", page);
+	    
+	    // ユーザー情報を取得
+	    Users user = userAccountService.getUserOne(
+	            loginUser.getUsername());
+
+	    // このAI生成問題がすでにQuestionに保存されているか確認
+	    Optional<Question> savedQuestion =
+	            questionRepository.findByOwnerIdAndChineseText(
+	                    user.getId(),
+	                    question.getChineseText());
+
+	    // 保存済みの場合はquestionIdを取得
+	    Long savedQuestionId = null;
+
+	    if (savedQuestion.isPresent()) {
+	        savedQuestionId = savedQuestion.get().getQuestionId();
+	    }
 
 	    // HTMLが必要な情報をModelへ格納
 	    questionModelUtil.setAiQuestionModel(
@@ -206,15 +228,19 @@ public class AiPracticeController {
 	            session
 	    );
 
-//	    // お気に入り判定
-//	    if (loginUser != null) {
-//	        boolean isFavorite = favoriteService.isFavorite(
-//	                getLoginUser(loginUser),
-//	                question.sourceQuestionId()
-//	        );
-//
-//	        model.addAttribute("isFavorite", isFavorite);
-//	    }
+	    // お気に入り判定
+	    boolean isFavorite = false;
+
+	    if (savedQuestionId != null) {
+	        isFavorite = favoriteService.isFavorite(
+	                user,
+	                savedQuestionId);
+	    }
+	    
+	    // 保存済みQuestionのIDをModelへ格納
+	    model.addAttribute("savedQuestionId", savedQuestionId);
+	    // お気に入りのステータスをModelへ格納
+	    model.addAttribute("isFavorite", isFavorite);
 
 	    return "ai-practice/question";
 	}
