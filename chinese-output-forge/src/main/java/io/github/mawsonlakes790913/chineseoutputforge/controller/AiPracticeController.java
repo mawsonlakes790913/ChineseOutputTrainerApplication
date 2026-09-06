@@ -20,6 +20,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
@@ -36,6 +37,7 @@ public class AiPracticeController {
 	private final UserAccountService userAccountService;
 	private final AiPracticeService aiPracticeService;
 	private final QuestionModelUtil questionModelUtil;
+	private final EvaluationService evaluationService;
 	
 	@GetMapping("/ai-practice/menu")
 	public String getAiPracticeMenu(
@@ -281,6 +283,39 @@ public class AiPracticeController {
 	    		);
 
 	    return savedQuestion.getQuestionId();
+	}
+	
+	
+	
+	@PostMapping("/ai-practice/evaluation")
+	public String postAiPracticeEvaluation(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long questionId,
+	        @RequestParam Evaluation evaluation,
+	        @RequestParam Integer page,
+	        HttpSession session) {
+
+	    // ユーザー情報を取得
+	    Users user = userAccountService.getUserOne(
+	            loginUser.getUsername());
+
+	    // 理解度を保存
+	    evaluationService.updateEvaluation(
+	            user,
+	            questionId,
+	            evaluation);
+
+	    // Sessionからquestions取得
+	    List<AiGeneratedQuestionDto> questions =
+	            (List<AiGeneratedQuestionDto>) session.getAttribute("aiPracticeQuestions");
+
+	    // 最後の問題の場合
+	    if (page + 1 >= questions.size()) {
+	        return "redirect:/ai-practice/complete";
+	    }
+
+	    // 次の問題へ
+	    return "redirect:/ai-practice/question?page=" + (page + 1);
 	}
 	
 	private void clearAiPracticeSession(HttpSession session) {
