@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
@@ -753,16 +754,20 @@ public class AiPracticeService {
 			Locale locale
 			) {
 		
-	    // 同じ中国語文がすでに登録されている場合は保存しない
-		if (questionRepository.existsByChineseText(
-		        aiGeneratedQuestionDto.getChineseText())) {
+		// 同じユーザーが同じ中国語文をすでに保存している場合は保存しない
+		Optional<Question> existingQuestion =
+		        questionRepository.findByOwnerIdAndChineseText(
+		                user.getId(),
+		                aiGeneratedQuestionDto.getChineseText());
+
+		if (existingQuestion.isPresent()) {
 
 		    throw new IllegalStateException(
 		            messageSource.getMessage(
 		                    "aiPractice.save.error.duplicate",
 		                    null,
 		                    locale));
-		}
+		}    
 		
 		Question sourceQuestion = questionRepository
 		        .findById(aiGeneratedQuestionDto.getSourceQuestionId())
