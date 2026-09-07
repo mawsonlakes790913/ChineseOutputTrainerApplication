@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.PracticeSearchCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
@@ -25,6 +26,7 @@ public class PracticeService {
 	private final QuestionRepository questionRepository;
 	private final SearchConditionConverter searchConditionConverter;
 	
+	// 非ログインユーザー用問題数取得
 	public List<Question> getPracticeQuestions(LanguageVariant languageVariant,
 				Difficulty difficulty,
 				int start,
@@ -47,43 +49,79 @@ public class PracticeService {
 		return extractedQuestions;
 	}	
 	
-	public PracticeMenuDto countPracticeQuestions(LanguageVariant languageVariant) {
+	// ログインユーザー用問題数取得
+	public List<Question> getAvailablePracticeQuestions(
+			Long userId,
+			LanguageVariant languageVariant,
+			Difficulty difficulty,
+			int start,
+			boolean random){
 
-		PracticeMenuDto count = new PracticeMenuDto();
+	int offset = start - 1;
+	
+	List<Question> extractedQuestions = questionRepository.findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
+	userId,
+	languageVariant.name(),
+	difficulty.name(),
+	offset
+	);
+	
+	// シャッフルする
+	if (random) {
+	Collections.shuffle(extractedQuestions);
+	} 
+	
+	
+	return extractedQuestions;
+}	
+	
+	// 問題数取得
+	public PracticeMenuDto countPracticeQuestions(
+	        Long userId,
+	        LanguageVariant languageVariant,
+	        PracticeSearchCondition searchCondition) {
+		
+	    // 条件が未指定の場合はすべて
+	    if (searchCondition == null) {
+	        searchCondition = PracticeSearchCondition.ALL;
+	    }
 
-		// 初級
-		long beginnerCount =
-				questionRepository.countByLanguageVariantAndDifficulty(
-						languageVariant,
-						Difficulty.BEGINNER
-				);
+	    PracticeMenuDto count = new PracticeMenuDto();
 
-		count.setBeginnerCount(beginnerCount);
-		count.setBeginnerRanges(createRanges(beginnerCount));
+	    // 初級
+	    long beginnerCount = countQuestions(
+	            userId,
+	            languageVariant,
+	            Difficulty.BEGINNER,
+	            searchCondition
+	    );
 
+	    count.setBeginnerCount(beginnerCount);
+	    count.setBeginnerRanges(createRanges(beginnerCount));
 
-		// 中級
-		long intermediateCount =
-				questionRepository.countByLanguageVariantAndDifficulty(
-						languageVariant,
-						Difficulty.INTERMEDIATE
-				);
+	    // 中級
+	    long intermediateCount = countQuestions(
+	            userId,
+	            languageVariant,
+	            Difficulty.INTERMEDIATE,
+	            searchCondition
+	    );
 
-		count.setIntermediateCount(intermediateCount);
-		count.setIntermediateRanges(createRanges(intermediateCount));
+	    count.setIntermediateCount(intermediateCount);
+	    count.setIntermediateRanges(createRanges(intermediateCount));
 
+	    // 上級
+	    long advancedCount = countQuestions(
+	            userId,
+	            languageVariant,
+	            Difficulty.ADVANCED,
+	            searchCondition
+	    );
 
-		// 上級
-		long advancedCount =
-				questionRepository.countByLanguageVariantAndDifficulty(
-						languageVariant,
-						Difficulty.ADVANCED
-				);
+	    count.setAdvancedCount(advancedCount);
+	    count.setAdvancedRanges(createRanges(advancedCount));
 
-		count.setAdvancedCount(advancedCount);
-		count.setAdvancedRanges(createRanges(advancedCount));
-
-		return count;
+	    return count;
 	}
 	
 	public NewPracticeCountDto countNewPracticeQuestions(Long userId) {
@@ -122,6 +160,28 @@ public class PracticeService {
 		List<Question> extractedNewQuestions = questionRepository.findUnlearnedQuestionsByUserIdAndDifficulty(userId, searchConditionConverter.convertDifficulty(difficulty));
 		
 		return extractedNewQuestions;
+	}
+	
+	private long countQuestions(
+	        Long userId,
+	        LanguageVariant languageVariant,
+	        Difficulty difficulty,
+	        PracticeSearchCondition practiceSearchCondition) {
+
+	    // 非ログイン
+	    if (userId == null) {
+	        return questionRepository.countByLanguageVariantAndDifficulty(
+	                languageVariant.name(),
+	                difficulty.name()
+	        );
+	    }
+	    
+	    return questionRepository.countPracticeQuestions(
+	            userId,
+	            languageVariant.name(),
+	            difficulty.name(),
+	            practiceSearchCondition.name()
+	    );
 	}
 	
 }

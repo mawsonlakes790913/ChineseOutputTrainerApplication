@@ -4,6 +4,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -11,11 +12,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.PracticeSearchCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
@@ -41,7 +44,10 @@ public class PracticeController {
 	private final FavoriteService favoriteService;
 	
 	@GetMapping("/practice/menu")
-	public String getPracticeMenu(@AuthenticationPrincipal UserDetails loginUser, HttpSession session, Model model) {
+	public String getPracticeMenu(
+			@AuthenticationPrincipal UserDetails loginUser, 
+			HttpSession session, 
+			Model model) {
 		
 	    // 言語切替後の戻り先
 	    model.addAttribute("languageVariantRedirect", "/practice/menu");
@@ -55,15 +61,31 @@ public class PracticeController {
 	        languageVariant = LanguageVariant.MAINLAND;
 	    }
 	    
+	    // ログインしていればIDを取得
+	    Long userId = null;
+	    
+	    if (loginUser != null) {
+	        Users user = getLoginUser(loginUser);
+	        userId = user.getId();
+	    }
+	    
+	    // メソッド呼び出しのためにPracticeSearchConditionを宣言
+	    PracticeSearchCondition searchCondition = null;
+	    
 	    // 通常問題数を取得
 	    PracticeMenuDto menu =
-	            practiceService.countPracticeQuestions(languageVariant);
-		model.addAttribute("practiceMenu", menu);
+	            practiceService.countPracticeQuestions(
+	                    userId,
+	                    languageVariant,
+	                    searchCondition
+	            );
+
+	    model.addAttribute("practiceMenu", menu);
+
 		
 	    // 未学習問題数を取得
 	    if (loginUser != null) {
-	    Users user = getLoginUser(loginUser);
-		NewPracticeCountDto count = practiceService.countNewPracticeQuestions(user.getId());
+		NewPracticeCountDto count = practiceService.countNewPracticeQuestions(userId);
 		model.addAttribute("newQuestionCount", count);
 	    }
 	    
@@ -88,9 +110,39 @@ public class PracticeController {
 	    return "practice/menu";
 	}
 	
+	@PreAuthorize("isAuthenticated()")
+	@GetMapping("/practice/count")
+	@ResponseBody
+	public PracticeMenuDto getAiPracticeCount(
+			HttpSession session,
+			@AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam(name = "searchCondition", required = false) 
+			PracticeSearchCondition searchCondition
+			) {
+		
+	    // user_id(文字列)からUsersを取得
+	    Users user = getLoginUser(loginUser);
+	    Long userId = user.getId();
+	    
+	    // 言語情報を取得
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+	    
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
+	    
+	    // 出題数を返す
+	    return practiceService.countPracticeQuestions(
+	            userId,
+	            languageVariant,
+	            searchCondition);
+	}
+	
 	@GetMapping("/practice/start")
 	public String getPracticeStart(
 	        HttpSession session,
+	        @AuthenticationPrincipal UserDetails loginUser, 
 	        @RequestParam(required = false) Integer beginnerRange,
 	        @RequestParam(required = false) Integer intermediateRange,
 	        @RequestParam(required = false) Integer advancedRange,
@@ -138,15 +190,38 @@ public class PracticeController {
 	    if (languageVariant == null) {
 	        languageVariant = LanguageVariant.MAINLAND;
 	    }
-
-	    //問題セットを取得
-	    List<Question> questions =
-	            practiceService.getPracticeQuestions(
-	                    languageVariant,
-	                    difficulty,
-	                    start,
-	                    random
-	            );
+	    
+	    // ログインしていればIDを取得
+	    Long userId = null;
+	    
+	    if (loginUser != null) {
+	        Users user = getLoginUser(loginUser);
+	        userId = user.getId();
+	    }
+	    
+	    // 問題セットを取得
+	    List<Question> questions;
+	    
+	    if (userId != null) {
+		    //ログイン時
+		    questions =
+		            practiceService.getAvailablePracticeQuestions(
+		            		userId,
+		                    languageVariant,
+		                    difficulty,
+		                    start,
+		                    random
+		            );
+	    } else {
+		    //非ログイン時
+		    questions =
+		            practiceService.getPracticeQuestions(
+		                    languageVariant,
+		                    difficulty,
+		                    start,
+		                    random
+		            );
+	    }
 	    
 		// 問題が存在しない場合
 	    if (questions.isEmpty()) {
