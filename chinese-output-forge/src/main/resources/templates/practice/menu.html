@@ -455,9 +455,11 @@
 						           name="difficulties"
 						           value="BEGINNER">
 						
-						    <span th:text="#{practice.menu.difficulty.beginner(${newQuestionCount.beginnerCount})}">
-						        初級 : 0問
-						    </span>
+							<span>
+							    <span th:text="#{practice.menu.difficulty.beginner}"></span>
+							    <span th:text="${newQuestionCount.beginnerCount}">初級: 0問</span>
+							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
+							</span>
 						</label>
 						
 						<label class="bg-primary-subtle rounded px-3 py-2">
@@ -466,9 +468,11 @@
 						           name="difficulties"
 						           value="INTERMEDIATE">
 						
-						    <span th:text="#{practice.menu.difficulty.intermediate(${newQuestionCount.intermediateCount})}">
-						        中級 : 0問
-						    </span>
+							<span>
+							    <span th:text="#{practice.menu.difficulty.intermediate}"></span>
+							    <span th:text="${newQuestionCount.intermediateCount}">中級: 0問</span>
+							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
+							</span>						    
 						</label>
 						
 						<label class="bg-success-subtle rounded px-3 py-2">
@@ -476,10 +480,12 @@
 						           type="checkbox"
 						           name="difficulties"
 						           value="ADVANCED">
-						
-						    <span th:text="#{practice.menu.difficulty.advanced(${newQuestionCount.advancedCount})}">
-						        上級 : 0問
-						    </span>
+
+							<span>
+							    <span th:text="#{practice.menu.difficulty.advanced}"></span>
+							    <span th:text="${newQuestionCount.advancedCount}">上級: 0問</span>
+							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
+							</span>						    
 						</label>
 					
 					</div>

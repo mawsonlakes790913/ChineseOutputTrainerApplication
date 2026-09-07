@@ -85,7 +85,7 @@ public class PracticeController {
 		
 	    // 未学習問題数を取得
 	    if (loginUser != null) {
-		NewPracticeCountDto count = practiceService.countNewPracticeQuestions(userId);
+		NewPracticeCountDto count = practiceService.countNewPracticeQuestions(userId, languageVariant);
 		model.addAttribute("newQuestionCount", count);
 	    }
 	    
@@ -185,6 +185,7 @@ public class PracticeController {
 	    // 既存の学習状態を破棄
 	    clearPracticeSession(session);
 	    
+	    // 言語情報を取得
 	    LanguageVariant languageVariant =
 	            (LanguageVariant) session.getAttribute("languageVariant");
 
@@ -247,10 +248,18 @@ public class PracticeController {
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam(name = "difficulties", required = false) 
 			List<Difficulty> difficulty
-	        ) {
+			) {
 		
 	    // 既存の学習状態を破棄
 		clearPracticeSession(session);
+		
+	    // 言語情報を取得
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
 	    
 	    //先に宣言
 	    List<Question> questions;
@@ -260,7 +269,7 @@ public class PracticeController {
 	    Long userId = user.getId();
 	    
 	    //問題セットを取得
-	    questions = practiceService.getNewQuestions(userId, difficulty);
+	    questions = practiceService.getNewQuestions(userId, languageVariant, difficulty);
 	    
 	    if (questions.isEmpty()) {
 	        return "redirect:/practice/menu";

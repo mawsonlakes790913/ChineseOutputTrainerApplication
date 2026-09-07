@@ -126,17 +126,28 @@ public class PracticeService {
 	    return count;
 	}
 	
-	public NewPracticeCountDto countNewPracticeQuestions(Long userId) {
+	public NewPracticeCountDto countNewPracticeQuestions(
+			Long userId,
+			LanguageVariant languageVariant) {
 		
 		NewPracticeCountDto count = new NewPracticeCountDto();
 		
-	    long beginnerCount = questionRepository.countNewQuestions(userId, Difficulty.BEGINNER.name());
+	    long beginnerCount = questionRepository.countUnlearnedQuestions(
+	    		userId, 
+	    		languageVariant.name(),
+	    		Difficulty.BEGINNER.name());
 	    count.setBeginnerCount(beginnerCount);	    
 	    
-	    long intermediateCount = questionRepository.countNewQuestions(userId, Difficulty.INTERMEDIATE.name());
+	    long intermediateCount = questionRepository.countUnlearnedQuestions(
+	    		userId, 
+	    		languageVariant.name(),
+	    		Difficulty.INTERMEDIATE.name());
 	    count.setIntermediateCount(intermediateCount);
 
-	    long advancedCount = questionRepository.countNewQuestions(userId, Difficulty.ADVANCED.name());
+	    long advancedCount = questionRepository.countUnlearnedQuestions(
+	    		userId, 
+	    		languageVariant.name(),
+	    		Difficulty.ADVANCED.name());
 	    count.setAdvancedCount(advancedCount);
 		
 		return count;
@@ -157,9 +168,15 @@ public class PracticeService {
 		return ranges;
 	}	
 	
-	public List<Question> getNewQuestions(Long userId, List<Difficulty> difficulty) {
+	public List<Question> getNewQuestions(
+			Long userId, 
+			LanguageVariant languageVariant,
+			List<Difficulty> difficulty) {
 		
-		List<Question> extractedNewQuestions = questionRepository.findUnlearnedQuestionsByUserIdAndDifficulty(userId, searchConditionConverter.convertDifficulty(difficulty));
+		List<Question> extractedNewQuestions = questionRepository.findUnlearnedQuestionsByUserIdAndDifficulty(
+				userId, 
+				languageVariant.name(),
+				searchConditionConverter.convertDifficulty(difficulty));
 		
 		return extractedNewQuestions;
 	}

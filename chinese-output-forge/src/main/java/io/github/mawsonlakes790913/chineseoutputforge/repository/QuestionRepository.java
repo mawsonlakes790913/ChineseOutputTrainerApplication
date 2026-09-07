@@ -121,11 +121,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			LEFT JOIN study_history sh
 			  ON q.question_id = sh.question_id
 			 AND sh.user_id = :userId
-			WHERE q.difficulty IN (:difficulties)
+			WHERE language_variant = :languageVariant
+			  AND q.difficulty IN (:difficulties)
+			  AND (q.ai_generated = false OR (q.ai_generated = true AND owner_user_id = :userId))
 			  AND sh.question_id IS NULL
 			""", nativeQuery = true)
-			long countNewQuestions(
+			long countUnlearnedQuestions(
 				    @Param("userId") Long userId,
+				    @Param("languageVariant") String languageVariant,
 				    @Param("difficulties") String difficulties					
 					);
 	
@@ -135,11 +138,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			LEFT JOIN study_history sh
 			  ON q.question_id = sh.question_id
 			 AND sh.user_id = :userId
-			WHERE q.difficulty IN (:difficulties)
+			WHERE language_variant = :languageVariant
+			  AND q.difficulty IN (:difficulties)
+			  AND (q.ai_generated = false OR (q.ai_generated = true AND owner_user_id = :userId))
 			  AND sh.question_id IS NULL
 			""", nativeQuery = true)
 			List<Question> findUnlearnedQuestionsByUserIdAndDifficulty(
 				    @Param("userId") Long userId,
+				    @Param("languageVariant") String languageVariant,
 				    @Param("difficulties") List<String> difficulties					
 					);
 	
