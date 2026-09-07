@@ -17,7 +17,7 @@
     <link rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
-    <script th:src="@{/js/practice/menu.js}" defer></script>
+    <script th:src="@{/js/practice/question.js}" defer></script>
     <meta name="_csrf" th:content="${_csrf.token}">
 	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 </head>
@@ -45,6 +45,11 @@
 		      th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
 		               (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
 		    難易度
+		</span>		
+		<!-- AI生成由来 -->
+		<span class="badge bg-black"
+		      th:if="${question.aiGenerated}">
+		    AI
 		</span>		
 		
         <!-- 現在の問題番号 -->

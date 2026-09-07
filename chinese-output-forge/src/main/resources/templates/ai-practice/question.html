@@ -49,6 +49,10 @@
                        (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
             難易度
         </span>
+        
+		<span class="badge bg-black">
+		    AI
+		</span>        
 
         <!-- 現在の問題番号 -->
         <span th:text="${nextPageIndex + '/' + totalPages}">

@@ -54,6 +54,7 @@ public class PracticeService {
 			Long userId,
 			LanguageVariant languageVariant,
 			Difficulty difficulty,
+			PracticeSearchCondition searchCondition,
 			int start,
 			boolean random){
 
@@ -63,6 +64,7 @@ public class PracticeService {
 	userId,
 	languageVariant.name(),
 	difficulty.name(),
+	searchCondition.name(),
 	offset
 	);
 	

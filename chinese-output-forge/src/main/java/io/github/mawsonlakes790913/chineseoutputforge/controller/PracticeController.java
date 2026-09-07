@@ -146,6 +146,7 @@ public class PracticeController {
 	        @RequestParam(required = false) Integer beginnerRange,
 	        @RequestParam(required = false) Integer intermediateRange,
 	        @RequestParam(required = false) Integer advancedRange,
+	        @RequestParam(name = "searchCondition", required = false) PracticeSearchCondition searchCondition,
 	        @RequestParam(name = "random") boolean random,
 	        RedirectAttributes redirectAttributes
 	        ) {
@@ -203,12 +204,18 @@ public class PracticeController {
 	    List<Question> questions;
 	    
 	    if (userId != null) {
-		    //ログイン時
+	    	// ログイン時
+	        // 出題条件が未指定の場合はすべて
+	        if (searchCondition == null) {
+	            searchCondition = PracticeSearchCondition.ALL;
+	        }
+	    	
 		    questions =
 		            practiceService.getAvailablePracticeQuestions(
 		            		userId,
 		                    languageVariant,
 		                    difficulty,
+		                    searchCondition,
 		                    start,
 		                    random
 		            );

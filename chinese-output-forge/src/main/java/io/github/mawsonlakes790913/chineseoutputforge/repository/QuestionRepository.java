@@ -59,6 +59,54 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("searchCondition") String searchCondition
 	);
 	
+	// 非ログインユーザー用問題取得
+	@Query(value = """
+	        SELECT *
+	        FROM question
+	        WHERE language_variant = :languageVariant
+	        AND difficulty = :difficulty
+	        AND ai_generated = false
+	        ORDER BY question_id
+	        LIMIT 50 OFFSET :offset
+	        """, nativeQuery = true)
+	List<Question> findQuestionsByLanguageVariantAndDifficulty(
+	        @Param("languageVariant") String languageVariant,
+	        @Param("difficulty") String difficulty,
+	        @Param("offset") int offset
+	);
+
+
+	// ログインユーザー用問題取得
+	@Query(value = """
+	        SELECT *
+	        FROM question
+	        WHERE language_variant = :languageVariant
+	        AND difficulty = :difficulty
+	        AND (
+	            (:searchCondition = 'ALL'
+	                AND (
+	                    (ai_generated = true AND owner_user_id = :userId)
+	                    OR ai_generated = false
+	                )
+	            )
+	            OR (:searchCondition = 'ORIGINAL_ONLY'
+	                AND ai_generated = false
+	            )
+	            OR (:searchCondition = 'GENERATED_ONLY'
+	                AND (ai_generated = true AND owner_user_id = :userId)
+	            )
+	        )
+	        ORDER BY question_id
+	        LIMIT 50 OFFSET :offset
+	        """, nativeQuery = true)
+	List<Question> findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
+	        @Param("userId") Long userId,
+	        @Param("languageVariant") String languageVariant,
+	        @Param("difficulty") String difficulty,
+	        @Param("searchCondition") String searchCondition,
+	        @Param("offset") int offset
+	);
+	
 	
 	boolean existsByChineseText(String chineseText);
 	
