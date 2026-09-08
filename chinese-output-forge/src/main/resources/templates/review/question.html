@@ -48,7 +48,12 @@
 		      th:text="${question.difficulty.name() == 'BEGINNER'} ? #{difficulty.beginner} :
 		               (${question.difficulty.name() == 'INTERMEDIATE'} ? #{difficulty.intermediate} : #{difficulty.advanced})">
 		    難易度
-		</span>			
+		</span>	
+		<!-- AI生成由来 -->
+		<span class="badge bg-black"
+		      th:if="${question.aiGenerated}">
+		    AI
+		</span>				
 
         <!-- 現在の問題番号 -->
         <span th:text="${nextPageIndex + '/' + totalPages}">
