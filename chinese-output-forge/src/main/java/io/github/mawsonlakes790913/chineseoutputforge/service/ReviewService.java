@@ -9,6 +9,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
@@ -30,11 +31,17 @@ public class ReviewService {
 												  List<Evaluation> evaluations, 
 												  List<Difficulty> difficulties,
 												  FavoriteCondition favoriteCondition,
+												  QuestionSourceCondition sourceCondition,
 												  List<Long> structureIds) {
 		
-		// 文法・構造
+		// 文法・構造が未指定の場合はすべて
 		if (structureIds == null || structureIds.isEmpty()) {
 			structureIds = structureRepository.findAllStructureIds();
+		}
+		
+		// 出題元が未指定の場合はすべて
+		if (sourceCondition == null) {
+		    sourceCondition = QuestionSourceCondition.ALL;
 		}
 		
 		// ここで変換する
@@ -49,6 +56,7 @@ public class ReviewService {
 	    		convertedEvaluations,
 	    		convertedDifficulties,
 	    		convertedFavoriteCondition,
+	    		sourceCondition.name(),
 	    		structureIds
 	    		);
 	}
@@ -59,14 +67,26 @@ public class ReviewService {
 									  List<Evaluation> evaluations, 
 									  List<Difficulty> difficulties,
 									  FavoriteCondition favoriteCondition,
+									  QuestionSourceCondition sourceCondition,
 									  List<Long> structureIds,
 									  boolean random){
+		
+		// 文法・構造が未指定の場合はすべて
+		if (structureIds == null || structureIds.isEmpty()) {
+			structureIds = structureRepository.findAllStructureIds();
+		}
+		
+		// 出題元が未指定の場合はすべて
+		if (sourceCondition == null) {
+		    sourceCondition = QuestionSourceCondition.ALL;
+		}
 		
 		List<Question> extractedQuestions = studyHistoryRepository.findReviewQuestions(userId,
 				searchConditionConverter.convertLanguageVariant(languageVariants),
 				searchConditionConverter.convertEvaluation(evaluations),
 				searchConditionConverter.convertDifficulty(difficulties),
 				searchConditionConverter.convertFavoriteCondition(favoriteCondition),
+				sourceCondition.name(),
 				structureIds);
 		
 		// シャッフルする

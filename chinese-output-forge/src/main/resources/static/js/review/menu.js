@@ -9,8 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	    "input[name='languageVariants'], " +
 	    "input[name='evaluations'], " +
 	    "input[name='difficulties'], " +
-	    "input[name='conditions'], " +
 	    "input[name='favoriteCondition'], " +
+	    "input[name='sourceCondition'], " +
 	    "input[name='structureIds']"
 	);
 
@@ -44,13 +44,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 params.append("difficulties", cb.value);
             });
 
-        // condition
-        document
-            .querySelectorAll("input[name='conditions']:checked")
-            .forEach(cb => {
-                params.append("conditions", cb.value);
-            });
-
         // お気に入り条件
         params.append(
             "favoriteCondition",
@@ -58,6 +51,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 "input[name='favoriteCondition']:checked"
             ).value
         );
+        
+        // 問題の生成元
+		params.append(
+		    "sourceCondition",
+		    document.querySelector(
+		        "input[name='sourceCondition']:checked"
+		    ).value
+		);
         
 		// 文法・構造
 		document

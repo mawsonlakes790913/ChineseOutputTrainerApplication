@@ -40,6 +40,20 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	                AND f.question_id IS NULL
 	            )
 	        )
+	        AND (
+	            (:sourceCondition = 'ALL'
+	                AND (
+	                    (q.ai_generated = true AND q.owner_user_id = :userId)
+	                    OR q.ai_generated = false
+	                )
+	            )
+	            OR (:sourceCondition = 'ORIGINAL_ONLY'
+	                AND q.ai_generated = false
+	            )
+	            OR (:sourceCondition = 'GENERATED_ONLY'
+	                AND (q.ai_generated = true AND q.owner_user_id = :userId)
+	            )
+	        )
 	        AND q.structure_id IN (:structureIds)
 	        """, nativeQuery = true)
 	long countReviewQuestions(
@@ -48,6 +62,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("evaluations") List<String> evaluations,
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds
 	);
 	
@@ -74,6 +89,20 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	                  AND f.question_id IS NULL
 	              )
 	          )
+	        AND (
+	            (:sourceCondition = 'ALL'
+	                AND (
+	                    (q.ai_generated = true AND q.owner_user_id = :userId)
+	                    OR q.ai_generated = false
+	                )
+	            )
+	            OR (:sourceCondition = 'ORIGINAL_ONLY'
+	                AND q.ai_generated = false
+	            )
+	            OR (:sourceCondition = 'GENERATED_ONLY'
+	                AND (q.ai_generated = true AND q.owner_user_id = :userId)
+	            )
+	        )	          
 	          AND q.structure_id IN (:structureIds)
 	        """, nativeQuery = true)
 	List<Question> findReviewQuestions(
@@ -82,6 +111,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("evaluations") List<String> evaluations,
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds
 	);
 

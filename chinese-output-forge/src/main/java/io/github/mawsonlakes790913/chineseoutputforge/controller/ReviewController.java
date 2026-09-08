@@ -15,6 +15,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
@@ -96,6 +97,8 @@ public class ReviewController {
 									List<Difficulty> difficulties,
 								@RequestParam(name = "favoriteCondition", required = false)
 									FavoriteCondition favoriteCondition,
+								@RequestParam(name = "sourceCondition", required = false)
+									QuestionSourceCondition sourceCondition,								
 								@RequestParam(name = "structureIds", required = false)
 									List<Long> structureIds
 								) {
@@ -111,6 +114,7 @@ public class ReviewController {
 	            evaluations,
 	            difficulties,
 	            favoriteCondition,
+	            sourceCondition,
 	            structureIds);
 	}
 	
@@ -126,6 +130,8 @@ public class ReviewController {
 									List<Difficulty> difficulties,
 						     @RequestParam(name = "favoriteCondition", required = false)
 									FavoriteCondition favoriteCondition,
+							@RequestParam(name = "sourceCondition", required = false)
+									QuestionSourceCondition sourceCondition,									
 							 @RequestParam(name = "structureIds", required = false)
 							 		List<Long> structureIds,
 							 @RequestParam(name = "random", required = false)
@@ -142,7 +148,15 @@ public class ReviewController {
 	    Long userId = user.getId();
 	    
 	    // 新しい問題セットを作成
-	    questions = reviewService.getQuestion(userId, languageVariants, evaluations, difficulties, favoriteCondition, structureIds, random);
+	    questions = reviewService.getQuestion(
+	    		userId, 
+	    		languageVariants, 
+	    		evaluations, 
+	    		difficulties, 
+	    		favoriteCondition, 
+	    		sourceCondition,
+	    		structureIds, 
+	    		random);
 
 	    // 問題が1件もない場合は開始しない
 	    if (questions.isEmpty()) {
