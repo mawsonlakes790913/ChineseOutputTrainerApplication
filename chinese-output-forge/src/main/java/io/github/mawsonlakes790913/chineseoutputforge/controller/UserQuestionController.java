@@ -2,7 +2,9 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -11,7 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
@@ -27,6 +31,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserQuestionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +43,7 @@ public class UserQuestionController {
 	private final UserQuestionService userQuestionService;
 	private final PaginationService paginationService;
 	private final ReviewService reviewService;
+	private final MessageSource messageSource;
 	
 	@GetMapping("/user/question/list")
 	public String getUserQuestionList(
@@ -53,7 +59,17 @@ public class UserQuestionController {
 	        @RequestParam(required = false, defaultValue = "") String japaneseKeyword,
 	        @RequestParam(required = false, defaultValue = "") String chineseKeyword,
 	        HttpSession session,
+	        HttpServletRequest request,
 	        Model model) {
+		
+	    // 現在のURLを取得
+	    String currentUrl = request.getRequestURI();
+
+	    if (request.getQueryString() != null) {
+	        currentUrl += "?" + request.getQueryString();
+	    }
+
+	    model.addAttribute("currentUrl", currentUrl);
 		
 		// 言語切替後の戻り先
 		model.addAttribute("languageVariantRedirect", "/user/question/list");
@@ -143,6 +159,31 @@ public class UserQuestionController {
 	    model.addAttribute("chineseKeyword", chineseKeyword);
 
 	    return "user/question/list";
+	}
+	
+	@PostMapping("/user/question/delete")
+	public String postUserQuestionDelete(
+			@AuthenticationPrincipal UserDetails loginUser,
+			@RequestParam long questionId,
+			@RequestParam String returnUrl,
+			RedirectAttributes redirectAttributes,
+			Locale locale) {
+		
+		// ユーザーIDを取得
+	    Users user = userAccountService.getUserOne(loginUser.getUsername());
+	    Long userId = user.getId();
+		
+	    // 削除
+		userQuestionService.deleteOneQuestion(userId, questionId);
+		
+		redirectAttributes.addFlashAttribute(
+		        "successMessage",
+		        messageSource.getMessage(
+		                "user.question.delete.success",
+		                null,
+		                locale));
+
+	    return "redirect:" + returnUrl;
 	}
 
 }

@@ -17,6 +17,8 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	
 	void deleteByStudyHistoryKeyUserId(Long userId);
 	
+	void deleteByStudyHistoryKeyQuestionId(Long questionId);
+	
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM study_history sh

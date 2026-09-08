@@ -32,6 +32,21 @@
         th:text="#{user.question.list.title}">
         問題一覧
     </h2>
+    
+    <!--削除成功時のメッセージ表示-->
+	<div th:if="${successMessage}"
+	     class="alert alert-success alert-dismissible fade show"
+	     role="alert">
+	
+	    <span th:text="${successMessage}"></span>
+	
+	    <button type="button"
+	            class="btn-close"
+	            data-bs-dismiss="alert"
+	            aria-label="Close">
+	    </button>
+	
+	</div>
 
 	<!-- ========================= -->
 	<!-- 検索フォーム -->
@@ -605,6 +620,11 @@
                     th:text="#{user.question.list.favorite}">
                     お気に入り
                 </th>
+                
+				<th class="text-nowrap"
+				    th:text="#{user.question.list.delete}">
+				    削除
+				</th>                
 
             </tr>
 
@@ -761,6 +781,29 @@
                     </button>
 
                 </td>
+                
+				<!-- 削除 -->
+				<td class="text-center">
+				    <form th:if="${question.aiGenerated}"
+				          th:action="@{/user/question/delete}"
+				          method="post">
+				
+				        <input type="hidden"
+				               name="questionId"
+				               th:value="${question.questionId}">
+				               
+						<input type="hidden"
+						       name="returnUrl"
+						       th:value="${currentUrl}">			               
+				
+				        <button type="submit"
+				                class="btn btn-dark btn-sm"
+				                th:onclick="|return confirm('#{user.question.delete.confirm}')|">
+				            <i class="bi bi-trash"></i>
+				        </button>
+				
+				    </form>
+				</td>                
 
             </tr>
 

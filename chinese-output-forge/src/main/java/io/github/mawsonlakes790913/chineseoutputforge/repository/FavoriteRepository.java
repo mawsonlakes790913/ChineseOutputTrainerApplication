@@ -14,4 +14,6 @@ public interface FavoriteRepository extends JpaRepository<Favorite, FavoriteKey>
 	
 	void deleteByFavoriteKeyUserId(Long userId);
 	
+	void deleteByQuestionQuestionId(Long questionId);
+	
 }
