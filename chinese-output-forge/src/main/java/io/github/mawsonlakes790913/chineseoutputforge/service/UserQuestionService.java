@@ -10,6 +10,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.StudyCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
@@ -30,6 +31,7 @@ public class UserQuestionService {
 			 List<Evaluation> evaluations,
 			 StudyCondition studyCondition,
 			 FavoriteCondition favoriteCondition,
+			 QuestionSourceCondition sourceCondition,
 			 List<Long> structureIds,
 			 List<LanguageVariant> languageVariants,
 			 String japaneseKeyword,
@@ -58,12 +60,18 @@ public class UserQuestionService {
 	List<String> convertedLanguageVariants =
 	        searchConditionConverter.convertLanguageVariant(languageVariants);
 	
+	// 問題の生成元が未指定の場合はすべて
+	if (sourceCondition == null) {
+	    sourceCondition = QuestionSourceCondition.ALL;
+	}
+	
 	return questionRepository.findFilteredUserQuestionList(
 	userId,
 	convertedDifficulties,
 	convertedEvaluations,
 	convertedStudyCondition,
 	convertedFavoriteCondition,
+	sourceCondition.name(),
 	structureIds,
 	convertedLanguageVariants,
 	japaneseKeyword,

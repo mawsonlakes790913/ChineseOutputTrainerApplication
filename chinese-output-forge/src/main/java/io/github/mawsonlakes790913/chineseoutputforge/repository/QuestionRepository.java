@@ -161,7 +161,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 				s.description_zh_tw AS structureDescriptionZhTw,
 	            q.difficulty          AS difficulty,
 	            sh.evaluation         AS evaluation,
-
+				q.ai_generated		  AS aiGenerated,
 	            CASE
 	                WHEN f.question_id IS NOT NULL THEN TRUE
 	                ELSE FALSE
@@ -218,7 +218,20 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	                AND f.question_id IS NULL
 	            )
 	        )
-
+			AND (
+			    (:sourceCondition = 'ALL'
+			        AND (
+			            (q.ai_generated = true AND q.owner_user_id = :userId)
+			            OR q.ai_generated = false
+			        )
+			    )
+			    OR (:sourceCondition = 'ORIGINAL_ONLY'
+			        AND q.ai_generated = false
+			    )
+			    OR (:sourceCondition = 'GENERATED_ONLY'
+			        AND (q.ai_generated = true AND q.owner_user_id = :userId)
+			    )
+			)    
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
 	        AND (
@@ -290,7 +303,20 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	                AND f.question_id IS NULL
 	            )
 	        )
-
+			AND (
+			    (:sourceCondition = 'ALL'
+			        AND (
+			            (q.ai_generated = true AND q.owner_user_id = :userId)
+			            OR q.ai_generated = false
+			        )
+			    )
+			    OR (:sourceCondition = 'ORIGINAL_ONLY'
+			        AND q.ai_generated = false
+			    )
+			    OR (:sourceCondition = 'GENERATED_ONLY'
+			        AND (q.ai_generated = true AND q.owner_user_id = :userId)
+			    )
+			)
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
 	        AND (
@@ -326,6 +352,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	        @Param("favoriteCondition")
 	        String favoriteCondition,
+	        
+	        @Param("sourceCondition")
+	        String sourceCondition,	        
 
 	        @Param("structureIds")
 	        List<Long> structureIds,

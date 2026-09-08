@@ -337,6 +337,45 @@
 	            </select>
 	
 	        </div>
+	        
+			<!-- ========================= -->
+			<!-- 問題の生成元 -->
+			<!-- ========================= -->
+			
+			<div class="col-md-4">
+			
+			    <label class="form-label fw-bold"
+			           th:text="#{practice.menu.sourceCondition.title}">
+			        問題の生成元
+			    </label>
+			
+			    <select class="form-select"
+			            name="sourceCondition">
+			
+			        <option value="ALL"
+			                th:selected="${selectedSourceCondition == null
+			                    or selectedSourceCondition.name() == 'ALL'}"
+			                th:text="#{practice.menu.sourceCondition.all}">
+			            すべて
+			        </option>
+			
+			        <option value="ORIGINAL_ONLY"
+			                th:selected="${selectedSourceCondition != null
+			                    and selectedSourceCondition.name() == 'ORIGINAL_ONLY'}"
+			                th:text="#{practice.menu.sourceCondition.originalOnly}">
+			            AI生成由来の問題を除外する
+			        </option>
+			
+			        <option value="GENERATED_ONLY"
+			                th:selected="${selectedSourceCondition != null
+			                    and selectedSourceCondition.name() == 'GENERATED_ONLY'}"
+			                th:text="#{practice.menu.sourceCondition.generatedOnly}">
+			            AI生成由来の問題のみ
+			        </option>
+			
+			    </select>
+			
+			</div>	        
 	
 	
 	        <!-- ========================= -->
@@ -546,6 +585,11 @@
                     th:text="#{user.question.list.difficulty}">
                     難易度
                 </th>
+                
+				<th class="text-nowrap"
+				    th:text="#{user.question.list.source}">
+				    生成元
+				</th>
 
                 <th class="text-nowrap"
                     th:text="#{user.question.list.detail}">
@@ -633,6 +677,14 @@
                     </span>
 
                 </td>
+                
+				<!-- 生成元 -->
+				<td>
+				    <span class="badge bg-black"
+				          th:if="${question.aiGenerated}">
+				        AI
+				    </span>
+				</td>                
 
                 <!-- 詳細 -->
 

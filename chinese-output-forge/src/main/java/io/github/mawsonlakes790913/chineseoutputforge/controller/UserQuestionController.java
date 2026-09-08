@@ -18,6 +18,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.StudyCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
@@ -46,6 +47,7 @@ public class UserQuestionController {
 	        @RequestParam(required = false) List<Evaluation> evaluations,
 	        @RequestParam(required = false) StudyCondition studyCondition,
 	        @RequestParam(required = false) FavoriteCondition favoriteCondition,
+	        @RequestParam(required = false) QuestionSourceCondition sourceCondition,
 	        @RequestParam(required = false) List<Long> structureIds,
 	        @RequestParam(required = false) List<LanguageVariant> languageVariants,
 	        @RequestParam(required = false, defaultValue = "") String japaneseKeyword,
@@ -88,6 +90,7 @@ public class UserQuestionController {
 	                    evaluations,
 	                    studyCondition,
 	                    favoriteCondition,
+	                    sourceCondition,
 	                    structureIds,
 	                    languageVariants,
 	                    japaneseKeyword,
@@ -134,6 +137,7 @@ public class UserQuestionController {
 	    model.addAttribute("selectedEvaluations", evaluations);
 	    model.addAttribute("selectedStudyCondition", studyCondition);
 	    model.addAttribute("selectedFavoriteCondition", favoriteCondition);
+	    model.addAttribute("selectedSourceCondition", sourceCondition);
 	    model.addAttribute("selectedStructureIds", structureIds);
 	    model.addAttribute("japaneseKeyword", japaneseKeyword);
 	    model.addAttribute("chineseKeyword", chineseKeyword);

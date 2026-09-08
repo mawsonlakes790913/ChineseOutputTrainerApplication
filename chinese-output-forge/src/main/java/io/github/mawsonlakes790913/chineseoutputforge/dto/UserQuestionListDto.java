@@ -25,6 +25,8 @@ public interface UserQuestionListDto {
 
     boolean isFavorite();
     
+    boolean isAiGenerated();
+    
     String getPinyin();
 
     String getZhuyin();
