@@ -3,27 +3,27 @@
 // =========================
 
 // 出題条件
-const searchConditions =
+const sourceConditions =
     document.querySelectorAll(
-        "input[name='searchCondition']"
+        "input[name='sourceCondition']"
     );
 
 // 条件変更時
-searchConditions.forEach(condition => {
+sourceConditions.forEach(condition => {
 
     condition.addEventListener("change", async () => {
 
         // 選択された出題条件
         const selectedCondition =
             document.querySelector(
-                "input[name='searchCondition']:checked"
+                "input[name='sourceCondition']:checked"
             );
 
         // パラメータ
         const params = new URLSearchParams();
 
         params.append(
-            "searchCondition",
+            "sourceCondition",
             selectedCondition.value
         );
 

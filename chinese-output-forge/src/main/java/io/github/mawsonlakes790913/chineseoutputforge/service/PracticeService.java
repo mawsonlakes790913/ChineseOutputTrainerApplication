@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
-import io.github.mawsonlakes790913.chineseoutputforge.constant.PracticeSearchCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
@@ -54,7 +54,7 @@ public class PracticeService {
 			Long userId,
 			LanguageVariant languageVariant,
 			Difficulty difficulty,
-			PracticeSearchCondition searchCondition,
+			QuestionSourceCondition sourceCondition,
 			int start,
 			boolean random){
 
@@ -64,7 +64,7 @@ public class PracticeService {
 	userId,
 	languageVariant.name(),
 	difficulty.name(),
-	searchCondition.name(),
+	sourceCondition.name(),
 	offset
 	);
 	
@@ -81,11 +81,11 @@ public class PracticeService {
 	public PracticeMenuDto countPracticeQuestions(
 	        Long userId,
 	        LanguageVariant languageVariant,
-	        PracticeSearchCondition searchCondition) {
+	        QuestionSourceCondition sourceCondition) {
 		
 	    // 条件が未指定の場合はすべて
-	    if (searchCondition == null) {
-	        searchCondition = PracticeSearchCondition.ALL;
+	    if (sourceCondition == null) {
+	    	sourceCondition = QuestionSourceCondition.ALL;
 	    }
 
 	    PracticeMenuDto count = new PracticeMenuDto();
@@ -95,7 +95,7 @@ public class PracticeService {
 	            userId,
 	            languageVariant,
 	            Difficulty.BEGINNER,
-	            searchCondition
+	            sourceCondition
 	    );
 
 	    count.setBeginnerCount(beginnerCount);
@@ -106,7 +106,7 @@ public class PracticeService {
 	            userId,
 	            languageVariant,
 	            Difficulty.INTERMEDIATE,
-	            searchCondition
+	            sourceCondition
 	    );
 
 	    count.setIntermediateCount(intermediateCount);
@@ -117,7 +117,7 @@ public class PracticeService {
 	            userId,
 	            languageVariant,
 	            Difficulty.ADVANCED,
-	            searchCondition
+	            sourceCondition
 	    );
 
 	    count.setAdvancedCount(advancedCount);
@@ -185,7 +185,7 @@ public class PracticeService {
 	        Long userId,
 	        LanguageVariant languageVariant,
 	        Difficulty difficulty,
-	        PracticeSearchCondition practiceSearchCondition) {
+	        QuestionSourceCondition sourceCondition) {
 
 	    // 非ログイン
 	    if (userId == null) {
@@ -199,7 +199,7 @@ public class PracticeService {
 	            userId,
 	            languageVariant.name(),
 	            difficulty.name(),
-	            practiceSearchCondition.name()
+	            sourceCondition.name()
 	    );
 	}
 	

@@ -18,7 +18,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
-import io.github.mawsonlakes790913.chineseoutputforge.constant.PracticeSearchCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
@@ -69,15 +69,15 @@ public class PracticeController {
 	        userId = user.getId();
 	    }
 	    
-	    // メソッド呼び出しのためにPracticeSearchConditionを宣言
-	    PracticeSearchCondition searchCondition = null;
+	    // メソッド呼び出しのためにPracticesourceConditionを宣言
+	    QuestionSourceCondition sourceCondition = null;
 	    
 	    // 通常問題数を取得
 	    PracticeMenuDto menu =
 	            practiceService.countPracticeQuestions(
 	                    userId,
 	                    languageVariant,
-	                    searchCondition
+	                    sourceCondition
 	            );
 
 	    model.addAttribute("practiceMenu", menu);
@@ -116,8 +116,8 @@ public class PracticeController {
 	public PracticeMenuDto getAiPracticeCount(
 			HttpSession session,
 			@AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam(name = "searchCondition", required = false) 
-			PracticeSearchCondition searchCondition
+	        @RequestParam(name = "sourceCondition", required = false) 
+			QuestionSourceCondition sourceCondition
 			) {
 		
 	    // user_id(文字列)からUsersを取得
@@ -136,7 +136,7 @@ public class PracticeController {
 	    return practiceService.countPracticeQuestions(
 	            userId,
 	            languageVariant,
-	            searchCondition);
+	            sourceCondition);
 	}
 	
 	@GetMapping("/practice/start")
@@ -146,7 +146,7 @@ public class PracticeController {
 	        @RequestParam(required = false) Integer beginnerRange,
 	        @RequestParam(required = false) Integer intermediateRange,
 	        @RequestParam(required = false) Integer advancedRange,
-	        @RequestParam(name = "searchCondition", required = false) PracticeSearchCondition searchCondition,
+	        @RequestParam(name = "sourceCondition", required = false) QuestionSourceCondition sourceCondition,
 	        @RequestParam(name = "random") boolean random,
 	        RedirectAttributes redirectAttributes
 	        ) {
@@ -207,8 +207,8 @@ public class PracticeController {
 	    if (userId != null) {
 	    	// ログイン時
 	        // 出題条件が未指定の場合はすべて
-	        if (searchCondition == null) {
-	            searchCondition = PracticeSearchCondition.ALL;
+	        if (sourceCondition == null) {
+	        	sourceCondition = QuestionSourceCondition.ALL;
 	        }
 	    	
 		    questions =
@@ -216,7 +216,7 @@ public class PracticeController {
 		            		userId,
 		                    languageVariant,
 		                    difficulty,
-		                    searchCondition,
+		                    sourceCondition,
 		                    start,
 		                    random
 		            );

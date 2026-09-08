@@ -38,16 +38,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        WHERE language_variant = :languageVariant
 	        AND difficulty = :difficulty
 	        AND (
-	            (:searchCondition = 'ALL'
+	            (:sourceCondition = 'ALL'
 	                AND (
 	                    (ai_generated = true AND owner_user_id = :userId)
 	                    OR ai_generated = false
 	                )
 	            )
-	            OR (:searchCondition = 'ORIGINAL_ONLY'
+	            OR (:sourceCondition = 'ORIGINAL_ONLY'
 	                AND ai_generated = false
 	            )
-	            OR (:searchCondition = 'GENERATED_ONLY'
+	            OR (:sourceCondition = 'GENERATED_ONLY'
 	                AND (ai_generated = true AND owner_user_id = :userId)
 	            )
 	        )
@@ -56,7 +56,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("userId") Long userId,
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulty") String difficulty,
-	        @Param("searchCondition") String searchCondition
+	        @Param("sourceCondition") String sourceCondition
 	);
 	
 	// 非ログインユーザー用問題取得
@@ -83,16 +83,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        WHERE language_variant = :languageVariant
 	        AND difficulty = :difficulty
 	        AND (
-	            (:searchCondition = 'ALL'
+	            (:sourceCondition = 'ALL'
 	                AND (
 	                    (ai_generated = true AND owner_user_id = :userId)
 	                    OR ai_generated = false
 	                )
 	            )
-	            OR (:searchCondition = 'ORIGINAL_ONLY'
+	            OR (:sourceCondition = 'ORIGINAL_ONLY'
 	                AND ai_generated = false
 	            )
-	            OR (:searchCondition = 'GENERATED_ONLY'
+	            OR (:sourceCondition = 'GENERATED_ONLY'
 	                AND (ai_generated = true AND owner_user_id = :userId)
 	            )
 	        )
@@ -103,7 +103,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("userId") Long userId,
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulty") String difficulty,
-	        @Param("searchCondition") String searchCondition,
+	        @Param("sourceCondition") String sourceCondition,
 	        @Param("offset") int offset
 	);
 	
