@@ -6,24 +6,31 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.FavoriteRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminQuestionService {
 	
 	private final StructureRepository structureRepository;
 	private final SearchConditionConverter searchConditionConverter;
 	private final QuestionRepository questionRepository;
+	private final FavoriteRepository favoriteRepository;
+	private final StudyHistoryRepository studyHistoryRepository;
 
 	public Page<AdminQuestionListDto> getFilteredAdminQuestions(
 	        List<Difficulty> difficulties,
@@ -71,5 +78,15 @@ public class AdminQuestionService {
 	    		japaneseKeyword,
 	    		chineseKeyword,
 	            pageable);
+	}
+	
+	@Transactional
+	public void deleteOneQuestion(Long questionId) {
+
+	    favoriteRepository.deleteByQuestionQuestionId(questionId);
+	    studyHistoryRepository.deleteByStudyHistoryKeyQuestionId(questionId);
+	    questionRepository.deleteById(questionId);
+
+	    log.info("問題削除 questionId={}", questionId);
 	}
 }

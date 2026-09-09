@@ -30,6 +30,21 @@
     <h2 class="mb-4">
         問題管理
     </h2>
+    
+    <!--削除成功時のメッセージ表示-->
+	<div th:if="${successMessage}"
+	     class="alert alert-success alert-dismissible fade show"
+	     role="alert">
+	
+	    <span th:text="${successMessage}"></span>
+	
+	    <button type="button"
+	            class="btn-close"
+	            data-bs-dismiss="alert"
+	            aria-label="Close">
+	    </button>
+	
+	</div>
 
     <!-- ========================= -->
     <!-- 検索フォーム -->
@@ -534,23 +549,27 @@
                 <!-- 削除 -->
 
                 <td class="text-center">
-
-                    <form th:action="@{/admin/question/delete}"
-                          method="post">
-
-                        <input type="hidden"
-                               name="questionId"
-                               th:value="${question.questionId}">
-
-                        <button type="submit"
-                                class="btn btn-danger btn-sm"
-                                onclick="return confirm('この問題を削除しますか？')">
-
-                            <i class="bi bi-trash"></i>
-
-                        </button>
-
-                    </form>
+					
+					<form th:action="@{/admin/question/delete}"
+					      method="post">
+					
+					    <input type="hidden"
+					           name="questionId"
+					           th:value="${question.questionId}">
+					
+					    <input type="hidden"
+					           name="returnUrl"
+					           th:value="${currentUrl}">
+					
+					    <button type="submit"
+					            class="btn btn-danger btn-sm"
+					            onclick="return confirm('この問題を削除しますか？')">
+					
+					        <i class="bi bi-trash"></i>
+					
+					    </button>
+					
+					</form>
 
                 </td>
 

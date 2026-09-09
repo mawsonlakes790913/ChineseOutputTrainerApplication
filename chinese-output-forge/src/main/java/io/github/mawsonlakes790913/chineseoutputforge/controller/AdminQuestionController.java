@@ -8,7 +8,9 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
@@ -43,6 +45,15 @@ public class AdminQuestionController {
 	        HttpSession session,
 	        HttpServletRequest request,
 	        Model model) {
+		
+		// 現在のURLを取得
+		String currentUrl = request.getRequestURI();
+
+		if (request.getQueryString() != null) {
+		    currentUrl += "?" + request.getQueryString();
+		}
+
+		model.addAttribute("currentUrl", currentUrl);
 		
 		Page<AdminQuestionListDto> allFilteredQuestionList = 
 				adminQuestionService.getFilteredAdminQuestions(
@@ -84,6 +95,21 @@ public class AdminQuestionController {
 		
 		return "/admin/question/list";
 		
+	}
+	
+	@PostMapping("/admin/question/delete")
+	public String postAdminQuestionDelete(
+	        @RequestParam long questionId,
+	        @RequestParam String returnUrl,
+	        RedirectAttributes redirectAttributes) {
+
+	    adminQuestionService.deleteOneQuestion(questionId);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "問題を削除しました。");
+
+	    return "redirect:" + returnUrl;
 	}
 
 }
