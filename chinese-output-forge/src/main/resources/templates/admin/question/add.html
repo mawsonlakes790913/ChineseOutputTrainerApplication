@@ -47,7 +47,7 @@
                     <!-- 使用言語 -->
                     <div class="mb-3">
 						
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             使用言語
                         </label>						
 						
@@ -74,7 +74,7 @@
                     <!-- 日本語 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             日本語
                         </label>
 
@@ -96,7 +96,7 @@
                     <!-- 中国語 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             中国語
                         </label>
 
@@ -118,7 +118,7 @@
                     <!-- 拼音 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             拼音
                         </label>
 
@@ -139,7 +139,7 @@
                     <!-- 注音 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             注音
                         </label>
 
@@ -158,7 +158,7 @@
 
 
                     <!-- 別解あり -->
-                    <div class="form-check mb-3">
+                    <div class="form-check mb-3 fw-bold">
 
                         <input
                             type="checkbox"
@@ -178,7 +178,7 @@
                     <!-- 別解 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             別解
                         </label>
 
@@ -200,7 +200,7 @@
                     <!-- 別解拼音 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             別解拼音
                         </label>
 
@@ -221,7 +221,7 @@
                     <!-- 別解注音 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             別解注音
                         </label>
 
@@ -242,7 +242,7 @@
                     <!-- 難易度 -->
                     <div class="mb-3">
 						
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             難易度
                         </label>						
 
@@ -269,7 +269,7 @@
                     <!-- 文法・構造 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             文法・構造
                         </label>
 
@@ -299,7 +299,7 @@
                     <!-- AI生成許可 -->
                     <div class="mb-3">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             この問題からのAI生成
                         </label>
 
@@ -323,7 +323,7 @@
                     <!-- テンプレート -->
                     <div class="mb-4">
 
-                        <label class="form-label">
+                        <label class="form-label fw-bold">
                             テンプレート
                         </label>
 
@@ -333,6 +333,99 @@
                             class="form-control"
                             rows="2">
                         </textarea>
+                        
+						<!-- プレースホルダ一覧 -->
+						<div class="mt-2">
+						
+						    <label class="form-label fw-bold">
+						        プレースホルダ
+						    </label>
+						    
+						    <span class="text-danger small">AIが正しい文章を生成するために、プレースホルダは文章の内容や文脈に注意しながら使ってください。</span>
+						
+						    <div class="d-flex flex-wrap gap-2">
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{subject}">
+						            主語 {subject}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{subject_pronoun}">
+						            主語（代名詞） {subject_pronoun}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{subject_non_pronoun}">
+						            主語（代名詞以外） {subject_non_pronoun}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{subject_family}">
+						            主語（家族含む） {subject_family}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{noun}">
+						            名詞 {noun}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{noun_phrase}">
+						            名詞句 {noun_phrase}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{verb}">
+						            動詞 {verb}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{verb_phrase}">
+						            動詞句 {verb_phrase}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{predicate}">
+						            述語 {predicate}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{adjective}">
+						            形容詞 {adjective}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{classifier}">
+						            量詞 {classifier}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{time}">
+						            時間 {time}
+						        </button>
+						
+						        <button type="button"
+						                class="btn btn-outline-secondary btn-sm placeholder-button"
+						                data-placeholder="{place}">
+						            場所 {place}
+						        </button>
+						
+						    </div>
+						
+						</div>                        
 
                         <div class="text-danger mt-1"
                              th:if="${#fields.hasErrors('template')}"
