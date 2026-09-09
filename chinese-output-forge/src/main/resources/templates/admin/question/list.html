@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Admin 問題管理</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet"
+          th:href="@{/css/user/question/list.css}">
+
+    <script th:src="@{/js/admin/question/list.js}"
+            defer>
+    </script>
+
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="w-100">
+
+    <h2 class="mb-4">
+        問題管理
+    </h2>
+
+    <!-- ========================= -->
+    <!-- 検索フォーム -->
+    <!-- ========================= -->
+
+    <form th:action="@{/admin/question/list}"
+          method="get"
+          class="card p-3 mb-3">
+
+        <div class="row g-3">
+
+            <!-- ========================= -->
+            <!-- 言語 -->
+            <!-- ========================= -->
+
+            <div class="col-md-12">
+
+                <label class="form-label fw-bold">
+                    言語
+                </label>
+
+                <div class="d-flex align-items-center gap-4">
+
+                    <!-- 普通話 -->
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="languageVariants"
+                               value="MAINLAND"
+                               id="mainland"
+                               th:checked="${selectedLanguageVariants == null
+                                   or selectedLanguageVariants.![name()].contains('MAINLAND')}">
+
+                        <label class="form-check-label"
+                               for="mainland">
+                            🇨🇳普通话
+                        </label>
+
+                    </div>
+
+                    <!-- 國語 -->
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="languageVariants"
+                               value="TAIWAN"
+                               id="taiwan"
+                               th:checked="${selectedLanguageVariants == null
+                                   or selectedLanguageVariants.![name()].contains('TAIWAN')}">
+
+                        <label class="form-check-label"
+                               for="taiwan">
+                            🇹🇼國語
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 難易度 -->
+            <!-- ========================= -->
+
+            <div class="col-md-12">
+
+                <label class="form-label fw-bold">
+                    難易度
+                </label>
+
+                <div class="d-flex gap-3">
+
+                    <!-- 初級 -->
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="difficulties"
+                               value="BEGINNER"
+                               id="beginner"
+                               th:checked="${selectedDifficulties == null
+                                   or selectedDifficulties.![name()].contains('BEGINNER')}">
+
+                        <label class="form-check-label text-danger fw-bold"
+                               for="beginner">
+                            初級
+                        </label>
+
+                    </div>
+
+                    <!-- 中級 -->
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="difficulties"
+                               value="INTERMEDIATE"
+                               id="intermediate"
+                               th:checked="${selectedDifficulties == null
+                                   or selectedDifficulties.![name()].contains('INTERMEDIATE')}">
+
+                        <label class="form-check-label text-primary fw-bold"
+                               for="intermediate">
+                            中級
+                        </label>
+
+                    </div>
+
+                    <!-- 上級 -->
+
+                    <div class="form-check">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="difficulties"
+                               value="ADVANCED"
+                               id="advanced"
+                               th:checked="${selectedDifficulties == null
+                                   or selectedDifficulties.![name()].contains('ADVANCED')}">
+
+                        <label class="form-check-label text-success fw-bold"
+                               for="advanced">
+                            上級
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 問題の生成元 -->
+            <!-- ========================= -->
+
+            <div class="col-md-4">
+
+                <label class="form-label fw-bold">
+                    問題の生成元
+                </label>
+
+                <select class="form-select"
+                        name="sourceCondition">
+
+                    <option value="ALL"
+                            th:selected="${selectedSourceCondition == null
+                                or selectedSourceCondition.name() == 'ALL'}">
+                        すべて
+                    </option>
+
+                    <option value="ORIGINAL_ONLY"
+                            th:selected="${selectedSourceCondition != null
+                                and selectedSourceCondition.name() == 'ORIGINAL_ONLY'}">
+                        通常問題のみ
+                    </option>
+
+                    <option value="GENERATED_ONLY"
+                            th:selected="${selectedSourceCondition != null
+                                and selectedSourceCondition.name() == 'GENERATED_ONLY'}">
+                        AI生成問題のみ
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 文法・構造 -->
+            <!-- ========================= -->
+
+            <div class="col-12">
+
+                <div class="card">
+
+                    <div class="card-header fw-bold">
+                        文法・構造
+                    </div>
+
+                    <div class="card-body">
+
+                        <!-- 一括操作 -->
+
+                        <div class="mb-3">
+
+                            <button type="button"
+                                    id="selectAllStructures"
+                                    class="btn btn-outline-primary btn-sm">
+                                すべて選択
+                            </button>
+
+                            <button type="button"
+                                    id="clearAllStructures"
+                                    class="btn btn-outline-secondary btn-sm">
+                                すべて解除
+                            </button>
+
+                        </div>
+
+                        <!-- 文法・構造一覧 -->
+
+                        <div id="structureList"
+                             class="d-flex flex-wrap gap-2 structure-list">
+
+                            <label th:each="structure : ${structures}"
+                                   class="bg-light rounded px-3 py-2">
+
+                                <input class="form-check-input me-2"
+                                       type="checkbox"
+                                       name="structureIds"
+                                       th:value="${structure.structureId}"
+                                       th:checked="${selectedStructureIds == null
+                                           or selectedStructureIds.contains(structure.structureId)}">
+
+                                <span th:text="${structure.name}">
+                                    文法・構造
+                                </span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- 展開・折りたたみ -->
+
+                        <div class="text-center mt-3">
+
+                            <button type="button"
+                                    id="toggleStructures"
+                                    class="btn btn-link btn-sm"
+                                    data-show-text="すべて表示"
+                                    data-hide-text="折りたたむ">
+                                すべて表示
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 日本語キーワード -->
+            <!-- ========================= -->
+
+            <div class="col-md-4">
+
+                <label class="form-label fw-bold">
+                    日本語キーワード
+                </label>
+
+                <input class="form-control"
+                       type="text"
+                       name="japaneseKeyword"
+                       th:value="${japaneseKeyword}">
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 中国語キーワード -->
+            <!-- ========================= -->
+
+            <div class="col-md-4">
+
+                <label class="form-label fw-bold">
+                    中国語キーワード
+                </label>
+
+                <input class="form-control"
+                       type="text"
+                       name="chineseKeyword"
+                       th:value="${chineseKeyword}">
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- 検索ボタン -->
+            <!-- ========================= -->
+
+            <div class="col-md-4 d-grid align-self-end">
+
+                <button class="btn btn-primary"
+                        type="submit">
+
+                    <i class="bi bi-search me-1"></i>
+                    検索
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </form>
+
+
+    <!-- ========================= -->
+    <!-- 件数 -->
+    <!-- ========================= -->
+
+    <div class="text-center mb-3"
+         th:if="${total > 0}">
+
+        <span th:text="${start}"></span>
+        -
+        <span th:text="${end}"></span>
+        /
+        <span th:text="${total}"></span>
+        件
+
+    </div>
+
+    <div class="text-center mb-3"
+         th:if="${total == 0}">
+        0件
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- 問題一覧 -->
+    <!-- ========================= -->
+
+    <div class="table-responsive">
+
+        <table class="table table-hover align-middle">
+
+            <thead class="table-dark">
+
+            <tr>
+
+                <th class="text-nowrap">
+                    問題ID
+                </th>
+
+                <th class="text-nowrap">
+                    言語
+                </th>
+
+                <th>
+                    中国語
+                </th>
+
+                <th>
+                    日本語
+                </th>
+
+                <th class="text-nowrap">
+                    難易度
+                </th>
+
+                <th class="text-nowrap">
+                    文法・構造
+                </th>
+
+                <th class="text-nowrap">
+                    生成元
+                </th>
+
+                <th class="text-nowrap">
+                    所有者
+                </th>
+
+                <th class="text-nowrap">
+                    詳細・編集
+                </th>
+
+                <th class="text-nowrap">
+                    削除
+                </th>
+
+            </tr>
+
+            </thead>
+
+            <tbody>
+
+            <tr th:each="question : ${questionList}">
+
+                <!-- 問題ID -->
+
+                <td th:text="${question.questionId}">
+                </td>
+
+
+                <!-- 言語 -->
+
+                <td class="text-nowrap">
+
+                    <span th:if="${question.languageVariant.name() == 'MAINLAND'}">
+                        🇨🇳 普通話
+                    </span>
+
+                    <span th:if="${question.languageVariant.name() == 'TAIWAN'}">
+                        🇹🇼 國語
+                    </span>
+
+                </td>
+
+
+                <!-- 中国語 -->
+
+                <td th:text="${question.chineseText}">
+                </td>
+
+
+                <!-- 日本語 -->
+
+                <td th:text="${question.japaneseText}">
+                </td>
+
+
+                <!-- 難易度 -->
+
+                <td>
+
+                    <span class="text-danger fw-bold"
+                          th:if="${question.difficulty.name() == 'BEGINNER'}">
+                        初級
+                    </span>
+
+                    <span class="text-primary fw-bold"
+                          th:if="${question.difficulty.name() == 'INTERMEDIATE'}">
+                        中級
+                    </span>
+
+                    <span class="text-success fw-bold"
+                          th:if="${question.difficulty.name() == 'ADVANCED'}">
+                        上級
+                    </span>
+
+                </td>
+
+
+                <!-- 文法・構造 -->
+
+                <td th:text="${question.structureName}">
+                </td>
+
+
+                <!-- 生成元 -->
+
+                <td class="text-center">
+
+                    <span th:if="${question.aiGenerated}"
+                          class="badge bg-dark">
+                        AI
+                    </span>
+
+                    <span th:unless="${question.aiGenerated}"
+                          class="badge bg-secondary">
+                        通常
+                    </span>
+
+                </td>
+
+
+                <!-- Owner -->
+
+                <td>
+
+                    <span th:if="${question.ownerLoginId != null}"
+                          th:text="${question.ownerLoginId}">
+                    </span>
+
+                    <span th:if="${question.ownerLoginId == null}"
+                          class="text-secondary">
+                        -
+                    </span>
+
+                </td>
+
+
+                <!-- 編集 -->
+
+                <td class="text-center">
+
+                    <a th:href="@{/admin/question/edit(
+                            questionId=${question.questionId}
+                        )}"
+                       class="btn btn-outline-primary btn-sm">
+
+                        <i class="bi bi-pencil-square"></i>
+
+                    </a>
+
+                </td>
+
+
+                <!-- 削除 -->
+
+                <td class="text-center">
+
+                    <form th:action="@{/admin/question/delete}"
+                          method="post">
+
+                        <input type="hidden"
+                               name="questionId"
+                               th:value="${question.questionId}">
+
+                        <button type="submit"
+                                class="btn btn-danger btn-sm"
+                                onclick="return confirm('この問題を削除しますか？')">
+
+                            <i class="bi bi-trash"></i>
+
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- ページネーション -->
+    <!-- ========================= -->
+
+    <nav class="mt-4 mb-5"
+         th:if="${page.totalPages > 0}">
+
+        <ul class="pagination justify-content-center">
+
+            <!-- 前へ -->
+
+            <li class="page-item"
+                th:classappend="${page.first} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/admin/question/list(
+                       page=${page.number - 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       sourceCondition=${selectedSourceCondition},
+                       structureIds=${selectedStructureIds},
+                       languageVariants=${selectedLanguageVariants},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}">
+                    前へ
+                </a>
+
+            </li>
+
+
+            <!-- 1ページ目 -->
+
+            <li class="page-item"
+                th:classappend="${page.number == 0} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/question/list(
+                       page=0,
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       sourceCondition=${selectedSourceCondition},
+                       structureIds=${selectedStructureIds},
+                       languageVariants=${selectedLanguageVariants},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}">
+                    1
+                </a>
+
+            </li>
+
+
+            <!-- ... 先頭側 -->
+
+            <li class="page-item disabled"
+                th:if="${pagination.showFirstEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+
+            <!-- 中央のページ番号 -->
+
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(
+                    pagination.displayStartPage,
+                    pagination.displayEndPage)}"
+                th:if="${i != 0 and i != page.totalPages - 1}"
+                th:classappend="${i == pagination.currentPage} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/question/list(
+                       page=${i},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       sourceCondition=${selectedSourceCondition},
+                       structureIds=${selectedStructureIds},
+                       languageVariants=${selectedLanguageVariants},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="${i + 1}">
+                </a>
+
+            </li>
+
+
+            <!-- ... 末尾側 -->
+
+            <li class="page-item disabled"
+                th:if="${pagination.showLastEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+
+            <!-- 最終ページ -->
+
+            <li class="page-item"
+                th:if="${page.totalPages > 1}"
+                th:classappend="${page.last} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/question/list(
+                       page=${page.totalPages - 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       sourceCondition=${selectedSourceCondition},
+                       structureIds=${selectedStructureIds},
+                       languageVariants=${selectedLanguageVariants},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}"
+                   th:text="${page.totalPages}">
+                </a>
+
+            </li>
+
+
+            <!-- 次へ -->
+
+            <li class="page-item"
+                th:classappend="${page.last} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/admin/question/list(
+                       page=${page.number + 1},
+                       size=${page.size},
+                       difficulties=${selectedDifficulties},
+                       sourceCondition=${selectedSourceCondition},
+                       structureIds=${selectedStructureIds},
+                       languageVariants=${selectedLanguageVariants},
+                       japaneseKeyword=${japaneseKeyword},
+                       chineseKeyword=${chineseKeyword}
+                   )}">
+                    次へ
+                </a>
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+
+    <!-- ========================= -->
+    <!-- 戻る -->
+    <!-- ========================= -->
+
+    <div class="text-center mt-3 mb-3">
+
+        <a th:href="@{/admin/menu}"
+           class="btn btn-secondary">
+
+            Adminメニューに戻る
+
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

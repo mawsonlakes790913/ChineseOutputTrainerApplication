@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 
@@ -370,6 +371,90 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	        Pageable pageable
 	);
+	
+	@Query(
+			value = """
+		    SELECT
+		        q.question_id      AS questionId,
+		        q.language_variant AS languageVariant,
+		        q.chinese_text     AS chineseText,
+		        q.japanese_text    AS japaneseText,
+		        q.difficulty       AS difficulty,
+		        s.name             AS structureName,
+		        q.ai_generated     AS aiGenerated,
+		        u.login_id         AS ownerLoginId
+
+		    FROM question q
+
+		    JOIN structure s
+		        ON q.structure_id = s.structure_id
+
+		    LEFT JOIN users u
+		        ON q.owner_user_id = u.id
+
+		    WHERE q.difficulty IN (:difficulties)
+
+		    AND (
+		        :sourceCondition = 'ALL'
+		        OR (:sourceCondition = 'ORIGINAL_ONLY' AND q.ai_generated = false)
+		        OR (:sourceCondition = 'GENERATED_ONLY' AND q.ai_generated = true)
+		    )
+
+		    AND q.structure_id IN (:structureIds)
+		    AND q.language_variant IN (:languageVariants)
+
+		    AND (
+		        :japaneseKeyword = ''
+		        OR LOWER(q.japanese_text)
+		            LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
+		    )
+
+		    AND (
+		        :chineseKeyword = ''
+		        OR LOWER(q.chinese_text)
+		            LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
+		        OR LOWER(q.alternative_answer)
+		            LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
+		    )
+
+		    ORDER BY q.question_id DESC
+		    """,
+		    countQuery = """
+		        SELECT COUNT(*)
+		        FROM question q
+		        WHERE q.difficulty IN (:difficulties)
+				AND (
+				    :sourceCondition = 'ALL'
+				    OR (:sourceCondition = 'ORIGINAL_ONLY' AND q.ai_generated = false)
+				    OR (:sourceCondition = 'GENERATED_ONLY' AND q.ai_generated = true)
+				)
+		        AND q.structure_id IN (:structureIds)
+		        AND q.language_variant IN (:languageVariants)
+		        AND (
+		            :japaneseKeyword = ''
+		            OR LOWER(q.japanese_text)
+		                LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
+		        )
+	
+		        AND (
+		            :chineseKeyword = ''
+		            OR LOWER(q.chinese_text)
+		                LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
+		            OR LOWER(q.alternative_answer)
+		                LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
+		        )
+		        """,
+		    nativeQuery = true
+		)
+		Page<AdminQuestionListDto> findFilteredAdminQuestionList(
+		        @Param("difficulties") List<String> difficulties,
+		        @Param("sourceCondition") String sourceCondition,
+		        @Param("structureIds") List<Long> structureIds,
+		        @Param("languageVariants") List<String> languageVariants,
+		        @Param("japaneseKeyword") String japaneseKeyword,
+		        @Param("chineseKeyword") String chineseKeyword,
+		        Pageable pageable
+		);
 	
 	@Query(value = """
 

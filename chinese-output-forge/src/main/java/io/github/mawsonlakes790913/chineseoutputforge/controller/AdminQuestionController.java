@@ -1,0 +1,89 @@
+package io.github.mawsonlakes790913.chineseoutputforge.controller;
+
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
+import io.github.mawsonlakes790913.chineseoutputforge.service.AdminQuestionService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
+
+
+@Controller
+@RequiredArgsConstructor
+public class AdminQuestionController {
+	
+	private final AdminQuestionService adminQuestionService;
+	private final PaginationService paginationService;
+	private final ReviewService reviewService;
+	
+	@GetMapping("/admin/question/list")
+	public String getAdminQuestionList(
+	        @PageableDefault(page = 0, size = 50) Pageable pageable,
+	        @RequestParam(required = false) List<Difficulty> difficulties,
+	        @RequestParam(required = false) QuestionSourceCondition sourceCondition,
+	        @RequestParam(required = false) List<Long> structureIds,
+	        @RequestParam(required = false) List<LanguageVariant> languageVariants,
+	        @RequestParam(required = false, defaultValue = "") String japaneseKeyword,
+	        @RequestParam(required = false, defaultValue = "") String chineseKeyword,
+	        HttpSession session,
+	        HttpServletRequest request,
+	        Model model) {
+		
+		Page<AdminQuestionListDto> allFilteredQuestionList = 
+				adminQuestionService.getFilteredAdminQuestions(
+						difficulties,
+						sourceCondition,
+						structureIds,
+						languageVariants,
+						japaneseKeyword,
+						chineseKeyword,
+						pageable
+						);
+						
+		PaginationDto pagination = paginationService.createPagination(allFilteredQuestionList);
+		
+		long start = allFilteredQuestionList.getNumber() * allFilteredQuestionList.getSize() + 1;
+		long end = start + allFilteredQuestionList.getNumberOfElements() - 1;
+		
+		// ページ情報
+		model.addAttribute("start", start);
+		model.addAttribute("end", end);
+		model.addAttribute("total", allFilteredQuestionList.getTotalElements());
+
+		model.addAttribute("questionList", allFilteredQuestionList.getContent());
+		model.addAttribute("page", allFilteredQuestionList);
+		model.addAttribute("pagination", pagination);
+
+		// 検索条件
+		model.addAttribute("selectedDifficulties", difficulties);
+		model.addAttribute("selectedSourceCondition", sourceCondition);
+		model.addAttribute("selectedStructureIds", structureIds);
+		model.addAttribute("selectedLanguageVariants", languageVariants);
+		model.addAttribute("japaneseKeyword", japaneseKeyword);
+		model.addAttribute("chineseKeyword", chineseKeyword);
+
+		// 構文一覧
+	    model.addAttribute(
+	            "structures",
+	            reviewService.findStructures());
+		
+		return "/admin/question/list";
+		
+	}
+
+}
