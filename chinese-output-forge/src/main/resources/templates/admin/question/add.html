@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <title>問題登録</title>
+
+    <script th:src="@{/js/admin/question/add.js}" defer></script>
+</head>
+
+<body>
+
+<div layout:fragment="content">
+
+    <div class="container mt-4">
+		
+		<!-- 登録成功時のメッセージ表示 -->
+		<div th:if="${successMessage}"
+		     class="alert alert-success alert-dismissible fade show"
+		     role="alert">
+		
+		    <span th:text="${successMessage}"></span>
+		
+		    <button type="button"
+		            class="btn-close"
+		            data-bs-dismiss="alert"
+		            aria-label="Close">
+		    </button>
+		
+		</div>		
+
+        <h2 class="mb-4">
+            <i class="bi bi-plus-circle"></i>
+            問題登録
+        </h2>
+
+        <div class="card">
+
+            <div class="card-body">
+
+                <form th:action="@{/admin/question/add}"
+                      th:object="${questionForm}"
+                      method="post">
+
+                    <!-- 使用言語 -->
+                    <div class="mb-3">
+						
+                        <label class="form-label">
+                            使用言語
+                        </label>						
+						
+						<select th:field="*{languageVariant}"
+						        class="form-select">
+						
+						    <option value="">
+						        選択してください
+						    </option>
+						
+							<option
+							    th:each="languageVariant : ${languageVariants}"
+							    th:value="${languageVariant}"
+							    th:text="${languageVariant.name() == 'MAINLAND'
+							             ? '🇨🇳 普通话'
+							             : '🇹🇼 國語'}">
+							</option>
+						
+						</select>
+
+                    </div>
+
+
+                    <!-- 日本語 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            日本語
+                        </label>
+
+                        <textarea
+                            th:field="*{japaneseText}"
+                            class="form-control"
+                            rows="3"
+                            required>
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('japaneseText')}"
+                             th:errors="*{japaneseText}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 中国語 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            中国語
+                        </label>
+
+                        <textarea
+                            th:field="*{chineseText}"
+                            class="form-control"
+                            rows="3"
+                            required>
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('chineseText')}"
+                             th:errors="*{chineseText}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 拼音 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            拼音
+                        </label>
+
+                        <input
+                            type="text"
+                            th:field="*{pinyin}"
+                            class="form-control"
+                            required>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('pinyin')}"
+                             th:errors="*{pinyin}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 注音 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            注音
+                        </label>
+
+                        <input
+                            type="text"
+                            th:field="*{zhuyin}"
+                            class="form-control"
+                            required>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('zhuyin')}"
+                             th:errors="*{zhuyin}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 別解あり -->
+                    <div class="form-check mb-3">
+
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            id="hasAlternativeAnswer"
+							th:checked="${questionForm.alternativeAnswer != null
+							             and questionForm.alternativeAnswer != ''}">
+
+                        <label class="form-check-label"
+                               for="hasAlternativeAnswer">
+                            別解あり
+                        </label>
+
+                    </div>
+
+
+                    <!-- 別解 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            別解
+                        </label>
+
+                        <textarea
+                            th:field="*{alternativeAnswer}"
+                            id="alternativeAnswer"
+                            class="form-control alternative-answer-field"
+                            rows="2">
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('alternativeAnswer')}"
+                             th:errors="*{alternativeAnswer}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 別解拼音 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            別解拼音
+                        </label>
+
+                        <input
+                            type="text"
+                            th:field="*{alternativeAnswerPinyin}"
+                            id="alternativeAnswerPinyin"
+                            class="form-control alternative-answer-field">
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('alternativeAnswerPinyin')}"
+                             th:errors="*{alternativeAnswerPinyin}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 別解注音 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            別解注音
+                        </label>
+
+                        <input
+                            type="text"
+                            th:field="*{alternativeAnswerZhuyin}"
+                            id="alternativeAnswerZhuyin"
+                            class="form-control alternative-answer-field">
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('alternativeAnswerZhuyin')}"
+                             th:errors="*{alternativeAnswerZhuyin}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- 難易度 -->
+                    <div class="mb-3">
+						
+                        <label class="form-label">
+                            難易度
+                        </label>						
+
+						<select th:field="*{difficulty}"
+						        class="form-select">
+						
+						    <option value="">
+						        選択してください
+						    </option>
+						
+							<option
+							    th:each="difficulty : ${difficulties}"
+							    th:value="${difficulty}"
+							    th:text="${difficulty.name() == 'BEGINNER' ? '初級'
+							             : difficulty.name() == 'INTERMEDIATE' ? '中級'
+							             : '上級'}">
+							</option>
+						
+						</select>
+
+                    </div>
+
+
+                    <!-- 文法・構造 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            文法・構造
+                        </label>
+
+                        <select th:field="*{structureId}"
+                                class="form-select">
+
+                            <option value="">
+                                選択してください
+                            </option>
+
+                            <option
+                                th:each="structure : ${structures}"
+                                th:value="${structure.structureId}"
+                                th:text="${structure.name}">
+                            </option>
+
+                        </select>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('structureId')}"
+                             th:errors="*{structureId}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- AI生成許可 -->
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            この問題からのAI生成
+                        </label>
+
+						<select th:field="*{allowAiVariation}"
+						        id="allowAiVariation"
+						        class="form-select">
+						
+						    <option th:value="true">
+						        許可する
+						    </option>
+						
+						    <option th:value="false">
+						        許可しない
+						    </option>
+						
+						</select>
+
+                    </div>
+
+
+                    <!-- テンプレート -->
+                    <div class="mb-4">
+
+                        <label class="form-label">
+                            テンプレート
+                        </label>
+
+                        <textarea
+                            th:field="*{template}"
+                            id="template"
+                            class="form-control"
+                            rows="2">
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('template')}"
+                             th:errors="*{template}">
+                        </div>
+
+                    </div>
+
+
+                    <!-- ボタン -->
+                    <div class="text-center mt-3 mb-3">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary">
+
+                            <i class="bi bi-check-circle"></i>
+                            登録
+
+                        </button>
+
+                        <a th:href="@{/admin/menu}"
+                           class="btn btn-secondary ms-2">
+
+                            adminメニューに戻る
+
+                        </a>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

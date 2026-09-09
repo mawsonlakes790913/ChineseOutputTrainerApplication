@@ -7,7 +7,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -17,16 +20,19 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
+import io.github.mawsonlakes790913.chineseoutputforge.form.QuestionForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AdminQuestionService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class AdminQuestionController {
 	
 	private final AdminQuestionService adminQuestionService;
@@ -110,6 +116,54 @@ public class AdminQuestionController {
 	            "問題を削除しました。");
 
 	    return "redirect:" + returnUrl;
+	}
+	
+	@GetMapping("/admin/question/add")
+	public String getQuestionAdd(
+	        @ModelAttribute QuestionForm form,
+	        Model model) {
+
+	    model.addAttribute("questionForm", form);
+
+	    // 使用言語
+	    model.addAttribute(
+	            "languageVariants",
+	            LanguageVariant.values());
+
+	    // 難易度
+	    model.addAttribute(
+	            "difficulties",
+	            Difficulty.values());
+
+	    // 文法・構造
+	    model.addAttribute(
+	            "structures",
+	            reviewService.findStructures());
+
+	    return "admin/question/add";
+	}
+	
+	@PostMapping("/admin/question/add")
+	public String postQuestionAdd(
+	        @ModelAttribute @Validated QuestionForm form,
+	        BindingResult bindingResult,
+	        Model model,
+	        RedirectAttributes redirectAttributes) {
+
+	    // 通常のバリデーションエラー確認
+	    if (bindingResult.hasErrors()) {
+	        return getQuestionAdd(form, model);
+	    }
+
+	    log.info("問題登録 {}", form);
+
+	    adminQuestionService.addQuestion(form);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "問題を追加しました。");
+
+	    return "redirect:/admin/question/list";
 	}
 
 }
