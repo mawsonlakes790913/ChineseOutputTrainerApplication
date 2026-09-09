@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+<head>
+    <meta charset="UTF-8">
+    <title>アドミン専用画面</title>
+
+    <link rel="stylesheet"
+          th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="container pt-3">
+     
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">     
+     
+
+		    <h2>アドミン専用画面</h2>
+		
+		    <div class="list-group mt-3">
+		
+		        <!-- ユーザー管理 -->
+		        <a th:href="@{/admin/user/list}"
+		           class="list-group-item list-group-item-action">
+		
+		            <i class="bi bi-person-fill me-2"></i>
+		            ユーザー管理
+		
+		        </a>
+		
+		        <!-- 問題一覧 -->
+		        <a th:href="@{/admin/question/list}"
+		           class="list-group-item list-group-item-action">
+		
+		            <i class="bi bi-card-list me-2"></i>
+		            問題管理
+		
+		        </a>
+		
+		        <!-- 問題追加 -->
+		        <a th:href="@{/admin/question/add}"
+		           class="list-group-item list-group-item-action">
+		
+		            <i class="bi bi-plus-circle me-2"></i>
+		            問題追加
+		
+		        </a>
+		
+		    </div>
+		    
+			<div class="text-center mt-3">
+			    <a th:href="@{/user/menu}"
+			       class="btn btn-secondary">
+			        userメニューに戻る
+			    </a>
+			</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
