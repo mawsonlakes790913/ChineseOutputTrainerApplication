@@ -1,9 +1,16 @@
 package io.github.mawsonlakes790913.chineseoutputforge.entity;
 
+import java.time.LocalDateTime;
+
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +25,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Table(name = "question")
 public class Question {
 
@@ -68,13 +76,13 @@ public class Question {
     @Column(name = "template")
     private String template;
     
-//    @Column(name = "subject_type")
-//    @Enumerated(EnumType.STRING)
-//    private SubjectType subjectType;
-//    
-//    @Column(name = "verb_variation")
-//    @Enumerated(EnumType.STRING)
-//    private VerbVariation verbVariation;
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
     
     @Column(name = "ai_generated", nullable = false)
     private boolean aiGenerated = false;
