@@ -4,10 +4,12 @@ import org.hibernate.validator.constraints.Length;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
+import io.github.mawsonlakes790913.chineseoutputforge.validator.ValidQuestionTemplate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+@ValidQuestionTemplate
 @Data
 public class QuestionForm {
 	

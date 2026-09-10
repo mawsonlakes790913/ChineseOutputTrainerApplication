@@ -13,12 +13,21 @@
 
 <div layout:fragment="content">
 
-    <div class="container mt-4">
+    <div class="container mt-4"
+     th:object="${questionForm}">
 
         <h2 class="mb-4">
             <i class="bi bi-pencil-square"></i>
             問題詳細・編集
         </h2>
+        
+	    <!-- バリデーションエラーの場合 -->
+	    <div th:if="${#fields.hasAnyErrors()}"
+	         class="alert alert-danger"
+	         role="alert">
+	        <i class="bi bi-exclamation-circle"></i>
+	        入力内容にエラーがあります。入力内容を確認してください。
+	    </div>        
 
         <!-- AI生成問題の場合 -->
         <div th:if="${originalQuestion.aiGenerated}"
@@ -174,17 +183,7 @@
 				        <i class="bi bi-exclamation-triangle"></i>
 				        AI生成由来の問題は編集できません。
 				
-				    </div>
-				
-				    <!-- バリデーションエラーの場合 -->
-				    <div th:if="${#fields.hasAnyErrors()}"
-				         class="alert alert-danger"
-				         role="alert">
-				
-				        <i class="bi bi-exclamation-circle"></i>
-				        入力内容にエラーがあります。入力内容を確認してください。
-				
-				    </div>		              
+				    </div>	              
 		
 		            <!-- 使用言語 -->
 		            <div class="mb-3">
@@ -396,6 +395,12 @@
 		                          rows="2"
 		                          th:disabled="${originalQuestion.aiGenerated}">
 		                </textarea>
+		                
+					    <!-- バリデーションエラー -->
+					    <div class="text-danger mt-1"
+					         th:if="${#fields.hasErrors('template')}"
+					         th:errors="*{template}">
+					    </div>              
 		
 		                <!-- プレースホルダ一覧 -->
 		                <div class="mt-2">
