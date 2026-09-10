@@ -158,6 +158,8 @@ pronunciation_type   = ZHUYIN
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
 | allow_ai_variation | AI生成可否 | - | - | BOOLEAN | ○ | - | AI生成対象かどうか |
 | template | AI生成用テンプレート | - | - | TEXT | - | - | AI生成対象外の場合はNULL可 |
+| created_at | 作成日時 | - | - | TIMESTAMP | ○ | - | 問題を新規作成した日時 |
+| updated_at | 更新日時 | - | - | TIMESTAMP | ○ | - | 問題を最後に更新した日時 |
 
 ## `language_variant`
 
@@ -194,6 +196,11 @@ pronunciation_type   = ZHUYIN
 - `condition` は開発者・出題者が設定する解答条件・ヒントであり、条件を必要としない問題ではNULLを許可する。
 - `pinyin` と `zhuyin` はユーザーの現在の発音表記設定にかかわらず両方保持する。
 - 別解が存在する場合は、別解用の拼音・注音も保持できる。
+- `created_at` はQUESTIONを新規作成した日時を保持し、作成後は変更しない。
+- `updated_at` はQUESTIONを最後に更新した日時を保持する。
+- QUESTIONを新規作成した場合は、`created_at` と `updated_at` の両方を設定する。
+- 既存のQUESTIONを編集した場合は、`created_at` は変更せず、`updated_at` のみ更新する。
+- 管理者用問題一覧では `updated_at` の降順で問題を取得し、最終更新日時が同一の場合は `question_id` の降順とする。
 
 ---
 
@@ -1292,6 +1299,10 @@ English
 - QUESTIONに `language_variant` を持たせる。
 - QUESTIONの問題IDは全体で一意とする。
 - 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
+- QUESTIONは `created_at` および `updated_at` を保持する。
+- `created_at` はQUESTIONの新規作成時に設定し、その後は変更しない。
+- `updated_at` はQUESTIONの新規作成時に設定し、QUESTIONが編集された場合に更新する。
+- `updated_at` によってQUESTIONが最後に追加または編集された時点の新旧を判定できるようにする。
 - FAVORITEは大陸普通話・台湾華語で分離しない。
 - FAVORITEはお気に入り登録された問題のみレコードを保持する。
 - お気に入り登録時はINSERT、お気に入り解除時はDELETEする。
@@ -1938,6 +1949,37 @@ template
 具体的な生成制約は、必要に応じてテンプレート内のプレースホルダの種類によって表現する。
 
 これにより、AI生成に関する制御情報を複数のQUESTIONカラムへ分散させず、テンプレートを中心として管理する。
+
+---
+
+## 18.8 QUESTIONへの作成日時・更新日時の追加
+
+**追加日：2026年9月11日**
+
+管理者用問題一覧において、新規追加または編集された問題を
+一覧の先頭で確認できるようにするため、
+QUESTIONに作成日時および更新日時を追加する。
+
+追加するカラムは以下とする。
+
+| カラム名 | 意味 | データ型 | NOT NULL |
+|---|---|---|---|
+| created_at | 作成日時 | TIMESTAMP | ○ |
+| updated_at | 更新日時 | TIMESTAMP | ○ |
+
+`created_at` はQUESTIONを新規作成した日時を保持し、
+作成後は変更しない。
+
+`updated_at` はQUESTIONを最後に更新した日時を保持する。
+
+QUESTIONを新規作成した場合は、
+`created_at` と `updated_at` の両方を設定する。
+
+既存のQUESTIONを編集した場合は、
+`created_at` は変更せず、`updated_at` のみ更新する。
+
+管理者用問題一覧では `updated_at` の降順で問題を取得する。
+最終更新日時が同一の場合は `question_id` の降順とする。
 
 ---
 

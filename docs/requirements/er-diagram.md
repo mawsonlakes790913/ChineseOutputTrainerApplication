@@ -121,6 +121,8 @@ erDiagram
         string difficulty
         boolean allow_ai_variation
         text template
+        datetime created_at
+        datetime updated_at
     }
 
 
