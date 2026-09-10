@@ -27,17 +27,17 @@ public class QuestionForm {
     @Length(max = 255)
     private String alternativeAnswer;
 
-    @NotBlank
-    private String pinyin;
-
-    @NotBlank
-    private String zhuyin;
-
-    @Length(max = 255)
-    private String alternativeAnswerPinyin;
-
-    @Length(max = 255)
-    private String alternativeAnswerZhuyin;
+//    @NotBlank
+//    private String pinyin;
+//
+//    @NotBlank
+//    private String zhuyin;
+//
+//    @Length(max = 255)
+//    private String alternativeAnswerPinyin;
+//
+//    @Length(max = 255)
+//    private String alternativeAnswerZhuyin;
 
     @NotNull
     private Difficulty difficulty;

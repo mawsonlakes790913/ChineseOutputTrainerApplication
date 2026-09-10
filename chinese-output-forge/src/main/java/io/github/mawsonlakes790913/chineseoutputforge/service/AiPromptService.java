@@ -29,6 +29,12 @@ public class AiPromptService {
     private static final String TAIWAN_PROFILE_PATH =
             "prompts/language-profile-taiwan.txt";
     
+    private static final String MAINLAND_PRONUNCIATION_PATH =
+    		"prompts/ai-pronunciation-mainland.txt";
+    
+    private static final String TAIWAN_PRONUNCIATION_PATH =
+    		"prompts/ai-pronunciation-taiwan.txt";
+    
     private final MessageSource messageSource;
     
     // AI問題生成の共通プロンプトを取得する
@@ -79,5 +85,37 @@ public class AiPromptService {
         	                locale),
         	        e);
         }
+    }
+    // 発音記号取得のプロンプトを取得する
+    public String getPronunciationPrompt(LanguageVariant languageVariant) {
+
+    	if (languageVariant == LanguageVariant.MAINLAND) {
+    		return loadPronunciationPrompt(MAINLAND_PRONUNCIATION_PATH);
+    	} else {
+    		return loadPronunciationPrompt(TAIWAN_PRONUNCIATION_PATH);
+    	}
+        
+    }
+    
+    // classpath上のプロンプトファイルを読み込む(発音記号)
+    private String loadPronunciationPrompt(String path) {
+    	
+        ClassPathResource resource =
+                new ClassPathResource(path);
+
+        try (InputStream inputStream =
+                resource.getInputStream()) {
+
+            return new String(
+                    inputStream.readAllBytes(),
+                    StandardCharsets.UTF_8);
+
+        } catch (IOException e) {
+
+        	throw new IllegalStateException(
+        	        "プロンプトファイルの読み込みに失敗しました: " + path,
+        	        e);
+        }
+    	
     }
 }

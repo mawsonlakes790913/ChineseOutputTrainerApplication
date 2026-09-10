@@ -19,6 +19,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.OriginalQuestionDTO;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.form.QuestionForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AdminQuestionService;
@@ -125,20 +126,7 @@ public class AdminQuestionController {
 
 	    model.addAttribute("questionForm", form);
 
-	    // 使用言語
-	    model.addAttribute(
-	            "languageVariants",
-	            LanguageVariant.values());
-
-	    // 難易度
-	    model.addAttribute(
-	            "difficulties",
-	            Difficulty.values());
-
-	    // 文法・構造
-	    model.addAttribute(
-	            "structures",
-	            reviewService.findStructures());
+	    setQuestionFormOptions(model);
 
 	    return "admin/question/add";
 	}
@@ -165,5 +153,110 @@ public class AdminQuestionController {
 
 	    return "redirect:/admin/question/list";
 	}
+	
+	@GetMapping("/admin/question/edit")
+	public String getAdminQuestionEdit(
+	        @RequestParam long questionId,
+	        Model model) {
+
+	    // 変更前の問題情報
+	    OriginalQuestionDTO originalQuestion =
+	            adminQuestionService.getOriginalQuestion(questionId);
+
+	    model.addAttribute(
+	            "originalQuestion",
+	            originalQuestion);
+
+	    // 編集フォームの初期値
+	    QuestionForm form = new QuestionForm();
+
+	    form.setLanguageVariant(
+	            originalQuestion.getLanguageVariant());
+
+	    form.setJapaneseText(
+	            originalQuestion.getJapaneseText());
+
+	    form.setChineseText(
+	            originalQuestion.getChineseText());
+
+	    form.setAlternativeAnswer(
+	            originalQuestion.getAlternativeAnswer());
+
+	    form.setDifficulty(
+	            originalQuestion.getDifficulty());
+
+	    form.setStructureId(
+	            originalQuestion.getStructureId());
+
+	    form.setAllowAiVariation(
+	            originalQuestion.isAllowAiVariation());
+
+	    form.setTemplate(
+	            originalQuestion.getTemplate());
+
+	    model.addAttribute(
+	            "questionForm",
+	            form);
+
+	    setQuestionFormOptions(model);
+
+	    return "admin/question/edit";
+	}
+	
+	@PostMapping("/admin/question/edit")
+	public String postAdminQuestionEdit(
+	        @RequestParam long questionId,
+	        @ModelAttribute @Validated QuestionForm form,
+	        BindingResult bindingResult,
+	        Model model,
+	        RedirectAttributes redirectAttributes) {
+
+	    // バリデーションエラー
+	    if (bindingResult.hasErrors()) {
+
+	        // 変更前の問題情報
+	        OriginalQuestionDTO originalQuestion =
+	                adminQuestionService.getOriginalQuestion(questionId);
+
+	        model.addAttribute(
+	                "originalQuestion",
+	                originalQuestion);
+
+	        setQuestionFormOptions(model);
+
+	        return "admin/question/edit";
+	    }
+
+	    log.info("問題更新 {}", form);
+
+	    adminQuestionService.updateOneQuestion(
+	            questionId,
+	            form);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "問題を編集しました。");
+
+	    return "redirect:/admin/question/list";
+	}
+	
+	private void setQuestionFormOptions(Model model) {
+
+	    // 使用言語
+	    model.addAttribute(
+	            "languageVariants",
+	            LanguageVariant.values());
+
+	    // 難易度
+	    model.addAttribute(
+	            "difficulties",
+	            Difficulty.values());
+
+	    // 文法・構造
+	    model.addAttribute(
+	            "structures",
+	            reviewService.findStructures());
+	}
+
 
 }

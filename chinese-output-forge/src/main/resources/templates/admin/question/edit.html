@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+    <title>問題詳細・編集</title>
+    <script th:src="@{/js/admin/question/add.js}" defer></script>
+</head>
+
+<body>
+
+<div layout:fragment="content">
+
+    <div class="container mt-4">
+
+        <h2 class="mb-4">
+            <i class="bi bi-pencil-square"></i>
+            問題詳細・編集
+        </h2>
+
+        <!-- AI生成問題の場合 -->
+        <div th:if="${originalQuestion.aiGenerated}"
+             class="alert alert-warning"
+             role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            AI生成由来の問題は編集できません。
+        </div>     
+
+        <!-- ========================= -->
+        <!-- 現在の問題情報 -->
+        <!-- ========================= -->
+
+        <div class="card mb-4">
+
+            <div class="card-header fw-bold">
+                現在の登録内容
+            </div>
+
+            <div class="card-body">
+
+                <!-- 使用言語 -->
+                <div class="mb-3">
+                    <div class="fw-bold">使用言語</div>
+                    <div th:text="${originalQuestion.languageVariant.name() == 'MAINLAND'
+                                  ? '🇨🇳 普通话'
+                                  : '🇹🇼 國語'}">
+                    </div>
+                </div>
+
+                <!-- 日本語 -->
+                <div class="mb-3">
+                    <div class="fw-bold">日本語</div>
+                    <div th:text="${originalQuestion.japaneseText}"></div>
+                </div>
+
+                <!-- 中国語 -->
+                <div class="mb-3">
+                    <div class="fw-bold">中国語</div>
+                    <div th:text="${originalQuestion.chineseText}"></div>
+                </div>
+
+                <!-- 拼音 -->
+                <div class="mb-3">
+                    <div class="fw-bold">拼音</div>
+                    <div th:text="${originalQuestion.pinyin}"></div>
+                </div>
+
+                <!-- 注音 -->
+                <div class="mb-3">
+                    <div class="fw-bold">注音</div>
+                    <div th:text="${originalQuestion.zhuyin}"></div>
+                </div>
+
+                <!-- 別解 -->
+                <div class="mb-3">
+                    <div class="fw-bold">別解</div>
+                    <div th:text="${originalQuestion.alternativeAnswer != null
+                                  and originalQuestion.alternativeAnswer != ''
+                                  ? originalQuestion.alternativeAnswer
+                                  : 'なし'}">
+                    </div>
+                </div>
+
+                <!-- 別解拼音 -->
+                <div class="mb-3"
+                     th:if="${originalQuestion.alternativeAnswer != null
+                            and originalQuestion.alternativeAnswer != ''}">
+                    <div class="fw-bold">別解拼音</div>
+                    <div th:text="${originalQuestion.alternativeAnswerPinyin}"></div>
+                </div>
+
+                <!-- 別解注音 -->
+                <div class="mb-3"
+                     th:if="${originalQuestion.alternativeAnswer != null
+                            and originalQuestion.alternativeAnswer != ''}">
+                    <div class="fw-bold">別解注音</div>
+                    <div th:text="${originalQuestion.alternativeAnswerZhuyin}"></div>
+                </div>
+
+                <!-- 難易度 -->
+                <div class="mb-3">
+                    <div class="fw-bold">難易度</div>
+                    <div th:text="${originalQuestion.difficulty.name() == 'BEGINNER'
+                                  ? '初級'
+                                  : originalQuestion.difficulty.name() == 'INTERMEDIATE'
+                                  ? '中級'
+                                  : '上級'}">
+                    </div>
+                </div>
+
+                <!-- 文法・構造 -->
+                <div class="mb-3">
+                    <div class="fw-bold">文法・構造</div>
+                    <div th:text="${originalQuestion.structureName}"></div>
+                </div>
+
+                <!-- AI生成許可 -->
+                <div class="mb-3">
+                    <div class="fw-bold">この問題からのAI生成</div>
+                    <div th:text="${originalQuestion.allowAiVariation
+                                  ? '許可する'
+                                  : '許可しない'}">
+                    </div>
+                </div>
+                
+				<!-- 生成ユーザー -->
+				<div class="mb-3">
+				
+				    <div class="fw-bold">生成ユーザー</div>
+				
+				    <div th:text="${originalQuestion.aiGenerated
+				                  and originalQuestion.ownerLoginId != null
+				                  and originalQuestion.ownerLoginId != ''
+				                  ? originalQuestion.ownerLoginId
+				                  : 'なし'}">
+				    </div>
+				
+				</div>                
+
+                <!-- テンプレート -->
+                <div class="mb-3">
+                    <div class="fw-bold">テンプレート</div>
+                    <div th:text="${originalQuestion.template != null
+                                  and originalQuestion.template != ''
+                                  ? originalQuestion.template
+                                  : 'なし'}">
+                    </div>
+                </div>
+            </div>
+        </div>
+		<!-- ========================= -->
+		<!-- 編集フォーム -->
+		<!-- ========================= -->
+		
+		<div class="card">
+		
+		    <div class="card-header fw-bold">
+		        問題編集
+		    </div>
+		
+		    <div class="card-body">					
+		
+		        <form th:action="@{/admin/question/edit(questionId=${param.questionId})}"
+		              th:object="${questionForm}"
+		              method="post">
+		              
+				    <!-- AI生成問題の場合 -->
+				    <div th:if="${originalQuestion.aiGenerated}"
+				         class="alert alert-warning"
+				         role="alert">
+				
+				        <i class="bi bi-exclamation-triangle"></i>
+				        AI生成由来の問題は編集できません。
+				
+				    </div>
+				
+				    <!-- バリデーションエラーの場合 -->
+				    <div th:if="${#fields.hasAnyErrors()}"
+				         class="alert alert-danger"
+				         role="alert">
+				
+				        <i class="bi bi-exclamation-circle"></i>
+				        入力内容にエラーがあります。入力内容を確認してください。
+				
+				    </div>		              
+		
+		            <!-- 使用言語 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    使用言語
+		                </label>
+		
+		                <select th:field="*{languageVariant}"
+		                        class="form-select"
+		                        th:disabled="${originalQuestion.aiGenerated}">
+		
+		                    <option th:each="languageVariant : ${languageVariants}"
+		                            th:value="${languageVariant}"
+		                            th:text="${languageVariant.name() == 'MAINLAND'
+		                                     ? '🇨🇳 普通话'
+		                                     : '🇹🇼 國語'}">
+		                    </option>
+		
+		                </select>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('languageVariant')}"
+		                     th:errors="*{languageVariant}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- 日本語 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    日本語
+		                </label>
+		
+		                <textarea th:field="*{japaneseText}"
+		                          class="form-control"
+		                          rows="3"
+		                          th:disabled="${originalQuestion.aiGenerated}"
+		                          >
+		                </textarea>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('japaneseText')}"
+		                     th:errors="*{japaneseText}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- 中国語 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    中国語
+		                </label>
+		
+		                <textarea th:field="*{chineseText}"
+		                          class="form-control"
+		                          rows="3"
+		                          th:disabled="${originalQuestion.aiGenerated}"
+		                          >
+		                </textarea>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('chineseText')}"
+		                     th:errors="*{chineseText}">
+		                </div>
+		
+		                <div class="text-danger small mt-1">
+		                    発音記号は、拼音・注音ともにAIによって自動生成されるので入力不要です。
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- 別解あり -->
+		            <div class="form-check mb-3 fw-bold">
+		
+		                <input type="checkbox"
+		                       class="form-check-input"
+		                       id="hasAlternativeAnswer"
+		                       th:checked="${questionForm.alternativeAnswer != null
+		                                   and questionForm.alternativeAnswer != ''}"
+		                       th:disabled="${originalQuestion.aiGenerated}">
+		
+		                <label class="form-check-label"
+		                       for="hasAlternativeAnswer">
+		                    別解あり
+		                </label>
+		
+		            </div>
+		
+		
+		            <!-- 別解 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    別解
+		                </label>
+		
+		                <textarea th:field="*{alternativeAnswer}"
+		                          id="alternativeAnswer"
+		                          class="form-control alternative-answer-field"
+		                          rows="2"
+		                          th:disabled="${originalQuestion.aiGenerated}">
+		                </textarea>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('alternativeAnswer')}"
+		                     th:errors="*{alternativeAnswer}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- 難易度 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    難易度
+		                </label>
+		
+		                <select th:field="*{difficulty}"
+		                        class="form-select"
+		                        th:disabled="${originalQuestion.aiGenerated}">
+		
+		                    <option th:each="difficulty : ${difficulties}"
+		                            th:value="${difficulty}"
+		                            th:text="${difficulty.name() == 'BEGINNER'
+		                                     ? '初級'
+		                                     : difficulty.name() == 'INTERMEDIATE'
+		                                     ? '中級'
+		                                     : '上級'}">
+		                    </option>
+		
+		                </select>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('difficulty')}"
+		                     th:errors="*{difficulty}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- 文法・構造 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    文法・構造
+		                </label>
+		
+		                <select th:field="*{structureId}"
+		                        class="form-select"
+		                        th:disabled="${originalQuestion.aiGenerated}">
+		
+		                    <option th:each="structure : ${structures}"
+		                            th:value="${structure.structureId}"
+		                            th:text="${structure.name}">
+		                    </option>
+		
+		                </select>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('structureId')}"
+		                     th:errors="*{structureId}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- AI生成許可 -->
+		            <div class="mb-3">
+		
+		                <label class="form-label fw-bold">
+		                    この問題からのAI生成
+		                </label>
+		
+		                <select th:field="*{allowAiVariation}"
+		                        id="allowAiVariation"
+		                        class="form-select"
+		                        th:disabled="${originalQuestion.aiGenerated}">
+		
+		                    <option th:value="true">
+		                        許可する
+		                    </option>
+		
+		                    <option th:value="false">
+		                        許可しない
+		                    </option>
+		
+		                </select>
+		
+		            </div>
+		
+		
+		            <!-- テンプレート -->
+		            <div class="mb-4">
+		
+		                <label class="form-label fw-bold">
+		                    テンプレート
+		                </label>
+		
+		                <textarea th:field="*{template}"
+		                          id="template"
+		                          class="form-control"
+		                          rows="2"
+		                          th:disabled="${originalQuestion.aiGenerated}">
+		                </textarea>
+		
+		                <!-- プレースホルダ一覧 -->
+		                <div class="mt-2">
+		
+		                    <label class="form-label fw-bold">
+		                        プレースホルダ
+		                    </label>
+		
+		                    <span class="text-danger small">
+		                        AIが正しい文章を生成するために、プレースホルダは文章の内容や文脈に注意しながら使ってください。
+		                    </span>
+		
+		                    <div class="d-flex flex-wrap gap-2">
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{subject}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            主語 {subject}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{subject_pronoun}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            主語（代名詞） {subject_pronoun}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{subject_non_pronoun}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            主語（代名詞以外） {subject_non_pronoun}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{subject_family}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            主語（家族含む） {subject_family}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{noun}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            名詞 {noun}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{noun_phrase}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            名詞句 {noun_phrase}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{verb}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            動詞 {verb}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{verb_phrase}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            動詞句 {verb_phrase}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{predicate}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            述語 {predicate}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{adjective}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            形容詞 {adjective}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{classifier}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            量詞 {classifier}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{time}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            時間 {time}
+		                        </button>
+		
+		                        <button type="button"
+		                                class="btn btn-outline-secondary btn-sm placeholder-button"
+		                                data-placeholder="{place}"
+		                                th:disabled="${originalQuestion.aiGenerated}">
+		                            場所 {place}
+		                        </button>
+		
+		                    </div>
+		
+		                </div>
+		
+		                <div class="text-danger mt-1"
+		                     th:if="${#fields.hasErrors('template')}"
+		                     th:errors="*{template}">
+		                </div>
+		
+		            </div>
+		
+		
+		            <!-- ボタン -->
+		            <div class="text-center mt-3 mb-3">
+		
+		                <button type="submit"
+		                        class="btn btn-primary"
+		                        th:disabled="${originalQuestion.aiGenerated}">
+		                    <i class="bi bi-check-circle"></i>
+		                    更新
+		                </button>
+		
+		                <a th:href="@{/admin/question/list}"
+		                   class="btn btn-secondary ms-2">
+		                    問題一覧に戻る
+		                </a>
+		
+		            </div>
+		
+		        </form>
+		
+		    </div>
+		
+		</div>
+    </div>
+</div>
+</body>
+
+</html>
+

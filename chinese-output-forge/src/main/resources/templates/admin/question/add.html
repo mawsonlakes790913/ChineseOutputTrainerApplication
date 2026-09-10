@@ -99,6 +99,8 @@
                         <label class="form-label fw-bold">
                             中国語
                         </label>
+                        
+                        <span class="text-danger small">発音記号は、拼音・注音ともにAIによって自動生成されるので入力不要です。</span>
 
                         <textarea
                             th:field="*{chineseText}"
@@ -114,47 +116,40 @@
 
                     </div>
 
-
-                    <!-- 拼音 -->
+					<!--
+					=========================
+					AIによる発音情報の自動生成に変更したため一時的に非表示
+					=========================
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">
                             拼音
                         </label>
-
                         <input
                             type="text"
                             th:field="*{pinyin}"
                             class="form-control"
                             required>
-
                         <div class="text-danger mt-1"
                              th:if="${#fields.hasErrors('pinyin')}"
                              th:errors="*{pinyin}">
                         </div>
-
                     </div>
 
-
-                    <!-- 注音 -->
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">
                             注音
                         </label>
-
                         <input
                             type="text"
                             th:field="*{zhuyin}"
                             class="form-control"
                             required>
-
                         <div class="text-danger mt-1"
                              th:if="${#fields.hasErrors('zhuyin')}"
                              th:errors="*{zhuyin}">
                         </div>
-
                     </div>
+                    -->
 
 
                     <!-- 別解あり -->
@@ -197,46 +192,40 @@
                     </div>
 
 
-                    <!-- 別解拼音 -->
+					<!--
+					=========================
+					AIによる発音情報の自動生成に変更したため一時的に非表示
+					=========================
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">
                             別解拼音
                         </label>
-
                         <input
                             type="text"
                             th:field="*{alternativeAnswerPinyin}"
                             id="alternativeAnswerPinyin"
                             class="form-control alternative-answer-field">
-
                         <div class="text-danger mt-1"
                              th:if="${#fields.hasErrors('alternativeAnswerPinyin')}"
                              th:errors="*{alternativeAnswerPinyin}">
                         </div>
-
                     </div>
-
-
-                    <!-- 別解注音 -->
+                    
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">
                             別解注音
                         </label>
-
                         <input
                             type="text"
                             th:field="*{alternativeAnswerZhuyin}"
                             id="alternativeAnswerZhuyin"
                             class="form-control alternative-answer-field">
-
                         <div class="text-danger mt-1"
                              th:if="${#fields.hasErrors('alternativeAnswerZhuyin')}"
                              th:errors="*{alternativeAnswerZhuyin}">
                         </div>
-
                     </div>
+                    -->
 
 
                     <!-- 難易度 -->
