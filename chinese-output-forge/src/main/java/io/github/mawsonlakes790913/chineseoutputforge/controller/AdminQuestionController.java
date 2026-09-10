@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.AdminQuestionSortCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
@@ -49,6 +50,11 @@ public class AdminQuestionController {
 	        @RequestParam(required = false) List<LanguageVariant> languageVariants,
 	        @RequestParam(required = false, defaultValue = "") String japaneseKeyword,
 	        @RequestParam(required = false, defaultValue = "") String chineseKeyword,
+	        @RequestParam(
+	                required = false,
+	                defaultValue = "UPDATED_DESC"
+	        )
+	        AdminQuestionSortCondition sortCondition,
 	        HttpSession session,
 	        HttpServletRequest request,
 	        Model model) {
@@ -70,6 +76,7 @@ public class AdminQuestionController {
 						languageVariants,
 						japaneseKeyword,
 						chineseKeyword,
+						sortCondition,
 						pageable
 						);
 						
@@ -94,6 +101,7 @@ public class AdminQuestionController {
 		model.addAttribute("selectedLanguageVariants", languageVariants);
 		model.addAttribute("japaneseKeyword", japaneseKeyword);
 		model.addAttribute("chineseKeyword", chineseKeyword);
+		model.addAttribute("selectedSortCondition", sortCondition);
 
 		// 構文一覧
 	    model.addAttribute(

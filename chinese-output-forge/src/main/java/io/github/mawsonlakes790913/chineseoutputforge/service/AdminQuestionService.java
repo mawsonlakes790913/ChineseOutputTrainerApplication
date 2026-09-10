@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.AdminQuestionSortCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
@@ -47,6 +48,7 @@ public class AdminQuestionService {
 			List<LanguageVariant> languageVariants,
 			String japaneseKeyword,
 			String chineseKeyword,
+			AdminQuestionSortCondition sortCondition,
 			Pageable pageable) {
 		
 		// 言語未選択なら全言語
@@ -77,6 +79,11 @@ public class AdminQuestionService {
 		if (sourceCondition == null) {
 		    sourceCondition = QuestionSourceCondition.ALL;
 		}
+		
+		// 並び順が未指定の場合は最終更新日時の降順
+		if (sortCondition == null) {
+		    sortCondition = AdminQuestionSortCondition.UPDATED_DESC;
+		}
 
 	    return questionRepository.findFilteredAdminQuestionList(
 	    		searchConditionConverter.convertDifficulty(difficulties),
@@ -85,6 +92,7 @@ public class AdminQuestionService {
 	    		searchConditionConverter.convertLanguageVariant(languageVariants),
 	    		japaneseKeyword,
 	    		chineseKeyword,
+	    	    sortCondition.name(),
 	            pageable);
 	}
 	

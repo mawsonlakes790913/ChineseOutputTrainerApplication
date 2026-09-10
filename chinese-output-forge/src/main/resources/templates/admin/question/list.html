@@ -219,6 +219,35 @@
                 </select>
 
             </div>
+            
+			<!-- ========================= -->
+			<!-- 並び順 -->
+			<!-- ========================= -->
+			
+			<div class="col-md-4">
+			
+			    <label class="form-label fw-bold">
+			        並び順
+			    </label>
+			
+			    <select class="form-select"
+			            name="sortCondition">
+			
+			        <option value="UPDATED_DESC"
+			                th:selected="${selectedSortCondition == null
+			                    or selectedSortCondition.name() == 'UPDATED_DESC'}">
+			            最終更新日時が新しい順
+			        </option>
+			
+			        <option value="QUESTION_ID_ASC"
+			                th:selected="${selectedSortCondition != null
+			                    and selectedSortCondition.name() == 'QUESTION_ID_ASC'}">
+			            問題IDの昇順
+			        </option>
+			
+			    </select>
+			
+			</div>            
 
 
             <!-- ========================= -->

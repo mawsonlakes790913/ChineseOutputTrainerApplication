@@ -417,7 +417,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 		            LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
 		    )
 
-		    ORDER BY q.question_id DESC
+			ORDER BY
+			    CASE
+			        WHEN :sortCondition = 'UPDATED_DESC'
+			        THEN q.updated_at
+			    END DESC,
+			    CASE
+			        WHEN :sortCondition = 'QUESTION_ID_ASC'
+			        THEN q.question_id
+			    END ASC,
+			    q.question_id DESC
 		    """,
 		    countQuery = """
 		        SELECT COUNT(*)
@@ -453,6 +462,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 		        @Param("languageVariants") List<String> languageVariants,
 		        @Param("japaneseKeyword") String japaneseKeyword,
 		        @Param("chineseKeyword") String chineseKeyword,
+		        @Param("sortCondition") String sortCondition,
 		        Pageable pageable
 		);
 	
