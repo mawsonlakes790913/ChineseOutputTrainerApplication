@@ -25,6 +25,101 @@
         <div class="header border-bottom">
 
             <h1 class="h2">ユーザー一覧画面</h1>
+            
+			<!-- ========================= -->
+			<!-- 検索フォーム -->
+			<!-- ========================= -->
+			
+			<form th:action="@{/admin/user/list}"
+			      th:object="${searchDto}"
+			      method="get"
+			      class="mb-4">
+			
+			    <div class="row g-3 align-items-end">
+			
+			        <!-- ログインID -->
+			        <div class="col-md-5">
+			
+			            <label for="loginId"
+			                   class="form-label">
+			                ログインID
+			            </label>
+			
+			            <input type="text"
+			                   id="loginId"
+			                   th:field="*{loginId}"
+			                   class="form-control"
+			                   placeholder="ログインIDを入力">
+			
+			        </div>
+			
+			        <!-- アカウント状態 -->
+			        <div class="col-md-5">
+			
+			            <label class="form-label d-block">
+			                アカウント状態
+			            </label>
+			
+			            <div class="form-check form-check-inline">
+			
+			                <input class="form-check-input"
+			                       type="radio"
+			                       th:field="*{accountStatus}"
+			                       value="ALL"
+			                       id="statusAll">
+			
+			                <label class="form-check-label"
+			                       for="statusAll">
+			                    すべて
+			                </label>
+			
+			            </div>
+			
+			            <div class="form-check form-check-inline">
+			
+			                <input class="form-check-input"
+			                       type="radio"
+			                       th:field="*{accountStatus}"
+			                       value="ACTIVE"
+			                       id="statusActive">
+			
+			                <label class="form-check-label"
+			                       for="statusActive">
+			                    有効
+			                </label>
+			
+			            </div>
+			
+			            <div class="form-check form-check-inline">
+			
+			                <input class="form-check-input"
+			                       type="radio"
+			                       th:field="*{accountStatus}"
+			                       value="LOCKED"
+			                       id="statusLocked">
+			
+			                <label class="form-check-label"
+			                       for="statusLocked">
+			                    凍結中
+			                </label>
+			
+			            </div>
+			
+			        </div>
+			
+			        <!-- 検索 -->
+			        <div class="col-md-2">
+			
+			            <button type="submit"
+			                    class="btn btn-primary w-100">
+			                検索
+			            </button>
+			
+			        </div>
+			
+			    </div>
+			
+			</form>            
 
             <!-- 一覧表示 -->
             <div>
@@ -146,13 +241,15 @@
 				        <li class="page-item"
 				            th:classappend="${page.first} ? ' disabled'">
 				
-				            <a class="page-link"
-				               th:href="@{/admin/user/list(
-				                   page=${page.number - 1},
-				                   size=${page.size}
-				               )}">
-				                前へ
-				            </a>
+							<a class="page-link"
+							   th:href="@{/admin/user/list(
+							       page=${page.number - 1},
+							       size=${page.size},
+							       loginId=${searchDto.loginId},
+							       accountStatus=${searchDto.accountStatus}
+							   )}">
+							    前へ
+							</a>
 				
 				        </li>
 				
@@ -161,13 +258,15 @@
 				        <li class="page-item"
 				            th:classappend="${page.number == 0} ? ' active'">
 				
-				            <a class="page-link"
-				               th:href="@{/admin/user/list(
-				                   page=0,
-				                   size=${page.size}
-				               )}">
-				                1
-				            </a>
+							<a class="page-link"
+							   th:href="@{/admin/user/list(
+							       page=0,
+							       size=${page.size},
+							       loginId=${searchDto.loginId},
+							       accountStatus=${searchDto.accountStatus}
+							   )}">
+							    1
+							</a>
 				
 				        </li>
 				
@@ -189,13 +288,15 @@
 				            th:if="${i != 0 and i != page.totalPages - 1}"
 				            th:classappend="${i == pagination.currentPage} ? ' active'">
 				
-				            <a class="page-link"
-				               th:href="@{/admin/user/list(
-				                   page=${i},
-				                   size=${page.size}
-				               )}"
-				               th:text="${i + 1}">
-				            </a>
+							<a class="page-link"
+							   th:href="@{/admin/user/list(
+							       page=${i},
+							       size=${page.size},
+							       loginId=${searchDto.loginId},
+							       accountStatus=${searchDto.accountStatus}
+							   )}"
+							   th:text="${i + 1}">
+							</a>
 				
 				        </li>
 				
@@ -214,13 +315,15 @@
 				            th:if="${page.totalPages > 1}"
 				            th:classappend="${page.last} ? ' active'">
 				
-				            <a class="page-link"
-				               th:href="@{/admin/user/list(
-				                   page=${page.totalPages - 1},
-				                   size=${page.size}
-				               )}"
-				               th:text="${page.totalPages}">
-				            </a>
+							<a class="page-link"
+							   th:href="@{/admin/user/list(
+							       page=${page.totalPages - 1},
+							       size=${page.size},
+							       loginId=${searchDto.loginId},
+							       accountStatus=${searchDto.accountStatus}
+							   )}"
+							   th:text="${page.totalPages}">
+							</a>
 				
 				        </li>
 				
@@ -229,13 +332,15 @@
 				        <li class="page-item"
 				            th:classappend="${page.last} ? ' disabled'">
 				
-				            <a class="page-link"
-				               th:href="@{/admin/user/list(
-				                   page=${page.number + 1},
-				                   size=${page.size}
-				               )}">
-				                次へ
-				            </a>
+							<a class="page-link"
+							   th:href="@{/admin/user/list(
+							       page=${page.number + 1},
+							       size=${page.size},
+							       loginId=${searchDto.loginId},
+							       accountStatus=${searchDto.accountStatus}
+							   )}">
+							    次へ
+							</a>
 				
 				        </li>
 				
