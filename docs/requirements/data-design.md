@@ -52,11 +52,30 @@ Chinese Output Forge において、
 
 そのため、問題データ自体は独立しているが、保存するデータ構造は共通となる。
 
-また、AIによって生成された問題は、通常学習で利用するマスタ問題とは明確に分離する。
+また、AIによって生成された問題は、生成された時点では永続化しない。
 
-AI生成問題は生成された時点では永続化せず、**ユーザーが Hard / Good / Easy のいずれかの理解度を与えた場合に限り保存する**。
+ユーザーがAI生成問題を保存した場合は、通常の問題と同じQuestionとして保存する。
 
-保存されたAI生成問題は、その問題を生成したユーザー専用の問題として扱い、他のユーザーの通常学習や復習には使用しない。
+Questionには、その問題が通常の問題であるかAI生成由来の問題であるかを識別する情報を保持する。
+
+また、AI生成由来の問題については、その問題を保存したユーザーを所有者として関連付ける。
+
+概念的には以下の構造となる。
+
+    Question
+    │
+    ├── 通常の問題
+    │   └── ai_generated = false
+    │
+    └── AI生成由来の問題
+        ├── ai_generated = true
+        └── owner = User
+
+通常の問題はすべてのユーザーが利用できる。
+
+一方、AI生成由来の問題は、その問題を所有するユーザーのみが利用できるものとし、他のユーザーからは参照できないようにする。
+
+保存されたAI生成由来の問題は、通常学習、復習、ユーザー用問題一覧など、既存のQuestionを利用する機能へ統合して扱う。
 
 ---
 
@@ -69,8 +88,6 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 | Structure | 問題の文法・構造の分類および説明 |
 | Favorite | マスタ問題のお気に入り情報 |
 | StudyHistory | マスタ問題の学習履歴・理解度 |
-| AiGeneratedQuestion | ユーザー専用のAI生成問題 |
-| AiSetting | AI問題生成に関する共通設定 |
 | AiGenerationHistory | ユーザー・生成元問題ごとのAI生成履歴 |
 
 大陸普通話・台湾華語の違いによってエンティティを分離せず、必要なエンティティに学習対象言語を識別する情報を持たせる。
@@ -127,7 +144,9 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 
 ### Question
 
-大陸普通話・台湾華語のマスタ問題を管理する。
+大陸普通話・台湾華語の問題を管理する。
+
+通常の問題に加えて、ユーザーが保存したAI生成由来の問題についてもQuestionとして管理する。
 
 保持する情報：
 
@@ -145,8 +164,29 @@ AI生成問題は生成された時点では永続化せず、**ユーザーが 
 - 難易度
 - AI生成可否
 - AI生成用テンプレート
+- AI生成由来であるか
+- 所有ユーザー
 - 作成日時
 - 更新日時
+
+通常の問題は、
+
+    ai_generated = false
+
+として管理する。
+
+AI生成モードで生成され、ユーザーによって保存された問題は、
+
+    ai_generated = true
+    owner = 保存したUser
+
+として管理する。
+
+AI生成由来のQuestionは、そのQuestionを所有するUserのみが利用できるものとする。
+
+通常のQuestionについては所有ユーザーを設定しない。
+
+また、AI生成由来のQuestionを保存する際は、AIによる再生成の対象とはしない。
 
 作成日時はQuestionが新規作成された時点を表し、
 作成後は変更しない。
@@ -288,65 +328,71 @@ AiGenerationHistoryはStudyHistoryとは目的が異なる。
     └── AIの過去の生成結果を管理し、
         次回生成時の重複抑制に利用する
 
-また、AiGeneratedQuestionとも目的が異なる。
+また、AiGenerationHistoryは、ユーザーが保存したAI生成由来のQuestionとも目的が異なる。
 
-    AiGeneratedQuestion
-    └── ユーザーの学習データとして保存するAI生成問題
+    AI生成由来のQuestion
+    └── ユーザーが学習に利用するために保存した問題
 
     AiGenerationHistory
     └── 次回のAI問題生成を制御するための生成履歴
 
-そのため、AiGenerationHistoryはStudyHistoryおよびAiGeneratedQuestionとは分離して管理する。
+AI生成由来の問題を保存する場合はQuestionとして永続化するが、AiGenerationHistoryは生成結果の重複を抑制するための履歴として独立して管理する。
+
+そのため、AiGenerationHistoryはStudyHistoryおよびQuestionとは異なる目的のデータとして管理する。
 
 ---
 
 ## 14. データ構造概要
 
-## 14. データ構造概要
-
 全体の関係は概念的に以下のようになる。
 
-                             User
-                              │
-              ┌───────────────┼───────────────────┐
-              │               │                   │
-              ▼               ▼                   ▼
-          Favorite       StudyHistory      AiGeneratedQuestion
-              │               │                   │
-              └───────┬───────┘                   │
-                      │                           │
-                      ▼                           │
-                   Question ◀─────────────────────┘
-                      ▲
-                      │
-              AiGenerationHistory
-                      ▲
-                      │
-                     User
-                      │
-                    1:N
-                      │
-                      ▼
-                   Question
-                      │
-                ┌─────┴─────┐
-                │           │
-                ▼           ▼
-            Structure  language_variant
-                           ┌───┴───┐
-                           │       │
-                        MAINLAND TAIWAN
+                         User
+                          │
+              ┌───────────┼───────────────┐
+              │           │               │
+              ▼           ▼               ▼
+          Favorite   StudyHistory   AiGenerationHistory
+              │           │               │
+              └─────┬─────┘               │
+                    │                     │
+                    ▼                     ▼
+                         Question
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+          Structure   language_variant  owner
+                          │              │
+                     ┌────┴────┐         │
+                     │         │         │
+                  MAINLAND   TAIWAN      User
+                                          
+Questionは、通常の問題とユーザーが保存したAI生成由来の問題を共通して管理する。
 
-AiGenerationHistoryは、UserとQuestionの両方に関連付ける。
+    Question
+    │
+    ├── ai_generated = false
+    │   └── 通常の問題
+    │
+    └── ai_generated = true
+        └── AI生成由来の問題
+              │
+              └── owner = User
+
+通常のQuestionはすべてのユーザーが利用できる。
+
+AI生成由来のQuestionは、そのQuestionを所有するUserのみが利用できるものとする。
+
+AiGenerationHistoryは、Userと生成元Questionの両方に関連付ける。
 
     User
       │
       │ 1:N
       ▼
     AiGenerationHistory
-      ▲
-      │ N:1
       │
+      │ N:1
+      ▼
     Question
 
 これにより、
@@ -410,7 +456,6 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 説明を表示する際には、ユーザーに設定されている現在の学習対象言語に応じて使用する説明を切り替える。
 
     User.languageVariant
-
     ├── MAINLAND
     │   └── 大陸普通話向けの説明
     │
@@ -551,14 +596,19 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 - マスタ問題の学習履歴はユーザーごとに保存する。
 - StudyHistoryには各マスタ問題の最新評価を保持する。
 - 評価は `HARD / GOOD / EASY` を基本とする。
-- AiGeneratedQuestionは大陸普通話・台湾華語で分離しない。
-- AI生成問題は生成しただけではDBへ保存しない。
-- AI生成問題はユーザーが理解度を与えた場合に限り保存する。
-- AI生成問題は必ず生成したユーザーと関連付ける。
-- AI生成問題は生成元となったQuestionと関連付ける。
-- AI生成問題は他ユーザーから参照できないようにする。
-- AI生成問題をマスタQuestionへ追加しない。
-- AI生成問題は通常学習では使用しない。
+- AI生成問題は生成された時点ではDBへ保存しない。
+- AI生成問題はユーザーが保存操作を行った場合にQuestionとして保存する。
+- Questionは通常の問題とAI生成由来の問題を共通して管理する。
+- QuestionにはAI生成由来であるかを識別する情報を保持する。
+- 通常のQuestionは `ai_generated = false` とする。
+- AI生成由来のQuestionは `ai_generated = true` とする。
+- AI生成由来のQuestionは必ず所有するUserと関連付ける。
+- 通常のQuestionには所有Userを設定しない。
+- AI生成由来のQuestionは所有するUserのみが利用できるものとする。
+- 他のユーザーが所有するAI生成由来のQuestionは参照できないようにする。
+- AI生成由来のQuestionは通常学習、復習、ユーザー用問題一覧など既存のQuestionを利用する機能へ統合する。
+- AI生成由来のQuestionはAIによる再生成の対象としない。
+- AI生成対象となるQuestionは `allow_ai_variation` により明示的に区別する。
 - AI生成問題はユーザー自身の復習対象として利用できる。
 - AI生成対象マスタ問題は `allow_ai_variation` により明示的に区別する。
 - AI生成では、人間が定義したテンプレートを使用して変更可能な範囲を制御する。
@@ -579,11 +629,11 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 - AI問題生成時には、対象となるUser・Questionに対応する直近のAiGenerationHistoryを取得し、生成内容の重複抑制に利用する。
 - AiGenerationHistoryは生成文全体の重複・過度な類似を抑制するために使用し、過去の生成結果に含まれる個々の語句の再利用は禁止しない。
 - AiGenerationHistoryはStudyHistoryとは分離して管理する。
-- AiGenerationHistoryはAiGeneratedQuestionとは分離して管理する。
+- AiGenerationHistoryは保存されたAI生成由来のQuestionとは異なる目的のデータとして管理する。
 - AiGenerationHistoryはユーザーの理解度評価とは関係なく、AI問題が生成された時点で更新する。
 - AiGenerationHistory自身には学習対象言語を保持せず、関連するQuestionから判定する。
 - AiGenerationHistory自身にはStructureを保持せず、関連するQuestionを経由して取得する。
-- 管理者は大陸普通話・台湾華語双方のマスタ問題およびAI生成設定を管理できる。
+- 管理者は大陸普通話・台湾華語双方のマスタ問題を管理できる。
 - 学習対象言語とサイト表記言語は独立した設定として扱う。
 - 文法・構造は独立したStructureとして管理する。
 - Structureは文法・構造を識別するID、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
@@ -600,7 +650,6 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 - Structureの説明は復習メニューや文法・構造ガイドなど複数の機能から共通して利用する。
 - StructureはEnumでは管理せず、データとして追加・変更できるものとする。
 - FavoriteおよびStudyHistoryはStructureを直接参照せず、Questionを経由してStructureを取得する。
-- AiGeneratedQuestionはStructureを直接参照せず、生成元Questionを経由してStructureを取得する。
 
 
 ---
@@ -646,14 +695,13 @@ Structureの文法・構造名は、大陸普通話と台湾華語で共通し�
 拼音・注音への対応追加後は、以下を設計方針に加える。
 
 * Questionは拼音・注音の両方を保持する。
-* AiGeneratedQuestionも拼音・注音の両方を保持する。
 * 大陸普通話・台湾華語のどちらの問題についても、拼音・注音の両方を扱えるものとする。
 * 発音表記は学習対象言語とは独立して扱う。
 * 発音表記として `PINYIN / ZHUYIN / NONE` を想定する。
 * 発音表記のデフォルト値は `PINYIN` とする。
 * 学習対象言語を変更しても発音表記設定は変更しない。
 * 発音表記設定はQuestionの取得条件には使用しない。
-* 現在の発音表記設定に応じて、QuestionまたはAiGeneratedQuestionの拼音・注音のどちらを表示するかを決定する。
+* 現在の発音表記設定に応じて、Questionの拼音・注音のどちらを表示するかを決定する。
 * 発音表記設定はUserに保持し、ユーザーごとの設定としてDBへ永続化する。
 * 発音表記設定はログアウト後も保持する。
 * 再ログイン時にはUserに保存されている発音表記設定を使用する。
@@ -853,3 +901,44 @@ User
 Userを削除する場合は、Userを参照している関連データとの整合性を維持できるようにする。
 
 アカウント凍結状態を保持する具体的なカラム名、データ型、デフォルト値およびUser削除時の関連データの処理方法については、テーブル設計で定義する。
+
+---
+
+### 18.11 AI生成由来問題のQuestionへの統合
+
+**変更日：2026年9月11日**
+
+当初、ユーザーが保存したAI生成問題は、通常のQuestionとは分離し、AiGeneratedQuestionとして管理する設計としていた。
+
+しかし、AI生成由来の問題についても、通常学習、復習、お気に入り、学習履歴など既存のQuestionを利用する機能で共通して扱えるようにするため、保存先をQuestionへ統合する設計へ変更する。
+
+変更後は、QuestionにAI生成由来であるかを識別する情報を保持する。
+
+    Question
+    │
+    ├── ai_generated = false
+    │   └── 通常の問題
+    │
+    └── ai_generated = true
+        └── AI生成由来の問題
+
+AI生成由来のQuestionについては、生成した問題を保存したUserを所有者として関連付ける。
+
+    User
+      │
+      │ owner
+      ▼
+    Question
+      └── ai_generated = true
+
+通常のQuestionについては所有Userを設定しない。
+
+AI生成由来のQuestionは、そのQuestionを所有するUserのみが利用できるものとし、他のユーザーからは参照できないようにする。
+
+保存されたAI生成由来のQuestionは、通常学習、復習、お気に入り、学習履歴、ユーザー用問題一覧など、既存のQuestionを利用する機能へ統合する。
+
+また、AI生成由来のQuestionはAIによる再生成の対象とはしない。
+
+この変更に伴い、AiGeneratedQuestionを独立したEntityとして管理する設計を廃止する。
+
+なお、AI生成直後からQuestionとして保存されるまでの一時的なデータについてはDTOとして扱い、永続化対象とはしない。

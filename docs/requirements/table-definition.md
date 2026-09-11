@@ -13,7 +13,6 @@ Chinese Output Forgeで使用するデータベーステーブルを定義する
 - STRUCTURE
 - FAVORITE
 - STUDY_HISTORY
-- AI_GENERATED_QUESTION
 - AI_GENERATION_HISTORY
 
 について、大陸普通話用と台湾華語用で別テーブルを持つのではなく、共通テーブルで管理する。
@@ -168,9 +167,13 @@ pronunciation_type   = ZHUYIN
 
 ## 概要
 
-大陸普通話・台湾華語のマスタ問題、およびAI生成に使用するテンプレート・生成可否情報を管理するテーブル。
+大陸普通話・台湾華語のマスタ問大陸普通話・台湾華語の通常問題、およびユーザーが保存したAI生成由来の問題を管理するテーブル。
+
+また、通常問題については、AI生成に使用するテンプレート・生成可否情報も管理する。
 
 両方の学習対象言語を同一テーブルで管理し、`language_variant` によって識別する。
+
+通常問題とAI生成由来の問題は `ai_generated` によって識別し、AI生成由来の問題には所有ユーザーを設定する。題、およびAI生成に使用するテンプレート・生成可否情報を管理するテーブル。
 
 | カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
 |---|---|---|---|---|---|---|---|
@@ -188,6 +191,8 @@ pronunciation_type   = ZHUYIN
 | difficulty | 難易度 | - | - | VARCHAR(20) | ○ | - | 難易度区分 |
 | allow_ai_variation | AI生成可否 | - | - | BOOLEAN | ○ | - | AI生成対象かどうか |
 | template | AI生成用テンプレート | - | - | TEXT | - | - | AI生成対象外の場合はNULL可 |
+| ai_generated | AI生成由来フラグ | - | - | BOOLEAN | ○ | - | false：通常問題 / true：AI生成由来問題 |
+| owner_user_id | 所有ユーザーID | - | ○ | BIGINT | - | - | AI生成由来の場合のみUSER.idを参照 |
 | created_at | 作成日時 | - | - | TIMESTAMP | ○ | - | 問題を新規作成した日時 |
 | updated_at | 更新日時 | - | - | TIMESTAMP | ○ | - | 問題を最後に更新した日時 |
 
@@ -204,15 +209,22 @@ pronunciation_type   = ZHUYIN
 
 ## 補足
 
-- 本テーブルは全ユーザー共通のマスタ問題を保持する。
+- 本テーブルは通常問題およびユーザーが保存したAI生成由来の問題を保持する。
+- `ai_generated = false` の問題は全ユーザー共通の通常問題として扱う。
+- `ai_generated = true` の問題はAI生成由来の問題として扱う。
+- AI生成由来の問題には `owner_user_id` を設定し、所有ユーザー専用の問題として扱う。
 - 大陸普通話と台湾華語の問題を共通のQUESTIONテーブルで管理する。
 - 大陸普通話と台湾華語は問題データとしては独立して扱う。
 - 問題IDはQUESTION全体で一意とする。
 - 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
 - 通常学習では現在の学習対象言語に対応する問題を出題する。
 - AI生成学習では `allow_ai_variation = true` の問題をAI生成元として使用できる。
+- AIによって問題が生成された時点ではQUESTIONへ保存しない。
+- ユーザーが生成結果を保存した場合は、AI生成由来の問題としてQUESTIONへ追加する。
+- AI生成由来の問題を保存する場合は `ai_generated = true` とする。
+- AI生成由来の問題を保存する場合は `owner_user_id` に保存したユーザーの `USER.id` を設定する。
+- AI生成由来の問題は `allow_ai_variation = false` とし、別のAI生成問題の生成元には使用しない。
 - `allow_ai_variation = false` の問題は固定問題としてのみ使用する。
-- AIによって生成された問題そのものを本テーブルへ追加しない。
 - `template` は問題内容に応じてNULLを許容する。
 - AI生成時の変更可能範囲は `template` によって定義する。
 - AIによる変更を許可する部分は `template` 内のプレースホルダとして表現する。
@@ -310,7 +322,9 @@ QUESTION
 
 ## 概要
 
-ユーザーによるマスタ問題のお気に入り登録情報を管理するテーブル。
+ユーザーによるQUESTIONのお気に入り登録情報を管理するテーブル。
+
+通常問題だけでなく、ユーザー自身が所有するAI生成由来の問題についてもお気に入り登録できる。
 
 大陸普通話・台湾華語の双方を共通のFAVORITEテーブルで管理する。
 
@@ -349,7 +363,9 @@ language_variant
 
 ## 概要
 
-マスタ問題に対するユーザーの学習履歴および自己評価を管理するテーブル。
+QUESTIONに対するユーザーの学習履歴および自己評価を管理するテーブル。
+
+通常問題およびユーザー自身が所有するAI生成由来の問題を共通して管理する。
 
 大陸普通話・台湾華語の双方を共通のSTUDY_HISTORYテーブルで管理する。
 
@@ -387,64 +403,7 @@ language_variant
 
 ---
 
-# 7. AI_GENERATED_QUESTION
-
-## 概要
-
-AI生成学習によって生成された問題のうち、保存対象となった問題を管理するテーブル。
-
-大陸普通話・台湾華語のAI生成問題を共通のAI_GENERATED_QUESTIONテーブルで管理する。
-
-保存されたAI生成問題は、生成したユーザー専用のデータとして扱う。
-
-| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
-|---|---|---|---|---|---|---|---|
-| generated_question_id | AI生成問題ID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
-| user_id | 所有ユーザーID | - | ○ | BIGINT | ○ | - | USER.id参照 |
-| source_question_id | 生成元問題ID | - | ○ | BIGINT | ○ | - | QUESTION.question_id参照 |
-| japanese_text | 日本語問題文 | - | - | TEXT | ○ | - | AI生成された問題文 |
-| chinese_text | 模範解答 | - | - | TEXT | ○ | - | AI生成された中国語 |
-| pinyin | 拼音 | - | - | TEXT | ○ | - | 中国語本文に対応する拼音 |
-| zhuyin | 注音 | - | - | TEXT | ○ | - | 中国語本文に対応する注音符號 |
-| alternative_answer | 別解 | - | - | TEXT | - | - | 任意入力（NULL可） |
-| alternative_answer_pinyin | 別解の拼音 | - | - | TEXT | - | - | 別解に対応する拼音（NULL可） |
-| alternative_answer_zhuyin | 別解の注音 | - | - | TEXT | - | - | 別解に対応する注音符號（NULL可） |
-| evaluation | 学習結果 | - | - | VARCHAR(10) | ○ | - | HARD / GOOD / EASY |
-| created_at | 作成日時 | - | - | TIMESTAMP | ○ | - | DBへ初めて保存した日時 |
-| evaluation_updated_at | 評価更新日時 | - | - | TIMESTAMP | ○ | - | 最後に理解度を更新した日時 |
-
-## 補足
-
-- AIが問題を生成した時点ではレコードを作成しない。
-- 保存条件を満たした場合にAI_GENERATED_QUESTIONへINSERTする。
-- `user_id` によってAI生成問題の所有ユーザーを特定する。
-- AI生成問題は所有ユーザーのみ参照できる。
-- 他ユーザーの通常学習や復習には使用しない。
-- 通常学習では本テーブルから出題しない。
-- 保存されたAI生成問題は、対応する機能から再度参照できる。
-- AI生成問題専用のStudyHistoryテーブルは作成せず、本テーブル自身に最新の評価を保持する。
-- `source_question_id` により生成元となったマスタ問題を追跡する。
-- AI_GENERATED_QUESTION自身には原則として `language_variant` を保持しない。
-- 学習対象言語は生成元となったQUESTIONから判定する。
-- 文法・構造についても生成元QUESTIONを経由してSTRUCTUREから判定する。
-- AI生成問題にも本解答・別解それぞれの拼音・注音を保持できる。
-
-```text
-AI_GENERATED_QUESTION
-        ↓
-source_question_id
-        ↓
-QUESTION
-        ├── language_variant
-        │
-        └── structure_id
-                ↓
-            STRUCTURE
-```
-
----
-
-## 7.1 AI_GENERATION_HISTORY
+## 7.AI_GENERATION_HISTORY
 
 ### 概要
 
@@ -684,14 +643,14 @@ AIへ入力
 
 これにより、AIが直近の生成結果を考慮し、同一または過度に類似した問題が短期間に繰り返し生成されることを抑制する。
 
-### AI_GENERATED_QUESTIONとの違い
+### 保存されたAI生成由来のQUESTIONとの違い
 
-AI_GENERATION_HISTORYとAI_GENERATED_QUESTIONは、保存目的と保存タイミングが異なる。
+AI_GENERATION_HISTORYと、ユーザーが保存したAI生成由来のQUESTIONは、保存目的と保存タイミングが異なる。
 
-| テーブル | 目的 | 保存タイミング |
+| データ | 目的 | 保存タイミング |
 |---|---|---|
 | AI_GENERATION_HISTORY | 次回以降のAI生成時の重複抑制 | AI問題の生成が正常に完了した時点 |
-| AI_GENERATED_QUESTION | ユーザーが学習したAI生成問題の保存 | HARD / GOOD / EASYのいずれかが選択された場合 |
+| AI生成由来のQUESTION | ユーザーが保存したAI生成問題を学習問題として保持 | ユーザーが生成された問題を保存した場合 |
 
 そのため、AI_GENERATION_HISTORYには、
 
@@ -757,7 +716,7 @@ AI_GENERATION_HISTORY
 - 6件目を保存する場合は最も古い履歴を削除する。
 - AI問題生成時には生成日時の新しい順に最大5件取得する。
 - AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
-- AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは分離して管理する。
+- AI_GENERATION_HISTORYは、保存されたAI生成由来のQUESTIONとは目的の異なるデータとして分離して管理する。
 - AI_GENERATION_HISTORY自身には `language_variant` を保持しない。
 - AI_GENERATION_HISTORY自身には `structure_id` を保持しない。
 
@@ -772,8 +731,7 @@ AI_GENERATION_HISTORY
 | FAVORITE | question_id | QUESTION.question_id |
 | STUDY_HISTORY | user_id | USER.id |
 | STUDY_HISTORY | question_id | QUESTION.question_id |
-| AI_GENERATED_QUESTION | user_id | USER.id |
-| AI_GENERATED_QUESTION | source_question_id | QUESTION.question_id |
+| QUESTION | owner_user_id | USER.id |
 | AI_GENERATION_HISTORY | user_id | USER.id |
 | AI_GENERATION_HISTORY | question_id | QUESTION.question_id |
 
@@ -788,7 +746,6 @@ AI_GENERATION_HISTORY
 | STRUCTURE | structure_id |
 | FAVORITE | user_id + question_id |
 | STUDY_HISTORY | user_id + question_id |
-| AI_GENERATED_QUESTION | generated_question_id |
 | AI_GENERATION_HISTORY | id |
 
 ---
@@ -833,7 +790,7 @@ naoki
 naoki2026
 ```
 
-のように変更した場合でも、Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryなどの関連データを変更する必要がない。
+のように変更した場合でも、Favorite、StudyHistory、ユーザーが所有するAI生成由来のQuestion、AiGenerationHistoryなどの関連データを変更する必要がない。
 
 内部的なユーザー識別は常に `USER.id` によって行う。
 
@@ -948,38 +905,21 @@ AI生成問題については、生成されたすべての問題をDBへ保存�
 ```text
 USER.language_variant
     ↓
-対応するマスタQUESTION
+対応する通常QUESTION
     ↓
 AIによる問題生成
     ↓
+AiGeneratedQuestionDtoとして一時保持
+    ↓
 ユーザーへ出題
     ↓
-保存対象となる操作
+ユーザーが保存
     ↓
-AI_GENERATED_QUESTIONへINSERT
+QUESTIONへINSERT
+    ├── ai_generated = true
+    ├── owner_user_id = USER.id
+    └── allow_ai_variation = false
 ```
-
-保存されなかったAI生成問題については、学習終了後に破棄する。
-
-これにより、表示されただけのAI生成問題がDBへ大量に蓄積されることを防ぐ。
-
-また、AI生成問題をマスタQUESTIONへ追加しないことで、
-
-**あるユーザーのために生成された問題が、別のユーザーの通常学習に混入することを防止する。**
-
-AI生成問題の学習対象言語は、
-
-```text
-AI_GENERATED_QUESTION
-    ↓
-source_question_id
-    ↓
-QUESTION.language_variant
-```
-
-によって判定する。
-
-AI生成時に使用するLanguage Profileについても、現在の `USER.language_variant` に対応するものを使用する。
 
 ---
 
@@ -1073,7 +1013,9 @@ QUESTION
 
 として管理する。
 
-Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryについては、QUESTIONとの関連から学習対象言語を判定できるため、それぞれに `language_variant` を重複して保持しない。
+Favorite、StudyHistory、AiGenerationHistoryについては、QUESTIONとの関連から学習対象言語を判定できるため、それぞれに `language_variant` を重複して保持しない。
+
+保存されたAI生成由来の問題についてはQUESTION自身として管理するため、QUESTIONの `language_variant` を保持する。
 
 ---
 
@@ -1155,7 +1097,7 @@ language_variant = TAIWAN
 
 # 15. 発音表記による表示方針
 
-QUESTIONおよびAI_GENERATED_QUESTIONは、ユーザーの現在の設定にかかわらず、
+QUESTIONは、通常問題・AI生成由来の問題のいずれについても、ユーザーの現在の設定にかかわらず、
 
 ```text
 pinyin
@@ -1350,13 +1292,16 @@ English
 - STUDY_HISTORYには各マスタ問題に対する最新の理解度を保持する。
 - STUDY_HISTORYの学習対象言語はQUESTIONから判定する。
 - `evaluation` は `HARD / GOOD / EASY` のいずれかとする。
-- AI_GENERATED_QUESTIONは大陸普通話・台湾華語で分離しない。
 - AI生成問題は生成された時点ではDBへ保存しない。
-- AI生成問題には所有ユーザーの内部IDを保持する。
-- AI生成問題は所有ユーザー専用のデータとして扱う。
-- 他ユーザーのAI生成問題を通常学習・復習・問題一覧へ表示しない。
-- AI生成問題をQUESTIONへ追加しない。
-- AI生成問題の最新理解度はAI_GENERATED_QUESTION自身に保持する。
+- ユーザーが保存したAI生成問題はQUESTIONとして保存する。
+- 通常問題は `ai_generated = false` とする。
+- 保存されたAI生成由来の問題は `ai_generated = true` とする。
+- AI生成由来のQUESTIONには `owner_user_id` として所有ユーザーの `USER.id` を保持する。
+- AI生成由来のQUESTIONは所有ユーザー専用のデータとして扱う。
+- 他ユーザーが所有するAI生成由来のQUESTIONを通常学習・復習・問題一覧へ表示しない。
+- AI生成由来のQUESTIONについてもSTUDY_HISTORYによって理解度を管理する。
+- AI生成由来のQUESTIONについてもFAVORITEによってお気に入りを管理する。
+- AI生成由来のQUESTIONは `allow_ai_variation = false` とする。
 - `source_question_id` によってAI生成元のQUESTIONを追跡する。
 - AI生成問題の学習対象言語は生成元QUESTIONから判定する。
 - AI生成問題の文法・構造は生成元QUESTIONから判定する。
@@ -1370,7 +1315,6 @@ English
 - USER.passwordはBCrypt等によってハッシュ化して保存する。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - 学習対象言語、発音表記、サイト表記言語はそれぞれ独立した設定として扱う。
-- AiSettingについては保存方式が未確定のため、本テーブル定義書には含めない。DB管理を採用する場合は別途追加する。
 - STRUCTUREは文法・構造を管理するマスタテーブルとする。
 - STRUCTUREは `structure_id`、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
 - 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
@@ -1423,7 +1367,7 @@ zhuyin
 
 を追加した。
 
-QUESTIONおよびAI_GENERATED_QUESTIONでは、大陸普通話・台湾華語のどちらについても拼音・注音の両方を保持する。
+現在は、通常問題および保存されたAI生成由来の問題をQUESTIONとして管理し、大陸普通話・台湾華語のどちらについても拼音・注音の両方を保持する。
 
 ```text
 QUESTION
@@ -1489,7 +1433,7 @@ QUESTION
 
 として保持する。
 
-AI_GENERATED_QUESTIONについても、
+保存されたAI生成由来の問題についてもQUESTIONとして管理するため、
 
 ```text
 alternative_answer
@@ -1620,14 +1564,10 @@ QUESTION
 
 1つのQUESTIONには必ず1つのSTRUCTUREを関連付ける。
 
-AI_GENERATED_QUESTIONには `structure_id` を追加せず、
+保存されたAI生成由来の問題はQUESTIONとして管理するため、通常問題と同様に `structure_id` によってSTRUCTUREを参照する。
 
 ```text
-AI_GENERATED_QUESTION
-        ↓
-source_question_id
-        ↓
-QUESTION
+AI生成由来のQUESTION
         ↓
 structure_id
         ↓
@@ -2021,6 +1961,58 @@ QUESTIONを新規作成した場合は、
 
 ---
 
+## 18.9 AI生成由来問題のQUESTIONへの統合
+
+**変更日：2026年9月11日**
+
+当初は、ユーザーが保存したAI生成問題を通常のQUESTIONとは分離し、AI_GENERATED_QUESTIONとして管理する設計としていた。
+
+その後、保存されたAI生成問題についても、
+
+- 通常学習
+- 復習
+- お気に入り
+- 学習履歴
+
+など既存の問題機能で共通して扱えるようにするため、独立したAI_GENERATED_QUESTIONを廃止し、QUESTIONへ統合する設計へ変更した。
+
+QUESTIONへ、
+
+```text
+ai_generated
+owner_user_id
+```
+
+を追加する。
+
+通常問題は、
+
+```text
+ai_generated = false
+owner_user_id = NULL
+```
+
+とする。
+
+ユーザーが保存したAI生成由来の問題は、
+
+```text
+ai_generated = true
+owner_user_id = 保存したUSER.id
+```
+
+とする。
+
+AIによって問題が生成された時点ではQUESTIONへ保存せず、生成結果はDTOとして一時的に保持する。
+
+ユーザーが保存操作を行った場合のみQUESTIONへINSERTする。
+
+また、保存されたAI生成由来のQUESTIONは `allow_ai_variation = false` とし、新たなAI問題生成の生成元には使用しない。
+
+これにより、通常問題とAI生成由来の問題で共通のQUESTION、FAVORITE、STUDY_HISTORYを利用しながら、AI生成由来の問題については所有ユーザーごとに分離して管理できるようにした。
+
+---
+
 # 19. 現在の主要テーブル構成
 
 最終的な主要テーブルの関係は以下とする。
@@ -2033,7 +2025,9 @@ USER
 │
 ├── 1:N FAVORITE
 ├── 1:N STUDY_HISTORY
-├── 1:N AI_GENERATED_QUESTION
+├── 1:N QUESTION
+│       └── AI生成由来の場合のみowner_user_id
+│
 └── 1:N AI_GENERATION_HISTORY
 
 
@@ -2043,10 +2037,11 @@ STRUCTURE
     ↓
 QUESTION
     │
+    ├── ai_generated
+    ├── owner_user_id
+    │
     ├── 1:N FAVORITE
     ├── 1:N STUDY_HISTORY
-    ├── 1:N AI_GENERATED_QUESTION
-    │       └── source_question_id
     │
     └── 1:N AI_GENERATION_HISTORY
             └── question_id
@@ -2065,8 +2060,11 @@ USERは、
 QUESTIONは、
 
 ```text
-どの学習対象言語の
-どのマスタ問題であるか
+どの学習対象言語の問題であるか
++
+通常問題かAI生成由来の問題か
++
+AI生成由来の場合は誰が所有しているか
 ```
 
 を管理する。
@@ -2088,18 +2086,6 @@ QUESTION
 ```
 
 の関係を管理する。
-
-AI_GENERATED_QUESTIONは、
-
-```text
-USER
-+
-生成元QUESTION
-+
-AIによって生成された問題
-```
-
-を管理する。
 
 AI_GENERATION_HISTORYは、
 
@@ -2125,7 +2111,6 @@ AI_GENERATION_HISTORYは、同一USER・同一生成元QUESTIONについて直�
 文法・構造
 学習履歴
 お気に入り
-AI生成問題
 AI生成履歴
 ```
 

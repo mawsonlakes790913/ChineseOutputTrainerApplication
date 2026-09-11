@@ -11,7 +11,6 @@ Chinese Output Forge で使用する主要エンティティと、そのリレ�
 - Structure
 - Favorite
 - StudyHistory
-- AiGeneratedQuestion
 - AiGenerationHistory
 
 Userは、認証・権限に関する情報だけでなく、ユーザーごとの設定として以下の情報を保持する。
@@ -62,9 +61,13 @@ TAIWAN
 
 によって大陸普通話と台湾華語を区別する。
 
-Favorite、StudyHistory、AiGeneratedQuestion、AiGenerationHistoryについても、大陸普通話用・台湾華語用には分離せず共通テーブルとして管理する。
+Favorite、StudyHistory、AiGenerationHistoryについても、大陸普通話用・台湾華語用には分離せず共通テーブルとして管理する。
 
-AI生成問題は通常のマスタ問題とは別エンティティとし、生成したユーザーにのみ紐づく個人用データとして管理する。
+ユーザーが保存したAI生成由来の問題は、通常の問題と同じQUESTIONとして管理する。
+
+QUESTIONでは `ai_generated` によって通常の問題とAI生成由来の問題を識別する。
+
+AI生成由来のQUESTIONには所有ユーザーを設定し、そのユーザー専用の問題として管理する。
 
 ---
 
@@ -79,8 +82,7 @@ erDiagram
     USER ||--o{ STUDY_HISTORY : has
     QUESTION ||--o{ STUDY_HISTORY : has
 
-    USER ||--o{ AI_GENERATED_QUESTION : owns
-    QUESTION ||--o{ AI_GENERATED_QUESTION : generates
+    USER ||--o{ QUESTION : owns
 
     USER ||--o{ AI_GENERATION_HISTORY : has
     QUESTION ||--o{ AI_GENERATION_HISTORY : source
@@ -123,6 +125,8 @@ erDiagram
         string difficulty
         boolean allow_ai_variation
         text template
+        boolean ai_generated
+        bigint owner_user_id FK
         datetime created_at
         datetime updated_at
     }
@@ -189,12 +193,6 @@ USER
   │              │
   │              └── STRUCTURE
   │
-  ├── AI_GENERATED_QUESTION
-  │       │
-  │       └── QUESTION
-  │              │
-  │              └── STRUCTURE
-  │           （生成元）
   │
   └── AI_GENERATION_HISTORY
           │
@@ -287,8 +285,6 @@ STRUCTURE
 これにより、QUESTIONの文法・構造を判定する。
 
 FavoriteやStudyHistoryなどに学習対象言語やStructureを重複して保持する必要はなく、関連するQuestionを参照することで判定できる。
-
-AI_GENERATED_QUESTIONについても、生成元QUESTIONを経由して学習対象言語およびStructureを判定する。
 
 AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を保持しない。
 
@@ -477,7 +473,7 @@ account_locked = true
 └── ログイン不可
 ```
 
-アカウントを凍結してもUSERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、保存されたAI生成問題などのデータも保持する。
+アカウントを凍結してもUSERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、ユーザーが所有するAI生成由来のQUESTIONなどのデータも保持する。
 
 管理者が凍結を解除した場合は `account_locked` を `false` に戻し、再びログイン可能な状態とする。
 
@@ -488,7 +484,9 @@ account_locked = true
 
 ## 5. Questionと学習対象言語
 
-Questionは、大陸普通話・台湾華語双方のマスタ問題を管理する。
+Questionは、大陸普通話・台湾華語双方の問題を管理する。
+
+Questionには、通常の問題とユーザーが保存したAI生成由来の問題の両方を保持する。
 
 例えば以下のように保存する。
 
@@ -725,7 +723,7 @@ QUESTION
 FAVORITE
 ```
 
-1つのマスタ問題は複数ユーザーからお気に入り登録される可能性がある。
+1つのQuestionは複数ユーザーからお気に入り登録される可能性がある。
 
 そのため、UserとQuestionはFavoriteを介して多対多の関係となる。
 
@@ -835,143 +833,111 @@ language_variant
 
 ---
 
-## 9. AI生成問題の位置付け
+## 9. AI生成由来問題の位置付け
 
-AI生成問題はマスタ問題とは明確に分離する。
+AIによって生成された問題は、生成された時点では永続化しない。
 
-```text
+生成結果は一時的なデータとして扱い、ユーザーが保存した場合にQUESTIONとして永続化する。
+
+QUESTIONでは `ai_generated` によって問題の由来を識別する。
+
 QUESTION
-   │
-   │ AI生成
-   ↓
-AI_GENERATED_QUESTION
-   ↑
-   │ owns
- USER
-```
+│
+├── ai_generated = false
+│   └── 通常の問題
+│
+└── ai_generated = true
+    └── AI生成由来の問題
+          │
+          └── owner_user_id → USER
 
-QUESTIONには、
+AI生成由来のQUESTIONには、その問題を保存したユーザーを所有者として設定する。
 
-```text
-language_variant
-```
+AI生成由来のQUESTIONは所有ユーザーのみが利用でき、他のユーザーからは参照・出題しない。
 
-が存在するため、生成元となったQuestionからAI生成問題の学習対象言語を判定できる。
-
-例えば、
-
-```text
-AI_GENERATED_QUESTION
-        ↓
-source_question_id
-        ↓
-QUESTION
-        ↓
-language_variant = TAIWAN
-```
-
-であれば、そのAI生成問題は台湾華語の問題として扱う。
-
-AI生成問題は以下の条件を満たす場合のみDBへ保存する。
-
-- AI生成学習中に問題が生成される
-- ユーザーがその問題に対して `HARD / GOOD / EASY` のいずれかを選択する
-
-理解度が与えられなかった問題は永続化しない。
-
-また、AI生成問題をマスタ問題であるQUESTIONへ追加することはしない。
-
-これにより、特定ユーザー向けに生成された問題が他ユーザーの通常学習へ混入することを防ぐ。
+また、保存されたAI生成由来のQUESTIONは、通常学習、復習、お気に入り、学習履歴など、既存のQUESTIONを利用する機能で共通して扱う。
 
 ---
 
-## 10. UserとAiGeneratedQuestion
+## 10. UserとAI生成由来Question
 
-UserとAiGeneratedQuestionは1対多の関係とする。
+AI生成由来のQUESTIONは所有するUSERと関連付ける。
+
+USER
+  │
+  │ 1:N
+  ▼
+QUESTION
+  └── ai_generated = true
+
+1人のUSERは複数のAI生成由来QUESTIONを所有できる。
+
+通常のQUESTIONには所有USERを設定しない。
+
+---
+
+## 11. AI生成由来の問題とStudyHistory
+
+通常の問題と、ユーザーが保存したAI生成由来の問題は、いずれもQUESTIONとして管理する。
+
+QUESTIONでは、
+
+```text
+ai_generated
+```
+
+によって、通常の問題であるかAI生成由来の問題であるかを識別する。
+
+```text
+QUESTION
+│
+├── ai_generated = false
+│   └── 通常の問題
+│
+└── ai_generated = true
+    └── AI生成由来の問題
+```
+
+通常の問題はすべてのユーザーが利用できる。
+
+一方、AI生成由来の問題には、その問題を保存したUSERを所有ユーザーとして設定する。
 
 ```text
 USER
   │
-  │ 1:N
-  ↓
-AI_GENERATED_QUESTION
-```
-
-1人のユーザーは複数のAI生成問題を所有できる。
-
-AI生成問題には必ず `user_id` を保持し、そのユーザー専用の問題として管理する。
-
-他のユーザーからは参照・出題しない。
-
----
-
-## 11. QuestionとAiGeneratedQuestion
-
-QuestionとAiGeneratedQuestionは1対多の関係とする。
-
-```text
+  │ owner
+  ▼
 QUESTION
-   │
-   │ 1:N
-   ↓
-AI_GENERATED_QUESTION
+  └── ai_generated = true
 ```
 
-1つのマスタ問題を基に、複数のAI生成問題が作成される可能性がある。
+AI生成由来のQUESTIONは、そのQUESTIONを所有するUSERのみが利用できるものとする。
 
-AiGeneratedQuestionは、
+通常のQUESTIONには所有USERを設定しない。
 
-```text
-source_question_id
-```
-
-によって生成元となったQuestionを参照する。
-
-これにより、
-
-- どのマスタ問題から生成されたか
-- 大陸普通話・台湾華語のどちらの問題か
-- どの文法・構造に分類される問題か
-
-を判定できる。
-
----
-
-## 12. AI生成問題とStudyHistoryの違い
-
-マスタ問題では、問題そのものが全ユーザーで共有される。
-
-そのため、
+通常の問題とAI生成由来の問題のどちらについても、ユーザーごとの学習状態および理解度はSTUDY_HISTORYによって管理する。
 
 ```text
 USER
-  ↓
+  │
+  │
+  ▼
 STUDY_HISTORY
-  ↓
+  │
+  │
+  ▼
 QUESTION
 ```
 
-という中間エンティティによって、ユーザーごとの理解度を管理する。
+STUDY_HISTORYはUSERとQUESTIONの組み合わせごとに1レコードを保持する。
 
-一方、AI生成問題は問題そのものが最初から特定ユーザーに所属する。
+したがって、QUESTIONが通常の問題であるかAI生成由来の問題であるかにかかわらず、学習履歴の管理方法は共通とする。
 
-```text
-USER
-  ↓
-AI_GENERATED_QUESTION
-```
-
-そのため、AI生成問題については別途StudyHistoryを作成せず、AI生成問題自身に、
-
-- `evaluation`
-- `created_at`
-- `evaluation_updated_at`
-
-を保持する。
+AI生成由来のQUESTION自身には理解度を保持しない。
 
 ---
 
-### 12.1 AI生成履歴
+### 11.1 AI生成履歴
 
 AI_GENERATION_HISTORYは、AI問題生成時に同じ語彙や表現が短期間に繰り返し生成されることを抑制するため、過去に生成された中国語文を保持する。
 
@@ -999,7 +965,7 @@ user_id
 question_id
 ```
 
-によって、どのユーザーがどのマスタ問題から生成した履歴であるかを識別する。
+によって、どのユーザーがどの問題から生成した履歴であるかを識別する。
 
 例えば、
 
@@ -1009,8 +975,8 @@ user_id = 1
     │
     ▼
 AI_GENERATION_HISTORY
-user_id     = 1
-question_id = 10
+user_id      = 1
+question_id  = 10
 chinese_text = 過去に生成された中国語文
     │
     ▼
@@ -1038,19 +1004,19 @@ USER 1
 
 AI問題生成時には、対象となるUSER・QUESTIONに対応するAI_GENERATION_HISTORYを生成日時の新しい順に取得し、直近の生成結果をAIへ渡す。
 
-AI_GENERATION_HISTORYは、AI_GENERATED_QUESTIONとは異なる目的を持つ。
+AI_GENERATION_HISTORYは、保存されたAI生成由来のQUESTIONとは異なる目的を持つ。
 
 ```text
-AI_GENERATED_QUESTION
-└── ユーザーの学習データとして保存するAI生成問題
+AI生成由来のQUESTION
+└── ユーザーが学習に利用するために保存した問題
 
 AI_GENERATION_HISTORY
 └── 次回のAI問題生成時に参照する生成履歴
 ```
 
-AI_GENERATED_QUESTIONはユーザーが生成問題に対して理解度を与えた場合に保存する。
+AI生成由来の問題は、ユーザーが保存した場合にQUESTIONとして永続化する。
 
-一方、AI_GENERATION_HISTORYは理解度評価とは関係なく、AI問題が生成された時点で更新する。
+一方、AI_GENERATION_HISTORYは理解度評価や問題の保存操作とは関係なく、AI問題が正常に生成された時点で更新する。
 
 また、AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を保持しない。
 
@@ -1073,7 +1039,7 @@ AI_GENERATION_HISTORY
 
 ---
 
-## 13. 大陸普通話・台湾華語の管理
+## 12. 大陸普通話・台湾華語の管理
 
 大陸普通話と台湾華語は、**論理的には異なる問題データとして扱うが、物理的なテーブルは共通化する。**
 
@@ -1082,15 +1048,10 @@ AI_GENERATION_HISTORY
 ```text
 SIMPLIFIED_QUESTION
 TRADITIONAL_QUESTION
-
 SIMPLIFIED_FAVORITE
 TRADITIONAL_FAVORITE
-
 SIMPLIFIED_STUDY_HISTORY
 TRADITIONAL_STUDY_HISTORY
-
-SIMPLIFIED_AI_GENERATED_QUESTION
-TRADITIONAL_AI_GENERATED_QUESTION
 ```
 
 のように、それぞれ別テーブルとして管理することを想定していた。
@@ -1101,7 +1062,6 @@ TRADITIONAL_AI_GENERATED_QUESTION
 QUESTION
 FAVORITE
 STUDY_HISTORY
-AI_GENERATED_QUESTION
 AI_GENERATION_HISTORY
 ```
 
@@ -1131,125 +1091,98 @@ QUESTION
 
 ---
 
-## 14. AiSettingについて
+## 13. 設計上の補足
 
-AI問題生成に関する共通設定としてAiSettingを想定するが、現時点ではDBテーブルとして管理することを確定していない。
-
-候補となる情報は以下のとおり。
-
-- 使用するAIモデル
-- 共通プロンプト
-- 大陸普通話向けLanguage Profile
-- 台湾華語向けLanguage Profile
-- その他AI生成共通設定
-
-これらは、
-
-- DB
-- `application.yml`
-- Properties
-- JSON
-- `resources/prompts/`
-
-などで管理することが考えられる。
-
-保存方式が未確定であるため、現時点のER図にはAiSettingを含めない。
-
----
-
-## 15. 設計上の補足
-
-- USERは大陸普通話・台湾華語で共通とする。
-- USERはユーザーごとの学習対象言語を `language_variant` として保持する。
-- USERの `language_variant` は `MAINLAND / TAIWAN` を想定する。
-- USERの `language_variant` のデフォルト値は `MAINLAND` とする。
-- USERはユーザーごとの発音表記を `pronunciation_type` として保持する。
-- USERの `pronunciation_type` は `PINYIN / ZHUYIN / NONE` を想定する。
-- USERの `pronunciation_type` のデフォルト値は `PINYIN` とする。
-- USERの `language_variant` と `pronunciation_type` はDBへ永続化する。
-- USERの設定はログアウト後も保持する。
-- USERの `language_variant` と `pronunciation_type` は独立した設定として扱う。
-- USERの `language_variant` とQUESTIONの `language_variant` は役割が異なる。
-- USERはアカウントの凍結状態を `account_locked` として保持する。
-- USERの `account_locked` のデフォルト値は `false` とする。
-- `account_locked = true` のUSERは、ユーザー情報および関連データを保持したままログイン不可とする。
-- 管理者はUSERの凍結および凍結解除を行えるものとする。
-- 管理者はUSERを削除できるものとする。
-- USERを削除する場合は、関連するデータとの整合性を維持できるようにする。
-- 大陸普通話と台湾華語は異なる問題データとして扱う。
-- QUESTIONは大陸普通話・台湾華語で分離しない。
-- QUESTIONに `language_variant` を持たせる。
-- QUESTIONの `language_variant` は `MAINLAND / TAIWAN` を想定する。
-- QUESTIONの問題IDは全体で一意とする。
-- 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
-- FAVORITEは大陸普通話・台湾華語で分離しない。
-- FAVORITEはお気に入り登録された場合のみレコードを作成する。
-- FAVORITEの学習対象言語はQUESTIONから判定する。
-- STUDY_HISTORYは大陸普通話・台湾華語で分離しない。
-- STUDY_HISTORYはユーザーとマスタ問題の組み合わせごとに1レコードを保持する。
-- STUDY_HISTORYには最新の理解度を保持する。
-- STUDY_HISTORYの学習対象言語はQUESTIONから判定する。
-- AI_GENERATED_QUESTIONは大陸普通話・台湾華語で分離しない。
-- AI生成問題は理解度を与えられた場合のみ保存する。
-- AI生成問題には必ず所有ユーザーを設定する。
-- AI生成問題は通常学習用のQUESTIONへ追加しない。
-- AI生成問題は生成したユーザー自身の復習でのみ再利用する。
-- AI生成対象となるQUESTIONは `allow_ai_variation` により明示的に区別する。
-- QUESTIONはAI生成時の変更可能範囲を `template` によって定義する。
-- AIによる変更を許可する部分は、`template` 内のプレースホルダとして表現する。
-- AIによる変更を許可しない部分は、`template` の固定部分として保持する。
-- 主語の種類など問題ごとに異なる生成制約は、可能な限りプレースホルダの種類によって表現する。
-- QUESTIONには `subject_type` を保持しない。
-- QUESTIONには `verb_variation` を保持しない。
-- AI生成問題は生成元となったQUESTIONを外部キーで保持する。
-- AI生成問題の学習対象言語は生成元QUESTIONから判定する。
-- AI生成問題には専用のStudyHistoryを設けず、問題自身に理解度を保持する。
-- AiSettingは保存方式が確定するまでER図には含めない。
-- AI_GENERATION_HISTORYは大陸普通話・台湾華語で分離しない。
-- AI_GENERATION_HISTORYはAI問題生成時の重複抑制に使用する。
-- AI_GENERATION_HISTORYには必ず生成したUSERを設定する。
-- AI_GENERATION_HISTORYには必ず生成元QUESTIONを設定する。
-- AI_GENERATION_HISTORYはUSERとQUESTIONの組み合わせごとに管理する。
-- 同一USER・同一QUESTIONについて保持するAI生成履歴は直近5件までとする。
-- AI_GENERATION_HISTORYには生成された中国語文を保持する。
-- AI_GENERATION_HISTORYには生成日時を保持する。
-- AI_GENERATION_HISTORYは理解度評価とは独立して、AI問題が生成された時点で更新する。
-- AI_GENERATION_HISTORYはAI_GENERATED_QUESTIONとは分離して管理する。
-- AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
-- AI_GENERATION_HISTORYの学習対象言語は生成元QUESTIONから判定する。
-- AI_GENERATION_HISTORYのStructureは生成元QUESTIONから判定する。
-- AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を重複して保持しない。
-- 文法・構造は独立したSTRUCTUREとして管理する。
-- STRUCTUREは文法・構造ID、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
-- 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
-- STRUCTUREの説明は、大陸普通話向けと台湾華語向けに分けて保持する。
-- STRUCTUREの説明を表示する際は、USERに設定されている現在の学習対象言語に応じて使用する説明を切り替える。
-- STRUCTUREの説明の切り替えはサイト表記言語とは独立して扱う。
-- STRUCTUREとQUESTIONは1対多の関係とする。
-- QUESTIONには `structure_id` を外部キーとして保持する。
-- 1つのQUESTIONにつき1つのSTRUCTUREを設定する。
-- QUESTIONからSTRUCTUREへの関連は必須とする。
-- QUESTION自身には文法・構造名や説明を重複して保持しない。
-- AI生成問題のStructureは生成元QUESTIONから判定し、AI_GENERATED_QUESTIONには `structure_id` を重複して保持しない。
+* USERは大陸普通話・台湾華語で共通とする。
+* USERはユーザーごとの学習対象言語を `language_variant` として保持する。
+* USERの `language_variant` は `MAINLAND / TAIWAN` を想定する。
+* USERの `language_variant` のデフォルト値は `MAINLAND` とする。
+* USERはユーザーごとの発音表記を `pronunciation_type` として保持する。
+* USERの `pronunciation_type` は `PINYIN / ZHUYIN / NONE` を想定する。
+* USERの `pronunciation_type` のデフォルト値は `PINYIN` とする。
+* USERの `language_variant` と `pronunciation_type` はDBへ永続化する。
+* USERの設定はログアウト後も保持する。
+* USERの `language_variant` と `pronunciation_type` は独立した設定として扱う。
+* USERの `language_variant` とQUESTIONの `language_variant` は役割が異なる。
+* USERはアカウントの凍結状態を `account_locked` として保持する。
+* USERの `account_locked` のデフォルト値は `false` とする。
+* `account_locked = true` のUSERは、ユーザー情報および関連データを保持したままログイン不可とする。
+* 管理者はUSERの凍結および凍結解除を行えるものとする。
+* 管理者はUSERを削除できるものとする。
+* USERを削除する場合は、関連するデータとの整合性を維持できるようにする。
+* 大陸普通話と台湾華語は異なる問題データとして扱う。
+* QUESTIONは大陸普通話・台湾華語で分離しない。
+* QUESTIONに `language_variant` を持たせる。
+* QUESTIONの `language_variant` は `MAINLAND / TAIWAN` を想定する。
+* QUESTIONの問題IDは全体で一意とする。
+* 大陸普通話と台湾華語の問題IDに対応関係は持たせない。
+* QUESTIONは通常の問題と、ユーザーが保存したAI生成由来の問題を共通して管理する。
+* QUESTIONは `ai_generated` によって通常の問題とAI生成由来の問題を識別する。
+* 通常のQUESTIONは `ai_generated = false` とする。
+* AI生成由来のQUESTIONは `ai_generated = true` とする。
+* AI生成由来のQUESTIONには所有USERを設定する。
+* 通常のQUESTIONには所有USERを設定しない。
+* AI生成由来のQUESTIONは所有USERのみが利用できる。
+* AI生成由来のQUESTIONは通常学習、復習、お気に入り、学習履歴、ユーザー用問題一覧など既存のQUESTIONを利用する機能へ統合する。
+* AI生成由来のQUESTIONはAIによる再生成の対象としない。
+* FAVORITEは大陸普通話・台湾華語で分離しない。
+* FAVORITEはお気に入り登録された場合のみレコードを作成する。
+* FAVORITEの学習対象言語はQUESTIONから判定する。
+* STUDY_HISTORYは大陸普通話・台湾華語で分離しない。
+* STUDY_HISTORYはUSERとQUESTIONの組み合わせごとに1レコードを保持する。
+* STUDY_HISTORYには最新の理解度を保持する。
+* STUDY_HISTORYの学習対象言語はQUESTIONから判定する。
+* AI生成対象となるQUESTIONは `allow_ai_variation` により明示的に区別する。
+* QUESTIONはAI生成時の変更可能範囲を `template` によって定義する。
+* AIによる変更を許可する部分は、`template` 内のプレースホルダとして表現する。
+* AIによる変更を許可しない部分は、`template` の固定部分として保持する。
+* 主語の種類など問題ごとに異なる生成制約は、可能な限りプレースホルダの種類によって表現する。
+* QUESTIONには `subject_type` を保持しない。
+* QUESTIONには `verb_variation` を保持しない。
+* AI_GENERATION_HISTORYは大陸普通話・台湾華語で分離しない。
+* AI_GENERATION_HISTORYはAI問題生成時の重複抑制に使用する。
+* AI_GENERATION_HISTORYには必ず生成したUSERを設定する。
+* AI_GENERATION_HISTORYには必ず生成元QUESTIONを設定する。
+* AI_GENERATION_HISTORYはUSERとQUESTIONの組み合わせごとに管理する。
+* 同一USER・同一QUESTIONについて保持するAI生成履歴は直近5件までとする。
+* AI_GENERATION_HISTORYには生成された中国語文を保持する。
+* AI_GENERATION_HISTORYには生成日時を保持する。
+* AI_GENERATION_HISTORYは理解度評価とは独立して、AI問題が生成された時点で更新する。
+* AI_GENERATION_HISTORYは保存されたAI生成由来のQUESTIONとは異なる目的のデータとして管理する。
+* AI_GENERATION_HISTORYはSTUDY_HISTORYとは分離して管理する。
+* AI_GENERATION_HISTORYの学習対象言語は生成元QUESTIONから判定する。
+* AI_GENERATION_HISTORYのStructureは生成元QUESTIONから判定する。
+* AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` を重複して保持しない。
+* 文法・構造は独立したSTRUCTUREとして管理する。
+* STRUCTUREは文法・構造ID、文法・構造名、大陸普通話向けの説明、台湾華語向けの説明を保持する。
+* 文法・構造そのものの分類は大陸普通話と台湾華語で共通して管理する。
+* STRUCTUREの説明は、大陸普通話向けと台湾華語向けに分けて保持する。
+* STRUCTUREの説明を表示する際は、USERに設定されている現在の学習対象言語に応じて使用する説明を切り替える。
+* STRUCTUREの説明の切り替えはサイト表記言語とは独立して扱う。
+* STRUCTUREとQUESTIONは1対多の関係とする。
+* QUESTIONには `structure_id` を外部キーとして保持する。
+* 1つのQUESTIONにつき1つのSTRUCTUREを設定する。
+* QUESTIONからSTRUCTUREへの関連は必須とする。
+* QUESTION自身には文法・構造名や説明を重複して保持しない。
 
 ---
 
-## 16. 開発途中で追加した設計
+## 14. 開発途中で追加した設計
 
-### 16.1 拼音・注音への対応
+### 14.1 拼音・注音への対応
 
 **追加日：2026年8月15日**
 
-当初のER図では、QUESTIONおよびAI_GENERATED_QUESTIONに中国語本文のみを保持し、発音表記は保持しない設計としていた。
+当初のER図では、QUESTIONに中国語本文のみを保持し、発音表記は保持しない設計としていた。
 
-その後、学習時に中国語の発音を確認できるようにするため、QUESTIONおよびAI_GENERATED_QUESTIONに以下の属性を追加する。
+その後、学習時に中国語の発音を確認できるようにするため、QUESTIONに以下の属性を追加する。
 
 ```text
 pinyin
 zhuyin
 ```
 
-QUESTIONおよびAI_GENERATED_QUESTIONは、大陸普通話・台湾華語のどちらの問題についても拼音・注音の両方を保持する。
+QUESTIONは、大陸普通話・台湾華語のどちらの問題についても拼音・注音の両方を保持する。
 
 発音表記は `language_variant` と固定的に対応させない。
 
@@ -1268,15 +1201,15 @@ TAIWAN   + ZHUYIN
 
 当初、この設定をどのように保持するかは確定していなかったが、その後の設計変更により、USERの `pronunciation_type` としてDBへ永続化することとした。
 
-QUESTIONおよびAI_GENERATED_QUESTIONとの新たなリレーションは発生しない。
+QUESTIONとの新たなリレーションは発生しない。
 
 ---
 
-### 16.2 別解の拼音・注音への対応
+### 14.2 別解の拼音・注音への対応
 
 **追加日：2026年8月16日**
 
-`16.1 拼音・注音への対応` では、QUESTIONの中国語模範解答に対応する発音情報として、
+`14.1 拼音・注音への対応` では、QUESTIONの中国語模範解答に対応する発音情報として、
 
 ```text
 pinyin
@@ -1314,7 +1247,7 @@ QUESTION
 
 ---
 
-### 16.3 問題の文法・構造（structure）の追加
+### 14.3 問題の文法・構造（structure）の追加
 
 **追加日：2026年8月23日**
 
@@ -1338,8 +1271,8 @@ QUESTION
 
 の場合、
 
-- `structure` は、中国語文そのものの根幹となる文法・構造を表す。
-- `condition` は、開発者・出題者がその問題に設定した解答条件・ヒントを表す。
+* `structure` は、中国語文そのものの根幹となる文法・構造を表す。
+* `condition` は、開発者・出題者がその問題に設定した解答条件・ヒントを表す。
 
 したがって、`structure` と `condition` は役割が異なる。
 
@@ -1361,11 +1294,11 @@ condition
 
 ---
 
-### 16.4 Structureのマスタテーブル化
+### 14.4 Structureのマスタテーブル化
 
 **設計変更日：2026年8月24日**
 
-`16.3 問題の文法・構造（structure）の追加` では、QUESTION自身が文法・構造名を文字列として保持する設計としていた。
+`14.3 問題の文法・構造（structure）の追加` では、QUESTION自身が文法・構造名を文字列として保持する設計としていた。
 
 その後、文法・構造名だけでなく、その文法・構造についての説明を管理する必要が生じた。
 
@@ -1373,7 +1306,6 @@ condition
 
 ```text
 可能補語
-
 動作や結果が実現できるか、できないかを表す形式。
 ```
 
@@ -1440,7 +1372,6 @@ description_zh_tw
 
 ```text
 USER.language_variant
-
 ├── MAINLAND
 │   └── description_zh_cn
 │
@@ -1507,39 +1438,11 @@ condition
 
 STRUCTUREとの関連はすべてのQUESTIONに必須とするが、`condition` は特定の解答条件を必要とする問題にのみ設定するため、NULLを許可する。
 
-#### AI_GENERATED_QUESTIONとの関係
-
-AI_GENERATED_QUESTIONには、STRUCTUREとの外部キーを追加しない。
-
-AI生成問題は、
-
-```text
-source_question_id
-```
-
-によって生成元QUESTIONを参照しているため、
-
-```text
-AI_GENERATED_QUESTION
-        │
-        │ source_question_id
-        ↓
-     QUESTION
-        │
-        │ structure_id
-        ↓
-    STRUCTURE
-```
-
-という関係から文法・構造を取得する。
-
-AI生成問題は生成元QUESTIONの文法・構造を維持したバリエーションとして生成するため、原則として生成元QUESTIONと同じSTRUCTUREに分類される。
-
-そのため、AI_GENERATED_QUESTION自身に `structure_id` を重複して保持しない。
+AI生成由来の問題についても保存後はQUESTIONとして管理するため、通常のQUESTIONと同様に `structure_id` によってSTRUCTUREを参照する。
 
 ---
 
-### 16.5 ユーザー設定の永続化
+### 14.5 ユーザー設定の永続化
 
 **設計変更日：2026年8月27日**
 
@@ -1588,16 +1491,14 @@ NONE
 
 ```text
 USER
-├── language_variant   = TAIWAN
+├── language_variant    = TAIWAN
 └── pronunciation_type = ZHUYIN
-
         ↓
     ログアウト
         ↓
     再ログイン
-
 USER
-├── language_variant   = TAIWAN
+├── language_variant    = TAIWAN
 └── pronunciation_type = ZHUYIN
 ```
 
@@ -1624,11 +1525,11 @@ QUESTION.language_variant
 
 通常学習や復習などでは、USERに保存されている `language_variant` を基準として、対応する `QUESTION.language_variant` の問題を取得する。
 
-発音表示では、USERに保存されている `pronunciation_type` を基準として、QUESTIONまたはAI_GENERATED_QUESTIONが保持する拼音・注音のどちらを表示するか、または発音表記を表示しないかを決定する。
+発音表示では、USERに保存されている `pronunciation_type` を基準として、QUESTIONが保持する拼音・注音のどちらを表示するか、または発音表記を表示しないかを決定する。
 
 ---
 
-### 16.6 AI生成履歴の追加
+### 14.6 AI生成履歴の追加
 
 **設計変更日：2026年9月4日**
 
@@ -1654,13 +1555,13 @@ AI_GENERATION_HISTORY
 
 各属性の役割は以下のとおりとする。
 
-| 属性 | 役割 |
-| --- | --- |
-| `id` | AI生成履歴を一意に識別するID |
-| `user_id` | AI問題を生成したUSER |
-| `question_id` | 生成元となったQUESTION |
-| `chinese_text` | AIによって生成された中国語文 |
-| `created_at` | AI生成履歴が作成された日時 |
+| 属性             | 役割               |
+| -------------- | ---------------- |
+| `id`           | AI生成履歴を一意に識別するID |
+| `user_id`      | AI問題を生成したUSER    |
+| `question_id`  | 生成元となったQUESTION  |
+| `chinese_text` | AIによって生成された中国語文  |
+| `created_at`   | AI生成履歴が作成された日時   |
 
 `id` をAI_GENERATION_HISTORYの主キーとする。
 
@@ -1821,21 +1722,23 @@ USER
 
 保持する履歴を直近5件に限定することで、短期間の重複や過度な類似を抑制しつつ、過去に使用された自然な語彙や表現を将来的に再び使用できるものとする。
 
-#### AI_GENERATED_QUESTIONとの違い
+#### 保存されたAI生成由来のQUESTIONとの違い
 
-AI_GENERATION_HISTORYとAI_GENERATED_QUESTIONは、どちらもAIによる生成結果に関係するが、目的が異なる。
+AI_GENERATION_HISTORYと、保存されたAI生成由来のQUESTIONは、どちらもAIによる生成結果に関係するが、目的が異なる。
 
 ```text
-AI_GENERATED_QUESTION
-└── ユーザーが学習したAI生成問題を保存する
+AI生成由来のQUESTION
+└── ユーザーが学習に利用するために保存した問題
 
 AI_GENERATION_HISTORY
 └── 次回のAI問題生成時に過去の生成結果を参照する
 ```
 
-AI_GENERATED_QUESTIONは、AIによって問題が生成されただけでは永続化せず、ユーザーがその問題に対して `HARD / GOOD / EASY` のいずれかの理解度を与えた場合に保存する。
+AIによって生成された問題は、生成された時点ではQUESTIONとして永続化しない。
 
-一方、AI_GENERATION_HISTORYはユーザーの理解度評価を管理するためのものではない。
+ユーザーが生成された問題を保存した場合に、その問題をAI生成由来のQUESTIONとして永続化する。
+
+一方、AI_GENERATION_HISTORYはユーザーの理解度評価や問題の保存操作を管理するためのものではない。
 
 AI問題の生成が正常に完了した時点で生成された中国語文を記録し、次回以降のAI問題生成に利用する。
 
@@ -1847,16 +1750,19 @@ AI問題を生成
       ├── AI_GENERATION_HISTORY
       │     └── 生成時点で記録
       │
-      └── AI_GENERATED_QUESTION
-            └── HARD / GOOD / EASYが
-                選択された場合に保存
+      └── ユーザーが保存
+            │
+            ▼
+         QUESTION
+         ├── ai_generated = true
+         └── owner = USER
 ```
 
 という異なるタイミング・目的でデータを管理する。
 
 #### STUDY_HISTORYとの違い
 
-STUDY_HISTORYは、USERとマスタQUESTIONの組み合わせについて、ユーザーの学習状態や最新の理解度を管理するためのエンティティである。
+STUDY_HISTORYは、USERとQUESTIONの組み合わせについて、ユーザーの学習状態や最新の理解度を管理するためのエンティティである。
 
 一方、AI_GENERATION_HISTORYは学習状態や理解度を管理しない。
 
@@ -1904,11 +1810,11 @@ USER 1 : 0..N AI_GENERATION_HISTORY
 QUESTION 1 : 0..N AI_GENERATION_HISTORY
 ```
 
-AI_GENERATION_HISTORYはAI問題生成のための内部的な生成履歴として扱い、通常の学習履歴およびユーザー専用のAI生成問題とは明確に分離して管理する。
+AI_GENERATION_HISTORYはAI問題生成のための内部的な生成履歴として扱い、STUDY_HISTORYおよび保存されたAI生成由来のQUESTIONとは異なる目的のデータとして管理する。
 
 ---
 
-### 16.7 AI生成制御属性の廃止
+### 14.7 AI生成制御属性の廃止
 
 **設計変更日：2026年9月4日**
 
@@ -2023,7 +1929,7 @@ QUESTION
 
 ---
 
-### 16.8 ユーザー管理に伴うアカウント凍結状態の追加
+### 14.8 ユーザー管理に伴うアカウント凍結状態の追加
 
 **設計変更日：2026年9月11日**
 
@@ -2031,7 +1937,7 @@ QUESTION
 
 これまでUSERは、
 
-```text id="mj22f7"
+```text
 USER
 │
 ├── id
@@ -2046,13 +1952,13 @@ USER
 
 今回、管理者がユーザー情報を削除することなく一時的にユーザーの利用を停止できるようにするため、以下の属性を追加する。
 
-```text id="nj04d4"
+```text
 account_locked
 ```
 
 変更後のUSERは、
 
-```text id="rmn07k"
+```text
 USER
 │
 ├── id
@@ -2068,7 +1974,7 @@ USER
 
 `account_locked` はbooleanとして管理する。
 
-```text id="iy0u93"
+```text
 account_locked = false
 └── 通常
 
@@ -2080,11 +1986,11 @@ account_locked = true
 
 管理者によってUSERが凍結された場合は `account_locked = true` とし、そのUSERをログイン不可とする。
 
-この場合、USERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、保存されたAI生成問題などの関連データについても保持する。
+この場合、USERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、ユーザーが所有するAI生成由来のQUESTIONなどの関連データについても保持する。
 
 管理者が凍結を解除した場合は、
 
-```text id="3h4jnp"
+```text
 account_locked = true
         ↓
       凍結解除
@@ -2099,3 +2005,111 @@ account_locked = false
 そのため、今回の変更によって新しいエンティティおよびリレーションは発生しない。
 
 ER図上では、USERに `account_locked` を追加する変更のみを行う。
+
+---
+
+### 14.9 AI生成由来問題のQUESTIONへの統合
+
+**設計変更日：2026年9月11日**
+
+当初、ユーザーが保存したAI生成問題は、通常のQUESTIONとは分離した独立したエンティティとして管理する設計としていた。
+
+しかし、AI生成由来の問題についても、通常学習、復習、お気に入り、学習履歴など、既存のQUESTIONを利用する機能で共通して扱えるようにするため、保存先をQUESTIONへ統合する設計へ変更する。
+
+変更後は、QUESTIONに以下の属性を追加する。
+
+```text
+ai_generated
+owner_user_id
+```
+
+`ai_generated` は、そのQUESTIONがAI生成由来であるかを識別する。
+
+```text
+QUESTION
+│
+├── ai_generated = false
+│   └── 通常の問題
+│
+└── ai_generated = true
+    └── AI生成由来の問題
+```
+
+通常のQUESTIONは、
+
+```text
+ai_generated = false
+owner_user_id = NULL
+```
+
+として管理する。
+
+AI生成モードで生成され、ユーザーによって保存されたQUESTIONは、
+
+```text
+ai_generated = true
+owner_user_id = 保存したUSER
+```
+
+として管理する。
+
+これにより、USERとAI生成由来のQUESTIONには以下の所有関係が発生する。
+
+```text
+USER
+  │
+  │ 1:N
+  ▼
+QUESTION
+  └── ai_generated = true
+```
+
+1人のUSERは複数のAI生成由来QUESTIONを所有できる。
+
+一方、1つのAI生成由来QUESTIONを所有するUSERは1人とする。
+
+通常のQUESTIONには所有USERを設定しない。
+
+AI生成由来のQUESTIONは、そのQUESTIONを所有するUSERのみが利用できるものとし、他のユーザーが所有するAI生成由来QUESTIONは通常学習、復習、ユーザー用問題一覧などの出題・検索対象としない。
+
+保存されたAI生成由来のQUESTIONについては、通常のQUESTIONと同様に、
+
+```text
+QUESTION
+├── STUDY_HISTORY
+├── FAVORITE
+└── STRUCTURE
+```
+
+など既存のリレーションを利用する。
+
+したがって、AI生成由来のQUESTION専用の学習履歴やお気に入りを設けない。
+
+また、AI生成由来のQUESTIONはAIによる再生成の対象とはしない。
+
+AI問題生成の対象となるQUESTIONは、従来どおり `allow_ai_variation` によって判定する。
+
+AI生成直後の問題については、ユーザーが保存するまではQUESTIONとして永続化しない。
+
+生成直後から保存までの一時的な生成結果はDTOとして扱い、ER図上のエンティティとはしない。
+
+今回の変更により、AI生成問題を保存するために独立したエンティティを設ける設計を廃止する。
+
+最終的な構造は以下のとおりとする。
+
+```text
+QUESTION
+│
+├── ai_generated = false
+│   └── 通常の問題
+│
+└── ai_generated = true
+    └── AI生成由来の問題
+          │
+          └── owner_user_id
+                  │
+                  ▼
+                 USER
+```
+
+これにより、問題そのものはQUESTIONへ統合しながら、`ai_generated` と `owner_user_id` によって通常の問題とユーザー専用のAI生成由来問題を区別して管理する。
