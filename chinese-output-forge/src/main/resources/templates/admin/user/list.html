@@ -26,6 +26,13 @@
 
             <h1 class="h2">ユーザー一覧画面</h1>
             
+			<!-- 成功メッセージ -->
+			<div th:if="${successMessage}"
+			     class="alert alert-success"
+			     role="alert"
+			     th:text="${successMessage}">
+			</div>            
+            
 			<!-- ========================= -->
 			<!-- 検索フォーム -->
 			<!-- ========================= -->
@@ -166,41 +173,48 @@
                             </td>
 
                             <!-- 凍結 / 凍結解除 -->
-                            <td>
-
-                                <form th:if="${!item.accountLocked}"
-                                      th:action="@{/admin/user/lock}"
-                                      method="post">
-
-                                    <input type="hidden"
-                                           name="userId"
-                                           th:value="${item.id}">
-
-                                    <button type="submit"
-                                            class="btn btn-warning"
-                                            onclick="return confirm('ユーザーを凍結しますか？');">
-                                        凍結
-                                    </button>
-
-                                </form>
-
-                                <form th:if="${item.accountLocked}"
-                                      th:action="@{/admin/user/unlock}"
-                                      method="post">
-
-                                    <input type="hidden"
-                                           name="userId"
-                                           th:value="${item.id}">
-
-                                    <button type="submit"
-                                            class="btn btn-success"
-                                            onclick="return confirm('ユーザーの凍結を解除しますか？');">
-                                        凍結解除
-                                    </button>
-
-                                </form>
-
-                            </td>
+							<td>
+							
+							    <!-- ADMINは操作不可 -->
+							    <span th:if="${item.role.name() == 'ADMIN'}">
+							        -
+							    </span>
+							
+							    <!-- 有効ユーザー -->
+							    <form th:if="${item.role.name() != 'ADMIN' and !item.accountLocked}"
+							          th:action="@{/admin/user/lock}"
+							          method="post">
+							
+							        <input type="hidden"
+							               name="userId"
+							               th:value="${item.id}">
+							
+							        <button type="submit"
+							                class="btn btn-warning"
+							                onclick="return confirm('ユーザーを凍結しますか？');">
+							            凍結
+							        </button>
+							
+							    </form>
+							
+							    <!-- 凍結中ユーザー -->
+							    <form th:if="${item.role.name() != 'ADMIN' and item.accountLocked}"
+							          th:action="@{/admin/user/unlock}"
+							          method="post">
+							
+							        <input type="hidden"
+							               name="userId"
+							               th:value="${item.id}">
+							
+							        <button type="submit"
+							                class="btn btn-success"
+							                onclick="return confirm('ユーザーの凍結を解除しますか？');">
+							            凍結解除
+							        </button>
+							
+							    </form>
+							
+							</td>
 
                             <!-- 削除 -->
                             <td>

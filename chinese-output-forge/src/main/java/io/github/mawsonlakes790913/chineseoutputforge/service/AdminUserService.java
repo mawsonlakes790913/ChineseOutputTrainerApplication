@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
@@ -24,6 +25,35 @@ public class AdminUserService {
 	            searchDto.getLoginId(),
 	            searchDto.getAccountStatus().name(),
 	            pageable);
+	}
+	
+	// ユーザー凍結
+	public void lockUser(Long userId) {
+
+	    Users user = userRepository.findById(userId)
+	            .orElseThrow();
+	    
+	    if (user.getRole() == Role.ADMIN) {
+	        throw new IllegalStateException("管理者ユーザーは凍結できません。");
+	    }
+	    
+	    if (!user.isAccountLocked()) {
+	    	user.setAccountLocked(true);
+	    }
+	    userRepository.save(user);
+	}
+	
+	// ユーザー凍結
+	public void unlockUser(Long userId) {
+
+	    Users user = userRepository.findById(userId)
+	            .orElseThrow();
+
+	    if (user.isAccountLocked()) {
+	    	user.setAccountLocked(false);
+	    }
+
+	    userRepository.save(user);
 	}
 
 }

@@ -7,6 +7,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.AccountStatus;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
@@ -49,6 +52,37 @@ public class AdminUserController {
 	    model.addAttribute("searchDto", searchDto);
 
 	    return "/admin/user/list";
+	}
+	
+	// ユーザー凍結
+	@PostMapping("/admin/user/lock")
+	public String lockUser(
+	        @RequestParam Long userId,
+	        RedirectAttributes redirectAttributes) {
+
+	    adminUserService.lockUser(userId);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "ユーザーを凍結しました。");
+
+	    return "redirect:/admin/user/list";
+	}
+
+
+	// ユーザー凍結解除
+	@PostMapping("/admin/user/unlock")
+	public String unlockUser(
+	        @RequestParam Long userId,
+	        RedirectAttributes redirectAttributes) {
+
+	    adminUserService.unlockUser(userId);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "ユーザーの凍結を解除しました。");
+
+	    return "redirect:/admin/user/list";
 	}
 
 }
