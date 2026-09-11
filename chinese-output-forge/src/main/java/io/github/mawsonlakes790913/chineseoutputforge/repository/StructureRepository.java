@@ -2,6 +2,8 @@ package io.github.mawsonlakes790913.chineseoutputforge.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -17,4 +19,11 @@ public interface StructureRepository
 		    """,
 		    nativeQuery = true)
 		List<Long> findAllStructureIds();
+	
+	@Query("""
+	        SELECT s
+	        FROM Structure s
+	        ORDER BY s.structureId ASC
+	        """)
+	Page<Structure> findStructures(Pageable pageable);
 }

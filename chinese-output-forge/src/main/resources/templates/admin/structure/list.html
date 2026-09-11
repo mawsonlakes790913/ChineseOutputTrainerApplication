@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Admin 文法・構造管理</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="w-100">
+
+    <h2 class="mb-4">
+        文法・構造管理
+    </h2>
+
+    <!-- ========================= -->
+    <!-- 成功メッセージ -->
+    <!-- ========================= -->
+
+    <div th:if="${successMessage}"
+         class="alert alert-success alert-dismissible fade show"
+         role="alert">
+
+        <span th:text="${successMessage}"></span>
+
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close">
+        </button>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 文法・構造一覧 -->
+    <!-- ========================= -->
+
+    <div class="table-responsive">
+
+        <table class="table table-hover align-middle">
+
+            <thead class="table-dark">
+
+            <tr>
+
+                <th class="text-nowrap">
+                    ID
+                </th>
+
+                <th class="text-nowrap">
+                    文法・構造
+                </th>
+
+                <th>
+                    中国大陸向け説明
+                </th>
+
+                <th>
+                    台湾向け説明
+                </th>
+
+                <th class="text-nowrap">
+                    編集
+                </th>
+
+                <th class="text-nowrap">
+                    削除
+                </th>
+
+            </tr>
+
+            </thead>
+
+            <tbody>
+
+            <tr th:each="structure : ${structureList}">
+
+                <!-- ID -->
+                <td th:text="${structure.structureId}">
+                </td>
+
+                <!-- 文法・構造 -->
+                <td th:text="${structure.name}">
+                </td>
+
+                <!-- 中国大陸向け説明 -->
+                <td th:text="${structure.descriptionZhCn}">
+                </td>
+
+                <!-- 台湾向け説明 -->
+                <td th:text="${structure.descriptionZhTw}">
+                </td>
+
+                <!-- 編集 -->
+                <td class="text-center">
+
+                    <a th:href="@{/admin/structure/edit(
+                            structureId=${structure.structureId}
+                       )}"
+                       class="btn btn-outline-primary btn-sm">
+
+                        <i class="bi bi-pencil-square"></i>
+
+                    </a>
+
+                </td>
+
+                <!-- 削除 -->
+                <td class="text-center">
+
+                    <form th:action="@{/admin/structure/delete}"
+                          method="post">
+
+                        <input type="hidden"
+                               name="structureId"
+                               th:value="${structure.structureId}">
+
+                        <button type="submit"
+                                class="btn btn-danger btn-sm"
+                                onclick="return confirm('この文法・構造を削除しますか？')">
+
+                            <i class="bi bi-trash"></i>
+
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- ページネーション -->
+    <!-- ========================= -->
+
+    <nav class="mt-4 mb-5"
+         th:if="${page.totalPages > 0}">
+
+        <ul class="pagination justify-content-center">
+
+            <!-- 前へ -->
+            <li class="page-item"
+                th:classappend="${page.first} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/admin/structure/list(
+                       page=${page.number - 1},
+                       size=${page.size}
+                   )}">
+                    前へ
+                </a>
+
+            </li>
+
+            <!-- 1ページ目 -->
+            <li class="page-item"
+                th:classappend="${page.number == 0} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/structure/list(
+                       page=0,
+                       size=${page.size}
+                   )}">
+                    1
+                </a>
+
+            </li>
+
+            <!-- ... 先頭側 -->
+            <li class="page-item disabled"
+                th:if="${pagination.showFirstEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+            <!-- 中央のページ番号 -->
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(
+                    pagination.displayStartPage,
+                    pagination.displayEndPage)}"
+                th:if="${i != 0 and i != page.totalPages - 1}"
+                th:classappend="${i == pagination.currentPage} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/structure/list(
+                       page=${i},
+                       size=${page.size}
+                   )}"
+                   th:text="${i + 1}">
+                </a>
+
+            </li>
+
+            <!-- ... 末尾側 -->
+            <li class="page-item disabled"
+                th:if="${pagination.showLastEllipsis}">
+
+                <span class="page-link">...</span>
+
+            </li>
+
+            <!-- 最終ページ -->
+            <li class="page-item"
+                th:if="${page.totalPages > 1}"
+                th:classappend="${page.last} ? ' active'">
+
+                <a class="page-link"
+                   th:href="@{/admin/structure/list(
+                       page=${page.totalPages - 1},
+                       size=${page.size}
+                   )}"
+                   th:text="${page.totalPages}">
+                </a>
+
+            </li>
+
+            <!-- 次へ -->
+            <li class="page-item"
+                th:classappend="${page.last} ? ' disabled'">
+
+                <a class="page-link"
+                   th:href="@{/admin/structure/list(
+                       page=${page.number + 1},
+                       size=${page.size}
+                   )}">
+                    次へ
+                </a>
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+    <!-- ========================= -->
+    <!-- 戻る -->
+    <!-- ========================= -->
+
+    <div class="text-center mt-3 mb-3">
+
+        <a th:href="@{/admin/menu}"
+           class="btn btn-secondary">
+
+            Adminメニューに戻る
+
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
