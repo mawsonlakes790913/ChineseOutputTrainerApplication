@@ -59,6 +59,21 @@
         </button>
 
     </div>
+    
+	<!-- エラーメッセージ -->
+	<div th:if="${errorMessage}"
+	     class="alert alert-danger alert-dismissible fade show"
+	     role="alert">
+	
+	    <span th:text="${errorMessage}"></span>
+	
+	    <button type="button"
+	            class="btn-close"
+	            data-bs-dismiss="alert"
+	            aria-label="Close">
+	    </button>
+	
+	</div>    
 
     <!-- ========================= -->
     <!-- 文法・構造一覧 -->

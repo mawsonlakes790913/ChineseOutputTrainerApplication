@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 	
@@ -582,6 +583,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        String languageVariant
 
 	);
+	
+	@Modifying
+	@Query("""
+	        UPDATE Question q
+	        SET q.structure = :replacementStructure
+	        WHERE q.structure = :targetStructure
+	        """)
+	void replaceStructure(
+	        @Param("targetStructure") Structure targetStructure,
+	        @Param("replacementStructure") Structure replacementStructure);
 	
 	
 }

@@ -148,4 +148,30 @@ public class AdminStructureController {
 
         return "redirect:/admin/structure/list";
     }
+    
+    // 文法削除
+    @PostMapping("/admin/structure/delete")
+    public String deleteStructure(
+            @RequestParam Long structureId,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+
+            adminStructureService.deleteStructure(structureId);
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+
+            redirectAttributes.addFlashAttribute(
+                    "errorMessage",
+                    e.getMessage());
+
+            return "redirect:/admin/structure/list";
+        }
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                "文法・構造を削除しました。");
+
+        return "redirect:/admin/structure/list";
+    }
 }
