@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>ユーザー一覧</title>
+
+    <link rel="stylesheet" th:href="@{/css/study.css}">
+
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
+
+    <script th:src="@{/js/study.js}" defer></script>
+
+</head>
+
+<body>
+
+    <div layout:fragment="content">
+
+        <div class="header border-bottom">
+
+            <h1 class="h2">ユーザー一覧画面</h1>
+
+            <!-- 一覧表示 -->
+            <div>
+
+                <table class="table table-striped table-bordered table-hover text-center">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>ユーザーID</th>
+
+                            <th>Role</th>
+
+                            <th>状態</th>
+
+                            <th>凍結</th>
+
+                            <th>削除</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <tr th:each="item : ${userList}">
+
+                            <td th:text="${item.loginId}"></td>
+
+                            <td th:text="${item.role}"></td>
+
+                            <td>
+
+                                <span th:if="${item.accountLocked}"
+                                      class="text-danger fw-bold">
+                                    凍結中
+                                </span>
+
+                                <span th:unless="${item.accountLocked}">
+                                    有効
+                                </span>
+
+                            </td>
+
+                            <!-- 凍結 / 凍結解除 -->
+                            <td>
+
+                                <form th:if="${!item.accountLocked}"
+                                      th:action="@{/admin/user/lock}"
+                                      method="post">
+
+                                    <input type="hidden"
+                                           name="userId"
+                                           th:value="${item.id}">
+
+                                    <button type="submit"
+                                            class="btn btn-warning"
+                                            onclick="return confirm('ユーザーを凍結しますか？');">
+                                        凍結
+                                    </button>
+
+                                </form>
+
+                                <form th:if="${item.accountLocked}"
+                                      th:action="@{/admin/user/unlock}"
+                                      method="post">
+
+                                    <input type="hidden"
+                                           name="userId"
+                                           th:value="${item.id}">
+
+                                    <button type="submit"
+                                            class="btn btn-success"
+                                            onclick="return confirm('ユーザーの凍結を解除しますか？');">
+                                        凍結解除
+                                    </button>
+
+                                </form>
+
+                            </td>
+
+                            <!-- 削除 -->
+                            <td>
+
+                                <form th:action="@{/admin/user/delete}"
+                                      method="post">
+
+                                    <input type="hidden"
+                                           name="userId"
+                                           th:value="${item.id}">
+
+                                    <button type="submit"
+                                            class="btn btn-danger"
+                                            onclick="return confirm('ユーザーを削除しますか？');">
+                                        削除
+                                    </button>
+
+                                </form>
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+				<!-- ========================= -->
+				<!-- ページネーション -->
+				<!-- ========================= -->
+				
+				<nav class="mt-4 mb-5"
+				     th:if="${page.totalPages > 0}">
+				
+				    <ul class="pagination justify-content-center">
+				
+				        <!-- 前へ -->
+				        <li class="page-item"
+				            th:classappend="${page.first} ? ' disabled'">
+				
+				            <a class="page-link"
+				               th:href="@{/admin/user/list(
+				                   page=${page.number - 1},
+				                   size=${page.size}
+				               )}">
+				                前へ
+				            </a>
+				
+				        </li>
+				
+				
+				        <!-- 1ページ目 -->
+				        <li class="page-item"
+				            th:classappend="${page.number == 0} ? ' active'">
+				
+				            <a class="page-link"
+				               th:href="@{/admin/user/list(
+				                   page=0,
+				                   size=${page.size}
+				               )}">
+				                1
+				            </a>
+				
+				        </li>
+				
+				
+				        <!-- ... 先頭側 -->
+				        <li class="page-item disabled"
+				            th:if="${pagination.showFirstEllipsis}">
+				
+				            <span class="page-link">...</span>
+				
+				        </li>
+				
+				
+				        <!-- 中央のページ番号 -->
+				        <li class="page-item"
+				            th:each="i : ${#numbers.sequence(
+				                pagination.displayStartPage,
+				                pagination.displayEndPage)}"
+				            th:if="${i != 0 and i != page.totalPages - 1}"
+				            th:classappend="${i == pagination.currentPage} ? ' active'">
+				
+				            <a class="page-link"
+				               th:href="@{/admin/user/list(
+				                   page=${i},
+				                   size=${page.size}
+				               )}"
+				               th:text="${i + 1}">
+				            </a>
+				
+				        </li>
+				
+				
+				        <!-- ... 末尾側 -->
+				        <li class="page-item disabled"
+				            th:if="${pagination.showLastEllipsis}">
+				
+				            <span class="page-link">...</span>
+				
+				        </li>
+				
+				
+				        <!-- 最終ページ -->
+				        <li class="page-item"
+				            th:if="${page.totalPages > 1}"
+				            th:classappend="${page.last} ? ' active'">
+				
+				            <a class="page-link"
+				               th:href="@{/admin/user/list(
+				                   page=${page.totalPages - 1},
+				                   size=${page.size}
+				               )}"
+				               th:text="${page.totalPages}">
+				            </a>
+				
+				        </li>
+				
+				
+				        <!-- 次へ -->
+				        <li class="page-item"
+				            th:classappend="${page.last} ? ' disabled'">
+				
+				            <a class="page-link"
+				               th:href="@{/admin/user/list(
+				                   page=${page.number + 1},
+				                   size=${page.size}
+				               )}">
+				                次へ
+				            </a>
+				
+				        </li>
+				
+				    </ul>
+				
+				</nav>
+
+                <div class="text-center mt-3 mb-3">
+
+                    <a th:href="@{/admin/menu}"
+                       class="btn btn-secondary">
+                        adminメニューに戻る
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
