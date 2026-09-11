@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminUserService {
 	
 	private final UserRepository userRepository;
+	private final UserAccountService userAccountService;
 	
 	// ユーザー一覧取得
 	public Page<Users> getUsers(
@@ -43,7 +44,7 @@ public class AdminUserService {
 	    userRepository.save(user);
 	}
 	
-	// ユーザー凍結
+	// ユーザー凍結解除
 	public void unlockUser(Long userId) {
 
 	    Users user = userRepository.findById(userId)
