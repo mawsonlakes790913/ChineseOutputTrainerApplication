@@ -39,4 +39,7 @@ public class Users {
     @Enumerated(EnumType.STRING)
     @Column(name = "pronunciation_type", nullable = false, length = 20)
     private PronunciationType pronunciationType = PronunciationType.PINYIN;
+    
+    @Column(name = "account_locked")
+    private boolean accountLocked;
 }
