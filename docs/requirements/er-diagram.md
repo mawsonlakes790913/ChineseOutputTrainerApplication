@@ -93,9 +93,11 @@ erDiagram
         string login_id
         string password
         string role
+        boolean account_locked
         string language_variant
         string pronunciation_type
     }
+
 
 
     STRUCTURE {
@@ -202,10 +204,14 @@ USER
               （生成元）
 ```
 
-USER自身は、ユーザーごとの設定として以下の属性を保持する。
+USER自身は、ユーザーごとのアカウント状態および設定として以下の属性を保持する。
 
 ```text
 USER
+│
+├── account_locked
+│   ├── false：通常
+│   └── true ：凍結
 │
 ├── language_variant
 │   ├── MAINLAND
@@ -216,6 +222,10 @@ USER
     ├── ZHUYIN
     └── NONE
 ```
+
+USER.account_locked は、管理者によってユーザーアカウントが凍結されているかを表す。
+
+false の場合は通常のアカウントとして扱い、true の場合はユーザー情報および関連データを保持したままログイン不可とする。
 
 `USER.language_variant` は、そのユーザーが現在どちらの中国語を学習対象としているかを表す。
 
@@ -436,6 +446,43 @@ pronunciation_type  = PINYIN
 学習対象言語を変更しても発音表記は自動的に変更しない。
 
 同様に、発音表記を変更しても学習対象言語は変更しない。
+
+---
+
+### アカウント凍結状態
+
+USERは、管理者によるアカウントの凍結状態として、
+
+```text
+account_locked
+```
+
+を保持する。
+
+値はbooleanとし、デフォルト値は、
+
+```text
+false
+```
+
+とする。
+
+`false` は通常の状態、`true` は管理者によってアカウントが凍結されている状態を表す。
+
+```text
+account_locked = false
+└── ログイン可能
+
+account_locked = true
+└── ログイン不可
+```
+
+アカウントを凍結してもUSERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、保存されたAI生成問題などのデータも保持する。
+
+管理者が凍結を解除した場合は `account_locked` を `false` に戻し、再びログイン可能な状態とする。
+
+この変更はUSERが保持する属性の追加であり、新しいエンティティやリレーションは発生しない。
+
 
 ---
 
@@ -1123,6 +1170,12 @@ AI問題生成に関する共通設定としてAiSettingを想定するが、現
 - USERの設定はログアウト後も保持する。
 - USERの `language_variant` と `pronunciation_type` は独立した設定として扱う。
 - USERの `language_variant` とQUESTIONの `language_variant` は役割が異なる。
+- USERはアカウントの凍結状態を `account_locked` として保持する。
+- USERの `account_locked` のデフォルト値は `false` とする。
+- `account_locked = true` のUSERは、ユーザー情報および関連データを保持したままログイン不可とする。
+- 管理者はUSERの凍結および凍結解除を行えるものとする。
+- 管理者はUSERを削除できるものとする。
+- USERを削除する場合は、関連するデータとの整合性を維持できるようにする。
 - 大陸普通話と台湾華語は異なる問題データとして扱う。
 - QUESTIONは大陸普通話・台湾華語で分離しない。
 - QUESTIONに `language_variant` を持たせる。
@@ -1967,3 +2020,82 @@ QUESTION
 ```
 
 などの既存のリレーションはそのまま維持する。
+
+---
+
+### 16.8 ユーザー管理に伴うアカウント凍結状態の追加
+
+**設計変更日：2026年9月11日**
+
+管理者によるユーザー管理機能の追加に伴い、USERにアカウントの凍結状態を保持する属性を追加する。
+
+これまでUSERは、
+
+```text id="mj22f7"
+USER
+│
+├── id
+├── login_id
+├── password
+├── role
+├── language_variant
+└── pronunciation_type
+```
+
+を保持していた。
+
+今回、管理者がユーザー情報を削除することなく一時的にユーザーの利用を停止できるようにするため、以下の属性を追加する。
+
+```text id="nj04d4"
+account_locked
+```
+
+変更後のUSERは、
+
+```text id="rmn07k"
+USER
+│
+├── id
+├── login_id
+├── password
+├── role
+├── account_locked
+├── language_variant
+└── pronunciation_type
+```
+
+となる。
+
+`account_locked` はbooleanとして管理する。
+
+```text id="iy0u93"
+account_locked = false
+└── 通常
+
+account_locked = true
+└── 凍結
+```
+
+デフォルト値は `false` とする。
+
+管理者によってUSERが凍結された場合は `account_locked = true` とし、そのUSERをログイン不可とする。
+
+この場合、USERそのものは削除せず、そのUSERに関連する学習履歴、お気に入り、AI生成履歴、保存されたAI生成問題などの関連データについても保持する。
+
+管理者が凍結を解除した場合は、
+
+```text id="3h4jnp"
+account_locked = true
+        ↓
+      凍結解除
+        ↓
+account_locked = false
+```
+
+として、再びログイン可能な状態へ戻す。
+
+なお、アカウントの凍結状態はUSER自身の状態を表す属性であるため、独立したエンティティとしては管理しない。
+
+そのため、今回の変更によって新しいエンティティおよびリレーションは発生しない。
+
+ER図上では、USERに `account_locked` を追加する変更のみを行う。

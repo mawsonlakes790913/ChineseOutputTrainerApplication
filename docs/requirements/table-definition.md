@@ -44,7 +44,7 @@ pronunciation_type
 
 ## 概要
 
-ユーザー情報、認証情報、権限、およびユーザーごとの学習・表示設定を管理するテーブル。
+ユーザー情報、認証情報、権限、アカウント状態、およびユーザーごとの学習・表示設定を管理するテーブル。
 
 ユーザーを内部的に識別するための `id` を主キーとし、ユーザーがログイン時に使用するIDは `login_id` として別途管理する。
 
@@ -61,8 +61,33 @@ pronunciation_type
 | login_id | ログインID | - | - | VARCHAR(20) | ○ | ○ | ユーザーがログイン時に使用 |
 | password | パスワード | - | - | VARCHAR(255) | ○ | - | ハッシュ化して保存 |
 | role | 権限 | - | - | VARCHAR(20) | ○ | - | USER / ADMIN |
+| account_locked | アカウント凍結状態 | - | - | BOOLEAN | ○ | - | false：通常 / true：凍結 |
 | language_variant | 学習対象言語 | - | - | VARCHAR(20) | ○ | - | MAINLAND / TAIWAN |
 | pronunciation_type | 発音表記 | - | - | VARCHAR(20) | ○ | - | PINYIN / ZHUYIN / NONE |
+
+## `account_locked`
+
+ユーザーのアカウント凍結状態を表す。
+
+| 値     | 意味 |
+| ----- | -- |
+| false | 通常 |
+| true  | 凍結 |
+
+新規ユーザーのデフォルト値は、
+
+```text
+false
+```
+
+とする。
+
+管理者によってアカウントが凍結された場合は `true` とし、対象ユーザーをログイン不可とする。
+
+アカウントを凍結してもUSERそのものは削除せず、ユーザーに関連するデータについても保持する。
+
+管理者によって凍結が解除された場合は `false` に戻し、再びログイン可能な状態とする。
+
 
 ## `language_variant`
 
@@ -112,6 +137,10 @@ PINYIN
 - 他テーブルからUSERを参照する場合は `login_id` ではなく `id` を外部キーとして使用する。
 - パスワードは平文では保存しない。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
+- `account_locked` はユーザーのアカウント凍結状態を表す。
+- `account_locked` のデフォルト値は `false` とする。
+- `account_locked = true` のユーザーはログイン不可とする。
+- アカウントを凍結してもUSERおよび関連データは削除しない。
 - `language_variant` はユーザーが現在使用する学習対象言語を表す。
 - `pronunciation_type` はユーザーが現在使用する発音表記を表す。
 - `language_variant` と `pronunciation_type` は独立した設定として扱う。
@@ -124,8 +153,9 @@ PINYIN
 USER
 
 id                   = 1001
-login_id             = naoki
+login_id             = mawsonlakes
 role                 = USER
+account_locked       = false
 language_variant     = TAIWAN
 pronunciation_type   = ZHUYIN
 ```
@@ -1286,6 +1316,14 @@ English
 - 他テーブルからユーザーを参照する場合は `USER.id` を使用する。
 - `login_id` を外部キーとして使用しない。
 - ユーザーが `login_id` を変更しても関連テーブルへの影響は発生しない。
+- USERには `account_locked` を保持する。
+- `account_locked` はアカウントの凍結状態を表す。
+- 新規ユーザーの `account_locked` のデフォルト値は `false` とする。
+- `account_locked = true` のUSERはログイン不可とする。
+- アカウントを凍結してもUSERおよび関連データは保持する。
+- 管理者はUSERの凍結および凍結解除を行えるものとする。
+- 管理者はUSERを削除できるものとする。
+- USERを削除する場合は、関連するデータとの整合性を維持できるようにする。
 - USERには `language_variant` を保持する。
 - USERには `pronunciation_type` を保持する。
 - `language_variant` は `MAINLAND / TAIWAN` とする。
@@ -2180,3 +2218,104 @@ question_id
 変更後のAI生成用プレースホルダでは、`_reusable`の有無によって語句の再利用可否を表現せず、その位置に生成可能な内容の種類を表現する。
 
 AI_GENERATION_HISTORYおよび`generationHistory`は、プレースホルダ単位で語句の再利用可否を制御するためではなく、直近の生成結果をAIへ提供し、同一または過度に類似した問題が短期間に繰り返し生成されることを抑制するために使用する。
+
+---
+
+## 18.9 ユーザー管理に伴うアカウント凍結状態の追加
+
+**追加日：2026年9月11日**
+
+管理者によるユーザー管理機能として、ユーザーのアカウントを削除することなく一時的に利用停止できるようにするため、USERにアカウントの凍結状態を追加する。
+
+これまでUSERは、
+
+```text
+USER
+│
+├── id
+├── login_id
+├── password
+├── role
+├── language_variant
+└── pronunciation_type
+```
+
+を保持していた。
+
+今回、USERへ、
+
+```text
+account_locked
+```
+
+を追加する。
+
+変更後のUSERは、
+
+```text
+USER
+│
+├── id
+├── login_id
+├── password
+├── role
+├── account_locked
+├── language_variant
+└── pronunciation_type
+```
+
+となる。
+
+`account_locked` はBOOLEANとして管理し、
+
+```text
+false
+└── 通常
+
+true
+└── 凍結
+```
+
+を表す。
+
+新規ユーザーのデフォルト値は、
+
+```text
+account_locked = false
+```
+
+とする。
+
+管理者によってアカウントが凍結された場合は、
+
+```text
+account_locked = false
+        ↓
+       凍結
+        ↓
+account_locked = true
+```
+
+とし、対象ユーザーをログイン不可とする。
+
+アカウントの凍結はUSERの削除とは異なり、USERそのものは削除しない。
+
+そのため、凍結されたUSERに関連する学習履歴、お気に入り、AI生成履歴、保存されたAI生成問題などの関連データについても保持する。
+
+管理者によって凍結が解除された場合は、
+
+```text
+account_locked = true
+        ↓
+      凍結解除
+        ↓
+account_locked = false
+```
+
+として、再びログイン可能な状態へ戻す。
+
+また、管理者はUSERそのものを削除できるものとする。
+
+USERを削除する場合は、USERを参照している関連データとの整合性を維持できるようにする。
+
+関連データの具体的な削除方法については、各テーブルとの外部キー関係および実装仕様を考慮して決定する。
