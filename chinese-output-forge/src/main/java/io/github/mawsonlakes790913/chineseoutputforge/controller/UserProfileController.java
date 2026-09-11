@@ -220,11 +220,13 @@ public class UserProfileController {
 	@PostMapping("/user/delete")
 	public String cancelMembership(
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        HttpServletRequest request)
+	        HttpServletRequest request,
+	        Locale locale)
 	        throws ServletException {
 
 	    userAccountService.cancelMembership(
-	            loginUser.getUsername()
+	            loginUser.getUsername(),
+	            locale
 	    );
 
 	    request.logout();

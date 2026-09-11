@@ -10,10 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.AiGenerationHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.FavoriteRepository;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,8 @@ public class UserAccountService {
 	private final PasswordEncoder passwordEncoder;
 	private final FavoriteRepository favoriteRepository;
 	private final StudyHistoryRepository studyHistoryRepository;
+	private final AiGenerationHistoryRepository aiGenerationHistoryRepository;
+	private final QuestionRepository questionRepository;
 	
 	public Users getUserOne(String loginId) {
 
@@ -152,30 +157,74 @@ public class UserAccountService {
 	}
 	
 	@Transactional
-	public void cancelMembership(String loginId) {
+	public void cancelMembership(String loginId, Locale locale) {
 
-	    // loginIdからユーザーを取得
 	    Users user = getUserOne(loginId);
 
 	    if (user == null) {
 	        throw new IllegalArgumentException(
-	                "ユーザーが存在しません"
+	                messageSource.getMessage(
+	                        "user.delete.error.notFound",
+	                        null,
+	                        locale
+	                )
 	        );
 	    }
 
-	    // DB上のユーザーIDを取得
-	    Long userId = user.getId();
-
-	    // ① お気に入りを削除
-	    favoriteRepository.deleteByFavoriteKeyUserId(userId);
-
-	    // ② 学習履歴を削除
-	    studyHistoryRepository.deleteByStudyHistoryKeyUserId(userId);
-
-	    // ③ ユーザーを削除
-	    userRepository.delete(user);
+	    deleteUserData(user);
 
 	    log.info("退会完了 loginId={}", loginId);
+	}
+
+
+	@Transactional
+	public void deleteUser(Long userId, Locale locale) {
+
+	    Users user = userRepository.findById(userId)
+	            .orElseThrow(() ->
+	                    new IllegalArgumentException(
+	                            messageSource.getMessage(
+	                                    "user.delete.error.notFound",
+	                                    null,
+	                                    locale
+	                            )
+	                    )
+	            );
+
+	    if (user.getRole() == Role.ADMIN) {
+	        throw new IllegalStateException(
+	                messageSource.getMessage(
+	                        "admin.user.delete.error.admin",
+	                        null,
+	                        locale
+	                )
+	        );
+	    }
+
+	    deleteUserData(user);
+
+	    log.info("ユーザー削除完了 userId={}", userId);
+	}
+
+
+	private void deleteUserData(Users user) {
+
+	    Long userId = user.getId();
+
+	    // ① ユーザーのお気に入りを削除
+	    favoriteRepository.deleteByFavoriteKeyUserId(userId);
+
+	    // ② ユーザーのAI生成履歴を削除
+	    aiGenerationHistoryRepository.deleteByUserId(userId);
+
+	    // ③ ユーザーの学習履歴を削除
+	    studyHistoryRepository.deleteByStudyHistoryKeyUserId(userId);
+
+	    // ④ ユーザー所有のAI生成由来問題を削除
+	    questionRepository.deleteByOwnerId(userId);
+
+	    // ⑤ ユーザーを削除
+	    userRepository.delete(user);
 	}
 	
 	@Transactional

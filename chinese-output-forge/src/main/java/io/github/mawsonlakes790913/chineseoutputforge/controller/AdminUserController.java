@@ -1,5 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
+import java.util.Locale;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -17,6 +19,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AdminUserService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import lombok.RequiredArgsConstructor;
 
 
@@ -26,6 +29,7 @@ public class AdminUserController {
 	
 	private final AdminUserService adminUserService;
 	private final PaginationService paginationService;
+	private final UserAccountService userAccountService;
 	
 	@GetMapping("/admin/user/list")
 	public String getUserList(
@@ -81,6 +85,22 @@ public class AdminUserController {
 	    redirectAttributes.addFlashAttribute(
 	            "successMessage",
 	            "ユーザーの凍結を解除しました。");
+
+	    return "redirect:/admin/user/list";
+	}
+	
+	// ユーザー削除
+	@PostMapping("/admin/user/delete")
+	public String deleteUser(
+	        @RequestParam Long userId,
+	        RedirectAttributes redirectAttributes,
+	        Locale local) {
+
+	    userAccountService.deleteUser(userId, local);
+
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            "ユーザーを削除しました。");
 
 	    return "redirect:/admin/user/list";
 	}

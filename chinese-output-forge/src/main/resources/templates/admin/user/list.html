@@ -217,24 +217,26 @@
 							</td>
 
                             <!-- 削除 -->
-                            <td>
-
-                                <form th:action="@{/admin/user/delete}"
-                                      method="post">
-
-                                    <input type="hidden"
-                                           name="userId"
-                                           th:value="${item.id}">
-
-                                    <button type="submit"
-                                            class="btn btn-danger"
-                                            onclick="return confirm('ユーザーを削除しますか？');">
-                                        削除
-                                    </button>
-
-                                </form>
-
-                            </td>
+							<td>
+							    <span th:if="${item.role.name() == 'ADMIN'}">
+							        -
+							    </span>
+							
+							    <form th:if="${item.role.name() != 'ADMIN'}"
+							          th:action="@{/admin/user/delete}"
+							          method="post">
+							
+							        <input type="hidden"
+							               name="userId"
+							               th:value="${item.id}">
+							
+							        <button type="submit"
+							                class="btn btn-danger"
+							                onclick="return confirm('ユーザーを削除しますか？');">
+							            削除
+							        </button>
+							    </form>
+							</td>
 
                         </tr>
 

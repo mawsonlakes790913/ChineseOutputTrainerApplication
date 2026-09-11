@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,10 +16,14 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 	
-//	long countByLanguageVariantAndDifficulty(
-//			LanguageVariant languageVariant,
-//			Difficulty difficulty
-//	);
+	@Modifying
+	@Query("""
+	        DELETE FROM Question q
+	        WHERE q.owner.id = :userId
+	        AND q.aiGenerated = true
+	        """)
+	void deleteByOwnerId(
+	        @Param("userId") Long userId);
 	
 	// 非ログインユーザー用問題数取得(デフォルト)
 	@Query(value = """

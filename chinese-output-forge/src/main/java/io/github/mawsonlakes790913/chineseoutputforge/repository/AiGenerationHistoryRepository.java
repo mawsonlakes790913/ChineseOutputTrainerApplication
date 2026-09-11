@@ -3,6 +3,9 @@ package io.github.mawsonlakes790913.chineseoutputforge.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.AiGenerationHistory;
@@ -15,4 +18,12 @@ public interface AiGenerationHistoryRepository
     findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
             Long userId,
             Long questionId);
+	
+	@Modifying
+	@Query("""
+	        DELETE FROM AiGenerationHistory a
+	        WHERE a.user.id = :userId
+	        """)
+	void deleteByUserId(@Param("userId") Long userId);
+
 }
