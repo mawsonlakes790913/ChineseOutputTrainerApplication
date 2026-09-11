@@ -28,4 +28,8 @@ public interface StructureRepository
 	Page<Structure> findStructures(Pageable pageable);
 	
 	boolean existsByName(String name);
+	
+    boolean existsByNameAndStructureIdNot(
+            String name,
+            Long structureId);
 }

@@ -41,4 +41,40 @@ public class AdminStructureService {
 
         structureRepository.save(structure);
     }
+    
+    // 文法取得
+    public Structure getStructure(Long structureId) {
+
+        return structureRepository.findById(structureId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "文法・構造が存在しません。"
+                        )
+                );
+    }
+
+    // 文法編集
+    @Transactional
+    public void updateStructure(
+            Long structureId,
+            StructureForm structureForm) {
+
+        Structure structure = getStructure(structureId);
+
+        // 文法名の重複確認
+        if (structureRepository.existsByNameAndStructureIdNot(
+                structureForm.getName(),
+                structureId)) {
+
+            throw new IllegalArgumentException(
+                    "同じ名前の文法・構造がすでに登録されています。"
+            );
+        }
+
+        structure.setName(structureForm.getName());
+        structure.setDescriptionZhCn(
+                structureForm.getDescriptionZhCn());
+        structure.setDescriptionZhTw(
+                structureForm.getDescriptionZhTw());
+    }
 }

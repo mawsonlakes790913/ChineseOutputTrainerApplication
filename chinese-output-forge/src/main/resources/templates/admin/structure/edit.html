@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>文法・構造編集</title>
+
+</head>
+
+<body>
+
+<div layout:fragment="content">
+
+    <div class="container mt-4">
+
+        <h2 class="mb-4">
+
+            <i class="bi bi-pencil-square"></i>
+
+            文法・構造編集
+
+        </h2>
+
+        <div class="card">
+
+            <div class="card-body">
+
+                <form th:action="@{/admin/structure/edit(
+                          structureId=${param.structureId}
+                      )}"
+                      th:object="${structureForm}"
+                      method="post">
+
+                    <!-- 文法・構造名 -->
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">
+                            文法・構造名
+                        </label>
+
+                        <input type="text"
+                               th:field="*{name}"
+                               class="form-control">
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('name')}"
+                             th:errors="*{name}">
+                        </div>
+
+                    </div>
+
+                    <!-- 中国大陸向け説明 -->
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">
+                            中国大陸向け説明
+                        </label>
+
+                        <textarea th:field="*{descriptionZhCn}"
+                                  class="form-control"
+                                  rows="4">
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('descriptionZhCn')}"
+                             th:errors="*{descriptionZhCn}">
+                        </div>
+
+                    </div>
+
+                    <!-- 台湾向け説明 -->
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">
+                            台湾向け説明
+                        </label>
+
+                        <textarea th:field="*{descriptionZhTw}"
+                                  class="form-control"
+                                  rows="4">
+                        </textarea>
+
+                        <div class="text-danger mt-1"
+                             th:if="${#fields.hasErrors('descriptionZhTw')}"
+                             th:errors="*{descriptionZhTw}">
+                        </div>
+
+                    </div>
+
+                    <!-- ボタン -->
+                    <div class="text-center mt-3 mb-3">
+
+                        <button type="submit"
+                                class="btn btn-primary">
+
+                            <i class="bi bi-check-circle"></i>
+
+                            更新
+
+                        </button>
+
+                        <a th:href="@{/admin/structure/list}"
+                           class="btn btn-secondary ms-2">
+
+                            文法・構造一覧に戻る
+
+                        </a>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

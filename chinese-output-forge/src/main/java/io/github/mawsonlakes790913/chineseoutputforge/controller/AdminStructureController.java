@@ -10,6 +10,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
@@ -90,6 +91,60 @@ public class AdminStructureController {
         redirectAttributes.addFlashAttribute(
                 "successMessage",
                 "文法・構造を追加しました。");
+
+        return "redirect:/admin/structure/list";
+    }
+    
+ // 文法編集画面
+    @GetMapping("/admin/structure/edit")
+    public String getStructureEdit(
+            @RequestParam Long structureId,
+            @ModelAttribute StructureForm structureForm) {
+
+        Structure structure =
+                adminStructureService.getStructure(structureId);
+
+        structureForm.setName(structure.getName());
+        structureForm.setDescriptionZhCn(
+                structure.getDescriptionZhCn());
+        structureForm.setDescriptionZhTw(
+                structure.getDescriptionZhTw());
+
+        return "/admin/structure/edit";
+    }
+
+    // 文法編集
+    @PostMapping("/admin/structure/edit")
+    public String updateStructure(
+            @RequestParam Long structureId,
+            @Validated @ModelAttribute StructureForm structureForm,
+            BindingResult bindingResult,
+            RedirectAttributes redirectAttributes) {
+
+        // 入力エラー
+        if (bindingResult.hasErrors()) {
+            return "/admin/structure/edit";
+        }
+
+        try {
+
+            adminStructureService.updateStructure(
+                    structureId,
+                    structureForm);
+
+        } catch (IllegalArgumentException e) {
+
+            bindingResult.rejectValue(
+                    "name",
+                    "structure.edit.error",
+                    e.getMessage());
+
+            return "/admin/structure/edit";
+        }
+
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                "文法・構造を編集しました。");
 
         return "redirect:/admin/structure/list";
     }
