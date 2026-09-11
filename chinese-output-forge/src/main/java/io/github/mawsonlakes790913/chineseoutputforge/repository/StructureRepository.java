@@ -26,4 +26,6 @@ public interface StructureRepository
 	        ORDER BY s.structureId ASC
 	        """)
 	Page<Structure> findStructures(Pageable pageable);
+	
+	boolean existsByName(String name);
 }
