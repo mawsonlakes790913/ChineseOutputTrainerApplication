@@ -2514,6 +2514,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
 ![](../../images/0022-11.png)
 
+## 追加修正 - 問題一覧ページに問題追加ページへのリンクボタンを追加
+
+### /admin/question/list.html
+
+```html
+    <!-- タイトル・問題追加ボタン -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+
+	    <h2 class="mb-4">
+	        問題管理
+	    </h2>
+	    
+	    <a th:href="@{/admin/question/add}"
+	       class="btn btn-success">
+	
+	        <i class="bi bi-plus-circle"></i>
+	
+	        問題追加
+	
+	    </a>   
+	    
+    </div> 
+```
+
+これで問題一覧ページから問題追加ページへの遷移が容易になった。
+
+![](../../images/0022-76.png)
+
 # 3-1. プレースホルダの入力を容易にする機能を追加する
 
 現在の問題追加フォームでは、テンプレート内のプレースホルダを手入力する必要がある。

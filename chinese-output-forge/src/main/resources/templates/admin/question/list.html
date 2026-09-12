@@ -26,10 +26,24 @@
 
 <div layout:fragment="content"
      class="w-100">
+     
+    <!-- タイトル・問題追加ボタン -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
 
-    <h2 class="mb-4">
-        問題管理
-    </h2>
+	    <h2 class="mb-4">
+	        問題管理
+	    </h2>
+	    
+	    <a th:href="@{/admin/question/add}"
+	       class="btn btn-success">
+	
+	        <i class="bi bi-plus-circle"></i>
+	
+	        問題追加
+	
+	    </a>   
+	    
+    </div> 
     
     <!--削除成功時のメッセージ表示-->
 	<div th:if="${successMessage}"
