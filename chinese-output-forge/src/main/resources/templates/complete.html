@@ -27,21 +27,36 @@
         この調子でトレーニングを続けていきましょう。
     </p>
 
-
-    <div class="d-flex flex-column align-items-center gap-2 mt-3">
-
-        <!-- Top -->
-        <a th:href="@{/}"
-           class="btn btn-secondary"
-           th:text="#{common.backToTop}">
-            Topに戻る
-        </a>
+    <div class="d-grid gap-3 col-md-4 mx-auto mt-4">
 
         <!-- 通常学習 -->
         <a th:href="@{/practice/menu}"
            class="btn btn-primary"
            th:text="#{complete.backToPractice}">
             通常学習メニューに戻る
+        </a>
+
+        <!-- 復習 -->
+        <a sec:authorize="isAuthenticated()"
+           th:href="@{/review/menu}"
+           class="btn btn-success"
+           th:text="#{complete.review}">
+            復習
+        </a>
+
+        <!-- AI生成モード -->
+        <a sec:authorize="isAuthenticated()"
+           th:href="@{/ai-practice/menu}"
+           class="btn btn-warning"
+           th:text="#{complete.aiPractice}">
+            AI生成モード
+        </a>
+
+        <!-- Home -->
+        <a th:href="@{/}"
+           class="btn btn-outline-secondary"
+           th:text="#{common.backToTop}">
+            Topに戻る
         </a>
 
     </div>
