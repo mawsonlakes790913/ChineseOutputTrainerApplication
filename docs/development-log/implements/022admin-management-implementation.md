@@ -2516,6 +2516,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 ## 追加修正 - 問題一覧ページに問題追加ページへのリンクボタンを追加
 
+```text
+feat: add question creation link to admin question list
+```
+
 ### /admin/question/list.html
 
 ```html
@@ -2541,6 +2545,78 @@ document.addEventListener("DOMContentLoaded", () => {
 これで問題一覧ページから問題追加ページへの遷移が容易になった。
 
 ![](../../images/0022-76.png)
+
+## 追加修正 - バリデーションエラーメッセージの表示
+
+いまのままでは問題追加フォームのバリデーションエラーを通知するメッセージが表示されないので、それを表示させるようにする。
+
+### /admin/question/add.html
+
+add.htmlを見ると、日本語・中国語・文法構造にはエラー表示があるが、使用言語と難易度にはth:errorsがない。
+
+#### 使用言語
+
+```html
+<div class="text-danger mt-1"
+     th:if="${#fields.hasErrors('languageVariant')}"
+     th:errors="*{languageVariant}">
+</div>
+```
+
+を追加
+
+#### 難易度
+
+```html
+<div class="text-danger mt-1"
+     th:if="${#fields.hasErrors('difficulty')}"
+     th:errors="*{difficulty}">
+</div>
+```
+
+を追加
+
+#### 日本語と中国語
+
+別の問題があって現在HTMLにrequiredが付いている。
+
+```html
+<textarea
+    th:field="*{japaneseText}"
+    class="form-control"
+    rows="3"
+    required>
+```
+
+これだと空欄で登録ボタンを押した時点でブラウザのHTML5バリデーションがPOST自体を止める。
+
+つまりSpringの
+
+```java
+@Validated
+BindingResult
+
+```
+までリクエストが届かない。
+
+今回、Spring側のバリデーションメッセージを統一して表示したいなら、requiredを外すのがよい。
+
+```html
+<textarea
+    th:field="*{japaneseText}"
+    class="form-control"
+    rows="3">
+</textarea>
+```
+
+中国語も同様である。
+
+### 実行
+
+http://localhost:8080/admin/question/addにアクセスしてフォームに何も入力せず送信するとバリデーションエラーメッセージが表示されるようになった。
+
+![](../../images/0022-77.png)
+
 
 # 3-1. プレースホルダの入力を容易にする機能を追加する
 
