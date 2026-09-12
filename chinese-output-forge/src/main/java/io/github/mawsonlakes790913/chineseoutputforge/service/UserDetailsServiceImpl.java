@@ -40,10 +40,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(authority);
         
-        // UserDetails生成
-        UserDetails userDetails = new User(loginUser.getLoginId(), 
+        // UserDetails生成 
+        UserDetails userDetails = new User(
+                loginUser.getLoginId(),
                 loginUser.getPassword(),
-                authorities);
+                true,
+                true,
+                true,
+                !loginUser.isAccountLocked(),
+                authorities
+        );
 
         return userDetails;
 	}

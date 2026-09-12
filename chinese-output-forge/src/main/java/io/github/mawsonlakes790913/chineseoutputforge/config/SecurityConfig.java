@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
@@ -57,9 +58,15 @@ public class SecurityConfig {
      		                throws IOException {
 
      		            HttpSession session = request.getSession(true);
-     		            session.setAttribute(
-     		                    "loginErrorMessage",
-     		                    "login.error");
+     		            if (exception instanceof LockedException) {
+     		        	     session.setAttribute(
+     		        	             "loginErrorMessage",
+     		        	             "login.error.locked");
+     		        	 } else {
+     		        	     session.setAttribute(
+     		        	             "loginErrorMessage",
+     		        	             "login.error");
+     		        	 }
 
      		            response.sendRedirect("/login");
      		        }
