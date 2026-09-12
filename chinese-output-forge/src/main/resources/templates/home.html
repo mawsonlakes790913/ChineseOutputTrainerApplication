@@ -1,49 +1,96 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
+
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       layout:decorate="~{layout/layout}">
 
 <head>
+
     <meta charset="UTF-8">
-    <title>中文造句工坊</title>
+
+    <title>Chinese Output Forge</title>
 
     <link rel="stylesheet"
           th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
-</head>
-<body>
-	<div layout:fragment="content" class="container text-center mt-5">
-	
-	    <h1 class="mb-3"
-	    	th:text="#{home.title}">瞬間中国語作文</h1>
-	
-	    <p class="text-muted"
-	    	th:text="#{home.welcome}">
-	        中国語トレーニングアプリへようこそ
-	    </p>
-	    
-		<div class="text-danger"
-		     th:if="${successMessage}"
-		     th:text="${successMessage}">
-		</div>
-		
-		<!-- ログアウト成功 -->
-		<div class="alert alert-success d-inline-block"
-		     th:if="${logoutMessage}"
-		     th:text="#{__${logoutMessage}__}">
-		</div>		
-	
-	    <div class="d-grid gap-3 col-md-3 mx-auto mt-5">		
 
-	        <!-- チュートリアル -->
-	        <a th:href="@{/about}"
-	           class="btn btn-secondary"
-	           th:text="#{home.about}">
-	             このアプリについて
-	        </a>	
-	
-	    </div>
-	
-	</div>
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="container text-center mt-5">
+
+    <h1 class="mb-3"
+        th:text="#{title}">
+        Chinese Output Forge
+    </h1>
+
+    <p class="text-muted"
+       th:text="#{home.description}">
+        瞬間中国語作文トレーニングアプリ
+    </p>
+
+    <div class="d-grid gap-3 col-md-4 mx-auto mt-5">
+
+        <!-- 通常学習 -->
+        <a th:href="@{/practice/menu}"
+           class="btn btn-primary btn-lg"
+           th:text="#{home.practice}">
+            通常学習
+        </a>
+
+        <!-- 復習 -->
+        <a sec:authorize="isAuthenticated()"
+           th:href="@{/review/menu}"
+           class="btn btn-success btn-lg"
+           th:text="#{home.review}">
+            復習
+        </a>
+
+        <!-- AI生成モード -->
+        <a sec:authorize="isAuthenticated()"
+           th:href="@{/ai-practice/menu}"
+           class="btn btn-warning btn-lg"
+           th:text="#{home.aiPractice}">
+            AI生成モード
+        </a>
+
+        <!-- ユーザーメニュー -->
+        <a sec:authorize="isAuthenticated()"
+           th:href="@{/user/menu}"
+           class="btn btn-secondary btn-lg"
+           th:text="#{home.userMenu}">
+            ユーザーメニュー
+        </a>
+
+        <!-- このアプリについて -->
+        <a th:href="@{/about}"
+           class="btn btn-secondary"
+           th:text="#{home.about}">
+            このアプリについて
+        </a>
+
+        <!-- ログイン -->
+        <a sec:authorize="isAnonymous()"
+           th:href="@{/login}"
+           class="btn btn-outline-primary"
+           th:text="#{home.login}">
+            ログイン
+        </a>
+
+        <!-- 新規登録 -->
+        <a sec:authorize="isAnonymous()"
+           th:href="@{/signup/signup}"
+           class="btn btn-outline-success"
+           th:text="#{home.signup}">
+            新規登録
+        </a>
+
+    </div>
+
+</div>
 
 </body>
+
 </html>
