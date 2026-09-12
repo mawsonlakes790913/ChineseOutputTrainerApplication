@@ -2548,6 +2548,9 @@ feat: add question creation link to admin question list
 
 ## 追加修正 - バリデーションエラーメッセージの表示
 
+```text
+fix: display validation errors on admin question form
+
 いまのままでは問題追加フォームのバリデーションエラーを通知するメッセージが表示されないので、それを表示させるようにする。
 
 ### /admin/question/add.html
