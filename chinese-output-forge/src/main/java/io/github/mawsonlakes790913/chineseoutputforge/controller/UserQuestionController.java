@@ -15,6 +15,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
@@ -27,6 +28,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.StudyCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
+import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
@@ -44,6 +46,7 @@ public class UserQuestionController {
 	private final PaginationService paginationService;
 	private final ReviewService reviewService;
 	private final MessageSource messageSource;
+	private final EvaluationService evaluationService;
 	
 	@GetMapping("/user/question/list")
 	public String getUserQuestionList(
@@ -184,6 +187,22 @@ public class UserQuestionController {
 		                locale));
 
 	    return "redirect:" + returnUrl;
+	}
+	
+	@PostMapping("/evaluation/toggle")
+	@ResponseBody
+	public void toggleEvaluation(@AuthenticationPrincipal UserDetails loginUser,
+	        				   @RequestParam Long questionId,
+	        				   @RequestParam Evaluation evaluation) {
+		
+		// ユーザー情報を取得
+		Users user = userAccountService.getUserOne(loginUser.getUsername());
+		
+		evaluationService.updateEvaluation(
+		        user,
+		        questionId,
+		        evaluation);
+		
 	}
 
 }
