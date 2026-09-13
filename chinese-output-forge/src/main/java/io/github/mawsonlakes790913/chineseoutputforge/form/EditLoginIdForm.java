@@ -18,6 +18,6 @@ public class EditLoginIdForm {
     	    regexp = "^[a-zA-Z0-9_]+$",
     	    message = "{signup.loginId.pattern}"
     	)
-	private String LoginId;
+	private String loginId;
     
 }
