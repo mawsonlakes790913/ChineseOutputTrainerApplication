@@ -2206,11 +2206,128 @@ users
 
 ![](../../images/0013-14.png)
 
----
+## 追加修正 - ADMINのアカウント削除防止を二重にする
 
-# 5. UI改善
+```text
+git commit -m "fix: hide account deletion option for admin users"
+```
 
-アカウント管理機能の実装後、ユーザーID変更画面とパスワード変更画面のUIを改善する。
+現在、ServiceではADMINユーザーを削除しようとした場合、以下の処理によって削除を拒否するようにしている。
+
+```java
+if (user.getRole() == Role.ADMIN) {
+    throw new IllegalStateException(
+            messageSource.getMessage(
+                    "admin.user.delete.error.admin",
+                    null,
+                    locale
+            )
+    );
+}
+```
+
+そのため、ADMINが誤って自分のアカウントを削除してしまうことはない。
+
+しかし、Service側のチェックはあくまで「最後の防御」である。
+
+実際にはADMINが利用できない「退会する」ボタン自体を画面に表示する必要がないため、HTML側でもADMINの場合は退会ボタンを非表示にする。
+
+これにより、
+
+- HTML側ではADMINに削除操作をさせない
+- Service側ではADMINの削除そのものを拒否する
+
+という二重の防止策を取る。
+
+### /user/profile.html
+
+既存の退会フォームを、
+
+```html
+<div sec:authorize="!hasRole('ADMIN')">
+    <form th:action="@{/user/delete}" method="post">
+        <button type="submit"
+                class="btn btn-danger"
+                th:text="#{user.delete.button}"
+                th:onclick="|return confirm('#{user.delete.confirm}');|">
+            退会する
+        </button>
+    </form>
+</div>
+```
+
+のように、
+
+```html
+<div sec:authorize="!hasRole('ADMIN')">
+```
+
+で囲む。
+
+`!hasRole('ADMIN')`は、ADMIN権限を持っていないユーザーの場合のみ、内部のHTMLを表示するという条件である。
+
+なお、`sec:authorize`を使用するため、`html`タグには以下の名前空間を追加する。
+
+```html
+xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+```
+
+### Controllerは変更しない
+
+ControllerにはADMINかどうかを判定する処理を追加しない。
+
+今回の処理は、
+
+```text
+HTML
+↓
+ADMINには退会操作そのものを表示しない
+
+Controller
+↓
+退会リクエストを受け取りServiceへ渡す
+
+Service
+↓
+実際に削除してよいユーザーか判定する
+ADMINの場合は削除を拒否する
+```
+
+という責務分担にする。
+
+Controllerにも、
+
+```java
+if (role == Role.ADMIN) {
+    ...
+}
+```
+
+のような判定を追加すると、ADMINを削除してはいけないという同じビジネスルールをControllerとServiceの両方に持つことになる。
+
+そのため、
+
+```text
+HTML    ：実行できない操作を表示しない
+Controller：リクエストを受け付けてServiceへ渡す
+Service ：ADMINを実際に削除できないことを保証する
+```
+
+という構成にする。
+
+### 実行
+
+ADMINユーザーで以下にアクセスする。
+
+```text
+http://localhost:8080/user/profile
+```
+
+一般ユーザーでは表示される「退会する」ボタンが、ADMINでは表示されないことを確認した。
+
+![](../../images/0013-21.png)
+
+これにより、画面上ではADMINが退会操作を実行できず、仮に直接リクエストが送信された場合でもService側で削除を拒否する二重の防止構造となった。
 
 ---
 
