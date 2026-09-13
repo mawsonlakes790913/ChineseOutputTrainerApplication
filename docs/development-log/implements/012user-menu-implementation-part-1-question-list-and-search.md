@@ -2394,6 +2394,59 @@ th:data-question-id="${question.questionId}"
 ![](../../images/0012-09.png)
 ![](../../images/0012-10.png)
 
+## 追加修正 - 理解度変更のControllerを追加
+
+```text
+git commit -m "fix: enable evaluation updates from user question list"
+```
+
+User用問題一覧画面では、学習済みの問題に表示されている理解度をクリックすると、モーダルからHard・Good・Easyを選択できるようにしていた。
+
+しかし、モーダルを開いて理解度を選択することはできるものの、実際には理解度が変更されなかった。
+
+原因を確認したところ、JavaScriptでは`/evaluation/toggle`へPOSTリクエストを送信していたが、そのリクエストを受け取るControllerの`PostMapping`を実装していなかった。
+
+そこで、`UserQuestionController`に理解度変更用の処理を追加した。
+
+### UserQuestionController
+
+```java
+@PostMapping("/evaluation/toggle")
+@ResponseBody
+public void toggleEvaluation(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long questionId,
+        @RequestParam Evaluation evaluation) {
+
+    // ユーザー情報を取得
+    Users user =
+            userAccountService.getUserOne(loginUser.getUsername());
+
+    evaluationService.updateEvaluation(
+            user,
+            questionId,
+            evaluation);
+}
+```
+
+ログイン中のユーザーと対象の問題ID、変更後の理解度を取得し、`EvaluationService`の`updateEvaluation`を呼び出して理解度を更新する。
+
+これにより、JavaScriptから送信される`POST /evaluation/toggle`をControllerで受け取れるようになった。
+
+### 実行
+
+理解度がEasyの問題を選択する。
+
+![](../../images/0012-18.png)
+
+モーダルから理解度をHardに変更する。
+
+![](../../images/0012-19.png)
+
+変更後、問題一覧にHardとして反映されることを確認した。
+
+![](../../images/0012-20.png)
+
 ---
 
 # 3. UI修正
