@@ -2931,3 +2931,161 @@ if (chineseKeyword == null) {
 ```
 
 これにより、難易度・理解度・学習条件・お気に入り条件について、未指定時の処理を`SearchConditionConverter`に集約し、`UserQuestionService`内の重複した処理を削除できた。
+
+---
+
+## 追加修正　9月13日 - ページ移動後も検索条件を維持する
+
+```text
+git commit -m "fix: preserve search conditions during pagination"
+```
+
+### 問題点
+
+ユーザー問題一覧で検索条件を指定して絞り込みを行った後、ページネーションで別のページへ移動すると、一部の検索条件が失われる問題があった。
+
+以下の条件で動作を確認した。
+
+```text
+user: mawsonlakes_admin
+ユーザー自身の学習対象言語: 國語
+
+検索条件
+学習対象言語: 普通話・國語
+難易度: 中級
+```
+
+検索を実行すると、該当する問題は221件となった。
+
+![](../../images/0012-14.png)
+
+1ページあたり50件表示するため、検索結果は5ページとなる。
+
+![](../../images/0012-15.png)
+
+しかし、ページ番号「5」をクリックして別のページへ移動すると、以下の問題が発生した。
+
+- 問題総件数が221件から111件に変化する
+- 検索条件から普通話が外れる
+- 國語の中級問題111件のみが検索対象になる
+- 111件の場合は3ページ目が最終ページとなるため、存在しない5ページ目へ遷移した状態となり、問題が表示されない
+
+![](../../images/0012-16.png)
+
+### 原因
+
+ページネーションのリンクを生成する際に、一部の検索条件をURLパラメータとして引き継いでいなかったことが原因である。
+
+`list.html` のページネーションでは、
+
+```html
+difficulties=${selectedDifficulties},
+evaluations=${selectedEvaluations},
+studyCondition=${selectedStudyCondition},
+favoriteCondition=${selectedFavoriteCondition},
+structureIds=${selectedStructureIds},
+japaneseKeyword=${japaneseKeyword},
+chineseKeyword=${chineseKeyword}
+```
+
+などの検索条件は引き継いでいたが、以下の2つが抜けていた。
+
+```html
+sourceCondition=${selectedSourceCondition},
+languageVariants=${selectedLanguageVariants},
+```
+
+そのため、検索直後は普通話・國語の両方を対象として正しく221件を取得できていたが、ページ番号をクリックすると `languageVariants` がリクエストパラメータから失われていた。
+
+`UserQuestionController` では、`languageVariants` が指定されていない場合、セッションに保存されているユーザーの学習対象言語を使用する。
+
+```java
+if (languageVariants == null || languageVariants.isEmpty()) {
+
+    LanguageVariant languageVariant =
+            (LanguageVariant) session.getAttribute("languageVariant");
+
+    if (languageVariant == null) {
+        languageVariant = LanguageVariant.MAINLAND;
+    }
+
+    languageVariants = Arrays.asList(languageVariant);
+}
+```
+
+今回のユーザーの学習対象言語は國語であるため、ページ移動によって `languageVariants` が失われると、検索条件が
+
+```text
+普通話 + 國語
+```
+
+から
+
+```text
+國語のみ
+```
+
+へ変化していた。
+
+その結果、検索結果も221件から111件へ減少していた。
+
+また、同様に `sourceCondition` もページネーションで引き継がれていなかったため、問題の生成元を指定して検索した場合にも、ページ移動後にその条件が失われる状態になっていた。
+
+### 修正
+
+`list.html` のページネーションを構成する以下の5か所を修正した。
+
+- 前へ
+- 1ページ目
+- 中央のページ番号
+- 最終ページ
+- 次へ
+
+それぞれの `th:href` に、これまで不足していた以下の検索条件を追加した。
+
+```html
+sourceCondition=${selectedSourceCondition},
+languageVariants=${selectedLanguageVariants},
+```
+
+これにより、ページ番号をクリックした際にも現在の検索条件がURLパラメータとして次のリクエストへ渡されるようにした。
+
+たとえばページネーションのリンクは以下のようになる。
+
+```html
+th:href="@{/user/question/list(
+    page=${i},
+    size=${page.size},
+    difficulties=${selectedDifficulties},
+    evaluations=${selectedEvaluations},
+    studyCondition=${selectedStudyCondition},
+    favoriteCondition=${selectedFavoriteCondition},
+    sourceCondition=${selectedSourceCondition},
+    structureIds=${selectedStructureIds},
+    languageVariants=${selectedLanguageVariants},
+    japaneseKeyword=${japaneseKeyword},
+    chineseKeyword=${chineseKeyword}
+)}"
+```
+
+### 実行
+
+以下へアクセスして動作確認を行った。
+
+```text
+http://localhost:8080/user/question/list
+```
+
+学習対象言語として普通話・國語の両方を選択し、検索を実行する。
+
+その後、1ページ目以外のページへ移動しても、
+
+- 普通話・國語の両方が選択された状態を維持する
+- 検索結果の総件数が変化しない
+- 指定した検索条件に基づいた結果が引き続き表示される
+
+ことを確認した。
+
+![](../../images/0012-17.png)
+
+ページネーションで別のページへ移動する場合も、検索時に指定した条件を正しく維持できるようになった。
