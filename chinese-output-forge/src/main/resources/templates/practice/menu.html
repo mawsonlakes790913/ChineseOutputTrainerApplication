@@ -27,10 +27,18 @@
 
     <div class="header border-bottom pb-2 mb-2 d-flex justify-content-between align-items-center">
 
-        <h1 class="h2 mb-0">
-            <i class="bi bi-chat-dots me-2 text-primary"></i>
-            <span th:text="#{practice.menu.title}"></span>
-        </h1>
+	    <div>
+	        <h1 class="h2 mb-1">
+	            <i class="bi bi-chat-dots me-2 text-primary"></i>
+	            <span th:text="#{practice.menu.title}"></span>
+	        </h1>
+	
+	        <p class="text-muted mb-0"
+	           th:text="#{practice.menu.description}">
+	            アプリケーションに収録されている問題を使って、
+	            瞬間中国語作文トレーニングを行います。
+	        </p>
+	    </div>
 
 
         <!-- 中断中のトレーニング -->

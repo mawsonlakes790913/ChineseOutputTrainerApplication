@@ -29,15 +29,22 @@
     <div class="header border-bottom pb-2 mb-2
                 d-flex justify-content-between align-items-center">
 
-        <h1 class="h2 mb-0">
-
-            <i class="bi bi-stars me-2 text-primary"></i>
-
-            <span th:text="#{aiPractice.menu.title}">
-                AI問題生成
-            </span>
-
-        </h1>
+		<div>
+		    <h1 class="h2 mb-1">
+		
+		        <i class="bi bi-stars me-2 text-primary"></i>
+		
+		        <span th:text="#{aiPractice.menu.title}">
+		            AI問題生成
+		        </span>
+		
+		    </h1>
+		
+		    <p class="text-muted mb-0"
+		       th:text="#{aiPractice.menu.description}">
+		        これまでに学習した問題をもとに、AIが内容を変化させた新しい問題を生成してトレーニングします。
+		    </p>
+		</div>
 
         <div th:if="${canResume}"
              class="d-flex align-items-center gap-3">

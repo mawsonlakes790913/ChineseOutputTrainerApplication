@@ -27,11 +27,20 @@
 <body>
 
 <div layout:fragment="content" class="w-100">
-
-    <h2 class="mb-4"
-        th:text="#{user.question.list.title}">
-        問題一覧
-    </h2>
+	
+	<div class="mb-4">
+	
+	    <h2 class="mb-1"
+	        th:text="#{user.question.list.title}">
+	        問題一覧
+	    </h2>
+	
+	    <p class="text-muted mb-0"
+	       th:text="#{user.question.list.description}">
+	        アプリケーションに登録されている問題や、自分が保存したAI生成由来の問題を検索・確認できます。
+	    </p>
+	
+	</div>
     
     <!--削除成功時のメッセージ表示-->
 	<div th:if="${successMessage}"
