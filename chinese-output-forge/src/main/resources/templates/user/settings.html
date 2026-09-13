@@ -39,6 +39,25 @@
                     </th>
 
                     <td>
+						
+						<!-- 現在の設定 -->
+					    <div class="mb-3">
+					        <span class="text-muted"
+					              th:text="#{settings.current}">
+					            現在の設定：
+					        </span>
+					
+							<strong th:if="${session.languageVariant != null
+							                && session.languageVariant.name() == 'MAINLAND'}">
+							    🇨🇳 普通话
+							</strong>
+					
+							<strong th:if="${session.languageVariant != null
+							                && session.languageVariant.name() == 'TAIWAN'}">
+							    🇹🇼 國語
+							</strong>
+					    </div>
+						
                         <div class="d-flex flex-wrap gap-3">
 
 							<!-- 普通話 -->
@@ -51,10 +70,7 @@
 							       redirect='/user/settings'
 							   )}"
 							   th:onclick="return confirm([[#{settings.languageVariant.mainland.confirm}]])">
-							    🇨🇳
-							    <span th:text="#{settings.languageVariant.mainland}">
-							        普通話
-							    </span>
+								🇨🇳 普通话
 							</a>
 							
 							<!-- 國語 -->
@@ -67,10 +83,7 @@
 							       redirect='/user/settings'
 							   )}"
 							   th:onclick="return confirm([[#{settings.languageVariant.taiwan.confirm}]])">
-							    🇹🇼
-							    <span th:text="#{settings.languageVariant.taiwan}">
-							        國語
-							    </span>
+							    🇹🇼 國語
 							</a>
 
                         </div>
@@ -89,6 +102,40 @@
                     </th>
 
                     <td>
+						
+					    <!-- 現在の設定 -->
+					    <div class="mb-3">
+					        <span class="text-muted"
+					              th:text="#{settings.current}">
+					            現在の設定：
+					        </span>
+					
+					        <strong th:switch="${session.pronunciationType != null
+					                            ? session.pronunciationType.name()
+					                            : 'PINYIN'}">
+					
+					            <span th:case="'PINYIN'">
+					                <ruby>
+					                    拼音
+					                    <rt>pīnyīn</rt>
+					                </ruby>
+					            </span>
+					
+					            <span th:case="'ZHUYIN'">
+					                <ruby>
+					                    注音
+					                    <rt>ㄓㄨˋ ㄧㄣ</rt>
+					                </ruby>
+					            </span>
+					
+					            <span th:case="'NONE'"
+					                  th:text="#{settings.pronunciationType.none}">
+					                表示しない
+					            </span>
+					
+					        </strong>
+					    </div>						
+						
                         <div class="d-flex flex-wrap gap-3">
 
 							<!-- 拼音 -->
