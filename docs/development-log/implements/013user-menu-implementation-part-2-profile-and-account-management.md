@@ -1029,6 +1029,96 @@ Flash Attributeなので、再読み込みするとメッセージは消える�
 
 ユーザーID変更機能が正常に動作していることを確認できた。
 
+## 追加修正 - ログインID変更入力フォームのエラーメッセージ
+
+```text
+git commit -m "fix: display validation errors on login ID edit form"
+```
+
+現在のままだと、ログインID変更画面で入力値がバリデーションエラーになっても、エラーメッセージが正常に表示されない。
+
+### 原因
+
+`EditLoginIdForm`では、ログインIDを保持するフィールドを以下のように定義していた。
+
+```java
+private String LoginId;
+```
+
+一方、HTMLでは、
+
+```html
+th:field="*{loginId}"
+```
+
+```html
+th:errors="*{loginId}"
+```
+
+として、`loginId`という名前のプロパティを使用している。
+
+Javaでは大文字・小文字が区別されるため、Form側の`LoginId`とHTML側の`loginId`でプロパティ名が一致していなかった。
+
+そのため、`EditLoginIdForm`に設定したバリデーションとHTML側の`loginId`フィールドを正しく対応させることができず、バリデーションエラーメッセージが正常に表示されなかった。
+
+### 修正
+
+Formのフィールド名をHTML側で使用している`loginId`に統一する。
+
+#### EditLoginIdForm
+
+```java
+private String LoginId;
+```
+
+を、
+
+```java
+private String loginId;
+```
+
+に修正した。
+
+これにより、
+
+```java
+@NotBlank(message = "{signup.loginId.notBlank}")
+@Length(
+    min = 8,
+    max = 20,
+    message = "{signup.loginId.length}"
+)
+@Pattern(
+    regexp = "^[a-zA-Z0-9_]+$",
+    message = "{signup.loginId.pattern}"
+)
+private String loginId;
+```
+
+とHTML側の、
+
+```html
+<input type="text"
+       id="loginId"
+       th:field="*{loginId}"
+       th:errorclass="is-invalid"
+       class="form-control">
+
+<div class="invalid-feedback"
+     th:errors="*{loginId}">
+</div>
+```
+
+が同じ`loginId`プロパティを参照するようになった。
+
+### 実行
+
+ログインID変更画面で、文字数不足などバリデーション条件を満たさないログインIDを入力して更新する。
+
+バリデーションエラーとなった場合に、入力欄の下へ対応するエラーメッセージが正常に表示されるようになった。
+
+![](../../images/0013-20.png)
+
 ---
 
 # 3. パスワード変更機能の実装
