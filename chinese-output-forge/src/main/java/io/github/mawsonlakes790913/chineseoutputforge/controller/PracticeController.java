@@ -3,7 +3,9 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 
 import java.util.List;
+import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -42,6 +44,7 @@ public class PracticeController {
 	private final UserAccountService userAccountService;
 	private final EvaluationService evaluationService;
 	private final FavoriteService favoriteService;
+	private final MessageSource messageSource;
 	
 	@GetMapping("/practice/menu")
 	public String getPracticeMenu(
@@ -148,7 +151,8 @@ public class PracticeController {
 	        @RequestParam(required = false) Integer advancedRange,
 	        @RequestParam(name = "sourceCondition", required = false) QuestionSourceCondition sourceCondition,
 	        @RequestParam(name = "random") boolean random,
-	        RedirectAttributes redirectAttributes
+	        RedirectAttributes redirectAttributes,
+	        Locale locale
 	        ) {
 		
 		// 無選択を回避
@@ -159,9 +163,17 @@ public class PracticeController {
 	    if (advancedRange != null) selectedCount++;
 	    
 	    if (selectedCount != 1) {
+	        String errorMessage = messageSource.getMessage(
+	                "practice.error.selectOneRange",
+	                null,
+	                locale
+	        );
+
 	        redirectAttributes.addFlashAttribute(
 	                "errorMessage",
-	                "出題範囲を1つ選択してください。");
+	                errorMessage
+	        );
+
 	        return "redirect:/practice/menu";
 	    }
 		
