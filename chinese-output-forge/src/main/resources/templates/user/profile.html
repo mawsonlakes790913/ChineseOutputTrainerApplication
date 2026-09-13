@@ -2,6 +2,7 @@
 
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       layout:decorate="~{layout/layout}">
 
 <head>
@@ -121,16 +122,16 @@
             <!-- ========================= -->           
             
 			<div>
-			    <form th:action="@{/user/delete}" method="post">
-			
-			        <button type="submit"
-			                class="btn btn-danger"
-			                th:text="#{user.delete.button}"
-			                th:onclick="|return confirm('#{user.delete.confirm}');|">
-			            退会する
-			        </button>
-			
-			    </form>
+				<div sec:authorize="!hasRole('ADMIN')">
+				    <form th:action="@{/user/delete}" method="post">
+				        <button type="submit"
+				                class="btn btn-danger"
+				                th:text="#{user.delete.button}"
+				                th:onclick="|return confirm('#{user.delete.confirm}');|">
+				            退会する
+				        </button>
+				    </form>
+				</div>
 			</div>            
 
         </div>
