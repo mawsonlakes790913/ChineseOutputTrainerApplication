@@ -176,31 +176,9 @@ public class AdminQuestionController {
 	            originalQuestion);
 
 	    // 編集フォームの初期値
-	    QuestionForm form = new QuestionForm();
-
-	    form.setLanguageVariant(
-	            originalQuestion.getLanguageVariant());
-
-	    form.setJapaneseText(
-	            originalQuestion.getJapaneseText());
-
-	    form.setChineseText(
-	            originalQuestion.getChineseText());
-
-	    form.setAlternativeAnswer(
-	            originalQuestion.getAlternativeAnswer());
-
-	    form.setDifficulty(
-	            originalQuestion.getDifficulty());
-
-	    form.setStructureId(
-	            originalQuestion.getStructureId());
-
-	    form.setAllowAiVariation(
-	            originalQuestion.isAllowAiVariation());
-
-	    form.setTemplate(
-	            originalQuestion.getTemplate());
+	    QuestionForm form =
+	            adminQuestionService.createQuestionForm(
+	                    originalQuestion);
 
 	    model.addAttribute(
 	            "questionForm",

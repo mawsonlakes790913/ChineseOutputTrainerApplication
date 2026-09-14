@@ -215,6 +215,38 @@ public class AdminQuestionService {
 	    return dto;
 	}
 	
+	public QuestionForm createQuestionForm(
+	        OriginalQuestionDTO originalQuestion) {
+
+	    QuestionForm form = new QuestionForm();
+
+	    form.setLanguageVariant(
+	            originalQuestion.getLanguageVariant());
+
+	    form.setJapaneseText(
+	            originalQuestion.getJapaneseText());
+
+	    form.setChineseText(
+	            originalQuestion.getChineseText());
+
+	    form.setAlternativeAnswer(
+	            originalQuestion.getAlternativeAnswer());
+
+	    form.setDifficulty(
+	            originalQuestion.getDifficulty());
+
+	    form.setStructureId(
+	            originalQuestion.getStructureId());
+
+	    form.setAllowAiVariation(
+	            originalQuestion.isAllowAiVariation());
+
+	    form.setTemplate(
+	            originalQuestion.getTemplate());
+
+	    return form;
+	}
+	
 	private void copyQuestionForm(
 			Question question, 
 			QuestionForm form,
