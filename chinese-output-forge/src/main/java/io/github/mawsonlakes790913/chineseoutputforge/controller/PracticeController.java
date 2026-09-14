@@ -116,7 +116,7 @@ public class PracticeController {
 	@PreAuthorize("isAuthenticated()")
 	@GetMapping("/practice/count")
 	@ResponseBody
-	public PracticeMenuDto getAiPracticeCount(
+	public PracticeMenuDto getPracticeCount(
 			HttpSession session,
 			@AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam(name = "sourceCondition", required = false) 
