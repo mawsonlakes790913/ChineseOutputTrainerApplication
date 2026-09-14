@@ -35,16 +35,13 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.TemporaryGeneratedQues
 import io.github.mawsonlakes790913.chineseoutputforge.entity.AiGenerationHistory;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
-import io.github.mawsonlakes790913.chineseoutputforge.repository.AiGenerationHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AiPracticeService {
 	
 	private final StructureRepository structureRepository;
@@ -55,7 +52,6 @@ public class AiPracticeService {
 	private final MessageSource messageSource;
 	private final OpenAIClient openAIClient;
 	private final Client geminiClient;
-	private final AiGenerationHistoryRepository aiGenerationHistoryRepository;
 	private final AiGenerationHistoryService aiGenerationHistoryService;
 	
 	public Long countAiGenerationSourceQuestions(
@@ -131,8 +127,8 @@ public class AiPracticeService {
 
 	        // ログインユーザーの生成元問題に対する直近3件のAI生成履歴を取得
 	        List<AiGenerationHistory> aiGenerationHistories =
-	                aiGenerationHistoryRepository
-	                        .findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
+	                aiGenerationHistoryService
+	                        .getGenerationHistories(
 	                                user.getId(),
 	                                sourceQuestion.getQuestionId());
 
@@ -304,6 +300,23 @@ public class AiPracticeService {
 		return questionRepository.save(savedQuestion);
 		
 		
+	}
+	
+	// 保存済みのAI生成問題IDを取得
+	public Long getSavedQuestionId(
+	        Long userId,
+	        String chineseText) {
+
+	    Optional<Question> savedQuestion =
+	            questionRepository.findByOwnerIdAndChineseText(
+	                    userId,
+	                    chineseText);
+
+	    if (savedQuestion.isPresent()) {
+	        return savedQuestion.get().getQuestionId();
+	    }
+
+	    return null;
 	}
 
 	private TemporaryGeneratedQuestionListDto generateQuestionsWithChatGPT(
@@ -564,32 +577,8 @@ public class AiPracticeService {
 	            continue;
 	        }
 
-	        // Userと生成元問題に紐づく直近3件のAI生成履歴を取得
-	        List<AiGenerationHistory> aiGenerationHistories =
-	                aiGenerationHistoryRepository
-	                        .findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
-	                                user.getId(),
-	                                sourceQuestion.getQuestionId());
-
-	        // すでに5件ある場合は最も古い履歴を削除
-	        if (aiGenerationHistories.size() >= 10) {
-
-	            AiGenerationHistory oldestHistory =
-	                    aiGenerationHistories.get(
-	                            aiGenerationHistories.size() - 1);
-
-	            aiGenerationHistoryRepository.delete(
-	                    oldestHistory);
-	            
-		        log.info(
-		                "AI生成履歴を削除しました。userId={}, questionId={}, chineseText={}",
-		                user.getId(),
-		                sourceQuestion.getQuestionId(),
-		                oldestHistory.getChineseText());
-	        }
-
-	        // 今回生成された中国語文を履歴に保存
-	        aiGenerationHistoryService.saveGenerationHistory(
+	        // AI生成履歴を更新
+	        aiGenerationHistoryService.updateGenerationHistory(
 	                user,
 	                sourceQuestion,
 	                generatedQuestion.getChineseText());

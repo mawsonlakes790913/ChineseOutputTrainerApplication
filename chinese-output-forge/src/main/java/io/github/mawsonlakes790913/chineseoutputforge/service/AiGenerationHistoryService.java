@@ -1,8 +1,10 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.AiGenerationHistory;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
@@ -18,6 +20,52 @@ public class AiGenerationHistoryService {
 
     private final AiGenerationHistoryRepository aiGenerationHistoryRepository;
 
+ // ユーザーと生成元問題に紐づくAI生成履歴を取得
+    public List<AiGenerationHistory> getGenerationHistories(
+            Long userId,
+            Long questionId) {
+
+        return aiGenerationHistoryRepository
+                .findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
+                        userId,
+                        questionId);
+    }
+    
+ // AI生成履歴を更新
+    @Transactional
+    public void updateGenerationHistory(
+            Users user,
+            Question question,
+            String chineseText) {
+
+        List<AiGenerationHistory> histories =
+                getGenerationHistories(
+                        user.getId(),
+                        question.getQuestionId());
+
+        // すでに10件ある場合は最も古い履歴を削除
+        if (histories.size() >= 10) {
+
+            AiGenerationHistory oldestHistory =
+                    histories.get(histories.size() - 1);
+
+            aiGenerationHistoryRepository.delete(
+                    oldestHistory);
+
+            log.info(
+                    "AI生成履歴を削除しました。userId={}, questionId={}, chineseText={}",
+                    user.getId(),
+                    question.getQuestionId(),
+                    oldestHistory.getChineseText());
+        }
+
+        // 今回生成された中国語文を履歴に保存
+        saveGenerationHistory(
+                user,
+                question,
+                chineseText);
+    }
+    
     public void saveGenerationHistory(
             Users user,
             Question question,

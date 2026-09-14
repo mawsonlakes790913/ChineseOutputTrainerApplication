@@ -2,7 +2,6 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +19,6 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
-import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
@@ -41,7 +39,6 @@ public class AiPracticeController {
 	private final AiPracticeService aiPracticeService;
 	private final QuestionModelUtil questionModelUtil;
 	private final EvaluationService evaluationService;
-	private final QuestionRepository questionRepository;
 	private final FavoriteService favoriteService;
 	
 	@GetMapping("/ai-practice/menu")
@@ -208,17 +205,11 @@ public class AiPracticeController {
 	            loginUser.getUsername());
 
 	    // このAI生成問題がすでにQuestionに保存されているか確認
-	    Optional<Question> savedQuestion =
-	            questionRepository.findByOwnerIdAndChineseText(
+	    // 保存済みの場合はquestionIdを取得
+	    Long savedQuestionId =
+	            aiPracticeService.getSavedQuestionId(
 	                    user.getId(),
 	                    question.getChineseText());
-
-	    // 保存済みの場合はquestionIdを取得
-	    Long savedQuestionId = null;
-
-	    if (savedQuestion.isPresent()) {
-	        savedQuestionId = savedQuestion.get().getQuestionId();
-	    }
 
 	    // HTMLが必要な情報をModelへ格納
 	    questionModelUtil.setAiQuestionModel(
