@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import io.github.mawsonlakes790913.chineseoutputforge.constant.AccountStatus;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
@@ -36,10 +35,6 @@ public class AdminUserController {
 	        @ModelAttribute AdminUserSearchDto searchDto,
 	        @PageableDefault(page = 0, size = 50) Pageable pageable,
 	        Model model) {
-		
-	    if (searchDto.getAccountStatus() == null) {
-	        searchDto.setAccountStatus(AccountStatus.ALL);
-	    }
 
 	    Page<Users> userList =
 	            adminUserService.getUsers(searchDto, pageable);
