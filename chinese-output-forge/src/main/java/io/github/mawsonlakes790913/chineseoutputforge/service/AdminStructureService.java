@@ -117,4 +117,20 @@ public class AdminStructureService {
         // 文法を削除
         structureRepository.delete(targetStructure);
     }
+    
+    // 変更前の文法・構造情報から編集フォームを作成
+    public StructureForm createStructureForm(Long structureId) {
+
+        Structure structure = getStructure(structureId);
+
+        StructureForm form = new StructureForm();
+
+        form.setName(structure.getName());
+        form.setDescriptionZhCn(
+                structure.getDescriptionZhCn());
+        form.setDescriptionZhTw(
+                structure.getDescriptionZhTw());
+
+        return form;
+    }
 }

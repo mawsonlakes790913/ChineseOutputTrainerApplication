@@ -95,20 +95,20 @@ public class AdminStructureController {
         return "redirect:/admin/structure/list";
     }
     
- // 文法編集画面
+    // 文法編集画面
     @GetMapping("/admin/structure/edit")
     public String getStructureEdit(
             @RequestParam Long structureId,
-            @ModelAttribute StructureForm structureForm) {
+            Model model) {
 
-        Structure structure =
-                adminStructureService.getStructure(structureId);
+        // 編集フォームの初期値を作成
+        StructureForm structureForm =
+                adminStructureService.createStructureForm(
+                        structureId);
 
-        structureForm.setName(structure.getName());
-        structureForm.setDescriptionZhCn(
-                structure.getDescriptionZhCn());
-        structureForm.setDescriptionZhTw(
-                structure.getDescriptionZhTw());
+        model.addAttribute(
+                "structureForm",
+                structureForm);
 
         return "/admin/structure/edit";
     }
