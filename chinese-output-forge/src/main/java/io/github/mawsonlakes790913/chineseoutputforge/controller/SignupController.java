@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.form.SignupForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.SignupService;
 import lombok.RequiredArgsConstructor;
@@ -41,14 +40,9 @@ public class SignupController {
 		
 	    try {
 	    	log.debug("ユーザー登録開始 userId={}", form.getLoginId());
-	    	
-	    	Users user = new Users();
 
-	    	user.setLoginId(form.getLoginId());
-	    	user.setPassword(form.getPassword());
-	    	
-	        // ② Serviceの業務処理
-	    	signupService.signup(user);
+	    	// ② Serviceの業務処理
+	    	signupService.signup(form);
 
 	    } catch (DuplicateKeyException e) {
 
