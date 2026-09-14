@@ -1,12 +1,17 @@
 spring:
+
   messages:
-    fallback-to-system-locale: false      
+    fallback-to-system-locale: false
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/chinese_output_forge}
     username: ${DB_USERNAME:chinese_output_forge_app}
-    password: ${DB_PASSWORD}    
-    
+    password: ${DB_PASSWORD}
+
   jpa:
     hibernate:
-      ddl-auto: update    
+      ddl-auto: update
+
+logging:
+  level:
+    org.springframework.security: DEBUG
