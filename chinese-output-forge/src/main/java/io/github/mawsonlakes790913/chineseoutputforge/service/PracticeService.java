@@ -27,27 +27,51 @@ public class PracticeService {
 	private final SearchConditionConverter searchConditionConverter;
 	
 	// 非ログインユーザー用問題数取得
-	public List<Question> getPracticeQuestions(LanguageVariant languageVariant,
-				Difficulty difficulty,
-				int start,
-				boolean random){
+	// 通常学習の問題を取得
+	public List<Question> getPracticeQuestions(
+	        Long userId,
+	        LanguageVariant languageVariant,
+	        Difficulty difficulty,
+	        QuestionSourceCondition sourceCondition,
+	        int start,
+	        boolean random) {
 
-		int offset = start - 1;
-		
-		List<Question> extractedQuestions = questionRepository.findQuestionsByLanguageVariantAndDifficulty(
-		languageVariant.name(),
-		difficulty.name(),
-		offset
-		);
-		
-		// シャッフルする
-		if (random) {
-		Collections.shuffle(extractedQuestions);
-		} 
-		
-		
-		return extractedQuestions;
-	}	
+	    int offset = start - 1;
+
+	    List<Question> extractedQuestions;
+
+	    // 非ログイン
+	    if (userId == null) {
+
+	        extractedQuestions =
+	                questionRepository.findQuestionsByLanguageVariantAndDifficulty(
+	                        languageVariant.name(),
+	                        difficulty.name(),
+	                        offset);
+
+	    } else {
+
+	        // 条件が未指定の場合はすべて
+	        if (sourceCondition == null) {
+	            sourceCondition = QuestionSourceCondition.ALL;
+	        }
+
+	        extractedQuestions =
+	                questionRepository.findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
+	                        userId,
+	                        languageVariant.name(),
+	                        difficulty.name(),
+	                        sourceCondition.name(),
+	                        offset);
+	    }
+
+	    // シャッフルする
+	    if (random) {
+	        Collections.shuffle(extractedQuestions);
+	    }
+
+	    return extractedQuestions;
+	}
 	
 	// ログインユーザー用問題数取得
 	public List<Question> getAvailablePracticeQuestions(

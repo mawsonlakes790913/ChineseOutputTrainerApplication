@@ -214,34 +214,14 @@ public class PracticeController {
 	    }
 	    
 	    // 問題セットを取得
-	    List<Question> questions;
-	    
-	    if (userId != null) {
-	    	// ログイン時
-	        // 出題条件が未指定の場合はすべて
-	        if (sourceCondition == null) {
-	        	sourceCondition = QuestionSourceCondition.ALL;
-	        }
-	    	
-		    questions =
-		            practiceService.getAvailablePracticeQuestions(
-		            		userId,
-		                    languageVariant,
-		                    difficulty,
-		                    sourceCondition,
-		                    start,
-		                    random
-		            );
-	    } else {
-		    //非ログイン時
-		    questions =
-		            practiceService.getPracticeQuestions(
-		                    languageVariant,
-		                    difficulty,
-		                    start,
-		                    random
-		            );
-	    }
+	    List<Question> questions =
+	            practiceService.getPracticeQuestions(
+	                    userId,
+	                    languageVariant,
+	                    difficulty,
+	                    sourceCondition,
+	                    start,
+	                    random);
 	    
 		// 問題が存在しない場合
 	    if (questions.isEmpty()) {
