@@ -20,17 +20,17 @@ public class PronunciationTypeController {
 	private final UserAccountService userAccountService;
 
     @GetMapping("/pronunciation-type")
-    public String changePronunciationType(
+    public String getPronunciationTypeChange(
     		@AuthenticationPrincipal UserDetails loginUser,
             @RequestParam PronunciationType pronunciationType,
             Locale locale,
             HttpSession session) {
     	
-    	PronunciationType current =
+    	PronunciationType currentPronunciationType =
 	            (PronunciationType) session.getAttribute("pronunciationType");
     	
 	    // 同じ発音記号なら変更処理をしない
-	    if (pronunciationType == current) {
+	    if (pronunciationType == currentPronunciationType) {
 	        return "redirect:/user/settings";
 	    }
 	    
