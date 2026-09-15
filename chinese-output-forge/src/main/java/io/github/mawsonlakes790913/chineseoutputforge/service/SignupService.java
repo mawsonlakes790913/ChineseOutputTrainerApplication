@@ -34,22 +34,24 @@ public class SignupService {
 
 	    // ユーザー情報を作成
 	    Users user = new Users();
+	    
+	    // ログインIDを登録
 	    user.setLoginId(form.getLoginId());
-	    user.setPassword(form.getPassword());
 
 	    // 一般ユーザーとして登録
 	    user.setRole(Role.USER);
 
 	    // パスワードをハッシュ化
-	    String rawPassword = user.getPassword();
 	    user.setPassword(
-	            passwordEncoder.encode(rawPassword));
+	            passwordEncoder.encode(
+	                    form.getPassword()));
 
+	    // 保存
 	    Users savedUser =
 	            userRepository.save(user);
 
 	    log.info(
-	            "ユーザー登録完了 userId={}",
+	            "ユーザー登録完了 loginId={}",
 	            savedUser.getLoginId());
 	}
 }
