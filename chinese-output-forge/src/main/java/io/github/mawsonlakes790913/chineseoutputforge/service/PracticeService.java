@@ -25,6 +25,7 @@ public class PracticeService {
 	
 	private final QuestionRepository questionRepository;
 	private final SearchConditionConverter searchConditionConverter;
+	private static final int PRACTICE_RANGE_SIZE = 50;
 	
 	// 非ログインユーザー用問題数取得
 	// 通常学習の問題を取得
@@ -72,34 +73,6 @@ public class PracticeService {
 
 	    return extractedQuestions;
 	}
-	
-	// ログインユーザー用問題数取得
-	public List<Question> getAvailablePracticeQuestions(
-			Long userId,
-			LanguageVariant languageVariant,
-			Difficulty difficulty,
-			QuestionSourceCondition sourceCondition,
-			int start,
-			boolean random){
-
-	int offset = start - 1;
-	
-	List<Question> extractedQuestions = questionRepository.findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
-	userId,
-	languageVariant.name(),
-	difficulty.name(),
-	sourceCondition.name(),
-	offset
-	);
-	
-	// シャッフルする
-	if (random) {
-	Collections.shuffle(extractedQuestions);
-	} 
-	
-	
-	return extractedQuestions;
-}	
 	
 	// 問題数取得
 	public PracticeMenuDto countPracticeQuestions(
@@ -180,10 +153,10 @@ public class PracticeService {
 	private List<Range> createRanges(long count) {
 		List<Range> ranges = new ArrayList<>();
 
-		for (long start = 1; start <= count; start += 50) {
+		for (long start = 1; start <= count; start += PRACTICE_RANGE_SIZE) {
 
-		    if (start + 49 <= count) {
-		        ranges.add(new Range(start, start + 49));
+		    if (start + (PRACTICE_RANGE_SIZE - 1) <= count) {
+		        ranges.add(new Range(start, start + (PRACTICE_RANGE_SIZE - 1)));
 		    } else {
 		        ranges.add(new Range(start, count));
 		    }
@@ -197,13 +170,12 @@ public class PracticeService {
 			LanguageVariant languageVariant,
 			List<Difficulty> difficulty) {
 		
-		List<Question> extractedNewQuestions = questionRepository.findUnlearnedQuestionsByUserIdAndDifficulty(
-				userId, 
-				languageVariant.name(),
-				searchConditionConverter.convertDifficulty(difficulty));
-		
-		return extractedNewQuestions;
-	}
+		   return questionRepository
+		            .findUnlearnedQuestionsByUserIdAndDifficulty(
+		                    userId,
+		                    languageVariant.name(),
+		                    searchConditionConverter.convertDifficulty(difficulty));
+		}
 	
 	private long countQuestions(
 	        Long userId,
