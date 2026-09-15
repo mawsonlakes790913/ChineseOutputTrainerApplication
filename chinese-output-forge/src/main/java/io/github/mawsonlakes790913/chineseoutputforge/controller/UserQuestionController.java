@@ -78,7 +78,7 @@ public class UserQuestionController {
 		// 言語切替後の戻り先
 		model.addAttribute("languageVariantRedirect", "/user/question/list");
 
-	    Users user = userAccountService.getUserOne(loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
 	    
 	    // 学習対象言語が未指定の場合は、
@@ -103,7 +103,7 @@ public class UserQuestionController {
 	    );
 
 	    // 検索（パラメータが未指定ならService側で全件扱い）
-	    Page<UserQuestionListDto> questionList =
+	    Page<UserQuestionListDto> questionPage =
 	    		userQuestionService.getFilteredUserQuestionList(
 	                    userId,
 	                    difficulties,
@@ -118,18 +118,18 @@ public class UserQuestionController {
 	                    pageable);
 
 	    PaginationDto pagination =
-	    		paginationService.createPagination(questionList);
+	    		paginationService.createPagination(questionPage);
 	    
-		long start = questionList.getNumber() * questionList.getSize() + 1;
-		long end = start + questionList.getNumberOfElements() - 1;
+		long start = questionPage.getNumber() * questionPage.getSize() + 1;
+		long end = start + questionPage.getNumberOfElements() - 1;
 
 		model.addAttribute("start", start);
 		model.addAttribute("end", end);
-		model.addAttribute("total", questionList.getTotalElements());
+		model.addAttribute("total", questionPage.getTotalElements());
 
 	    // 一覧
-	    model.addAttribute("questionList", questionList.getContent());
-	    model.addAttribute("page", questionList);
+	    model.addAttribute("questionList", questionPage.getContent());
+	    model.addAttribute("page", questionPage);
 	    model.addAttribute("pagination", pagination);
 
 	    // 選択肢用structureを取得
@@ -174,7 +174,7 @@ public class UserQuestionController {
 			Locale locale) {
 		
 		// ユーザーIDを取得
-	    Users user = userAccountService.getUserOne(loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
 		
 	    // 削除
@@ -192,18 +192,22 @@ public class UserQuestionController {
 	
 	@PostMapping("/evaluation/toggle")
 	@ResponseBody
-	public void toggleEvaluation(@AuthenticationPrincipal UserDetails loginUser,
+	public void postEvaluationToggle(@AuthenticationPrincipal UserDetails loginUser,
 	        				   @RequestParam Long questionId,
 	        				   @RequestParam Evaluation evaluation) {
 		
 		// ユーザー情報を取得
-		Users user = userAccountService.getUserOne(loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 		
 		evaluationService.updateEvaluation(
 		        user,
 		        questionId,
 		        evaluation);
 		
+	}
+	
+	private Users getLoginUser(UserDetails loginUser) {
+	    return userAccountService.getUserOne(loginUser.getUsername());
 	}
 
 }
