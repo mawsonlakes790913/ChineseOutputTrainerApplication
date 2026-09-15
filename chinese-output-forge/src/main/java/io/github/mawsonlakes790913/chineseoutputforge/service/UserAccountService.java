@@ -78,18 +78,10 @@ public class UserAccountService {
         }
 
         // 現在のユーザーを取得
-        Users user = getUserOne(currentLoginId);
-
-        if (user == null) {
-
-            throw new IllegalArgumentException(
-                    messageSource.getMessage(
-                            "user.edit.loginId.error.notFound",
-                            null,
-                            locale
-                    )
-            );
-        }
+        Users user = getUserOrThrow(
+        		currentLoginId,
+        		"user.edit.loginId.error.notFound",
+                locale);
 
         // ユーザーIDを変更
         user.setLoginId(newLoginId);
@@ -107,17 +99,11 @@ public class UserAccountService {
 	@Transactional
 	public void updatePassword(String loginId, String currentPassword, String newPassword, Locale locale) {
 		
-	    // 現在のユーザーを取得
-	    Users user = getUserOne(loginId);
-	    if (user == null) {
-	        throw new IllegalArgumentException(
-	                messageSource.getMessage(
-	                        "user.edit.password.error.notFound",
-	                        null,
-	                        locale
-	                )
-	         );
-	    }
+        // 現在のユーザーを取得
+        Users user = getUserOrThrow(
+        		loginId,
+        		"user.edit.password.error.notFound",
+                locale);
 	    
 	    // 現在のパスワードが正しいか確認
 	    if (!passwordEncoder.matches(
@@ -159,17 +145,13 @@ public class UserAccountService {
 	@Transactional
 	public void cancelMembership(String loginId, Locale locale) {
 
-	    Users user = getUserOne(loginId);
-
-	    if (user == null) {
-	        throw new IllegalArgumentException(
-	                messageSource.getMessage(
-	                        "user.delete.error.notFound",
-	                        null,
-	                        locale
-	                )
-	        );
-	    }
+        // 現在のユーザーを取得
+        Users user = getUserOrThrow(
+        		loginId,
+        		"user.delete.error.notFound",
+                locale);
+	    
+	    
 
 	    deleteUserData(user);
 
@@ -232,18 +214,12 @@ public class UserAccountService {
 	        String loginId,
 	        LanguageVariant languageVariant,
 	        Locale locale) {
-
-	    Users user = getUserOne(loginId);
-
-	    if (user == null) {
-	        throw new IllegalArgumentException(
-	                messageSource.getMessage(
-	                		"user.settings.error.notFound",
-	                        null,
-	                        locale
-	                )
-	        );
-	    }
+	    
+        // 現在のユーザーを取得
+        Users user = getUserOrThrow(
+        		loginId,
+        		"user.settings.error.notFound",
+                locale);
 
 	    user.setLanguageVariant(languageVariant);
 
@@ -261,18 +237,12 @@ public class UserAccountService {
 	        String loginId,
 	        PronunciationType pronunciationType,
 	        Locale locale) {
-
-	    Users user = getUserOne(loginId);
-
-	    if (user == null) {
-	        throw new IllegalArgumentException(
-	                messageSource.getMessage(
-	                		"user.settings.error.notFound",
-	                        null,
-	                        locale
-	                )
-	        );
-	    }
+		
+        // 現在のユーザーを取得
+        Users user = getUserOrThrow(
+        		loginId,
+        		"user.settings.error.notFound",
+                locale);
 
 	    user.setPronunciationType(pronunciationType);
 
@@ -283,6 +253,24 @@ public class UserAccountService {
 	            user.getLoginId(),
 	            pronunciationType
 	    );
+	}
+	
+	private Users getUserOrThrow(
+	        String loginId,
+	        String messageCode,
+	        Locale locale) {
+
+	    Users user = getUserOne(loginId);
+
+	    if (user == null) {
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                        messageCode,
+	                        null,
+	                        locale));
+	    }
+
+	    return user;
 	}
 
 }
