@@ -1,7 +1,6 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -20,40 +19,42 @@ public class EvaluationService {
 	
 	private final StudyHistoryRepository studyHistoryRepository;
 	
-	public void updateEvaluation(Users user, Long questionId, Evaluation evaluation) {
-		
-		// 複合キー情報を取得
-		StudyHistoryKey key = new StudyHistoryKey();
-		key.setUserId(user.getId());
-		key.setQuestionId(questionId);
-		
-		// 存在確認とUPSDATE及びINSERT処理
-		Optional<StudyHistory> optionalStudyHistory =
-		        studyHistoryRepository.findByStudyHistoryKey(key);
-		
-		if (optionalStudyHistory.isPresent()) {
-			//ここでUPDATE
-		    StudyHistory studyHistory = optionalStudyHistory.get();
-		    studyHistory.setEvaluation(evaluation);
-		    studyHistory.setEvaluationUpdatedAt(LocalDateTime.now());
+	public void updateEvaluation(
+	        Users user,
+	        Long questionId,
+	        Evaluation evaluation) {
 
-		    studyHistoryRepository.save(studyHistory);
-		    
-		    log.info("評価更新(UPDATE) userId={}, questionId={}, evaluation={}",
-		            user.getId(), questionId, evaluation);
-		    
-		} else {
-			//ここでUPDATE
-		    // INSERT
-		    StudyHistory studyHistory = new StudyHistory();
-		    studyHistory.setStudyHistoryKey(key);
-		    studyHistory.setEvaluation(evaluation);
-		    studyHistory.setEvaluationUpdatedAt(LocalDateTime.now());
+	    // 複合キー情報を作成
+	    StudyHistoryKey key =
+	            new StudyHistoryKey();
 
-		    studyHistoryRepository.save(studyHistory);
-		    
-		    log.info("評価更新(INSERT) userId={}, questionId={}, evaluation={}",
-		            user.getId(), questionId, evaluation);
-		}
-	}		
+	    key.setUserId(user.getId());
+	    key.setQuestionId(questionId);
+
+	    // 既存の学習履歴を取得し、存在しない場合は新規作成
+	    StudyHistory studyHistory =
+	            studyHistoryRepository.findByStudyHistoryKey(key)
+	                    .orElseGet(() -> {
+
+	                        StudyHistory newStudyHistory =
+	                                new StudyHistory();
+
+	                        newStudyHistory.setStudyHistoryKey(key);
+
+	                        return newStudyHistory;
+	                    });
+
+	    // 評価情報を更新
+	    studyHistory.setEvaluation(evaluation);
+	    studyHistory.setEvaluationUpdatedAt(
+	            LocalDateTime.now());
+
+	    studyHistoryRepository.save(studyHistory);
+
+	    log.info(
+	            "評価更新 userId={}, questionId={}, evaluation={}",
+	            user.getId(),
+	            questionId,
+	            evaluation);
+	}	
 }
