@@ -11,7 +11,6 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
-import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
@@ -95,11 +94,6 @@ public class ReviewService {
 		} 
 		
 		return extractedQuestions;
-	}
-	
-	// structure全件取得
-	public List<Structure> findStructures() {
-	    return structureRepository.findAll();
 	}
 
 }

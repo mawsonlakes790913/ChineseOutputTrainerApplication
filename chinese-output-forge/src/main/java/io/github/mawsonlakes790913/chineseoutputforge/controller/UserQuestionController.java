@@ -31,6 +31,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserQuestionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +48,8 @@ public class UserQuestionController {
 	private final ReviewService reviewService;
 	private final MessageSource messageSource;
 	private final EvaluationService evaluationService;
+	private final StructureService structureService;
+
 	
 	@GetMapping("/user/question/list")
 	public String getUserQuestionList(
@@ -134,7 +137,7 @@ public class UserQuestionController {
 	    // 選択肢用structureを取得
 	    model.addAttribute(
 	            "structures",
-	            reviewService.findStructures());
+	            structureService.findStructures());
 	    
 	    // 表示する発音記号を取得
 	    PronunciationType pronunciationType =

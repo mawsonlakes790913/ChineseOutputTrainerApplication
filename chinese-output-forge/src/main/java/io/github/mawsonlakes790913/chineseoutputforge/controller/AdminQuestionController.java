@@ -26,6 +26,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.form.QuestionForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AdminQuestionService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class AdminQuestionController {
 	private final AdminQuestionService adminQuestionService;
 	private final PaginationService paginationService;
 	private final ReviewService reviewService;
+	private final StructureService structureService;
 	
 	@GetMapping("/admin/question/list")
 	public String getAdminQuestionList(
@@ -106,7 +108,7 @@ public class AdminQuestionController {
 		// 構文一覧
 	    model.addAttribute(
 	            "structures",
-	            reviewService.findStructures());
+	            structureService.findStructures());
 		
 		return "/admin/question/list";
 		
@@ -241,7 +243,7 @@ public class AdminQuestionController {
 	    // 文法・構造
 	    model.addAttribute(
 	            "structures",
-	            reviewService.findStructures());
+	            structureService.findStructures());
 	}
 
 

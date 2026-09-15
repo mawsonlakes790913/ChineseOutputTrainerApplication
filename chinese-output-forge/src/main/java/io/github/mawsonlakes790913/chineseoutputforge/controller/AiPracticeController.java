@@ -23,6 +23,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
@@ -40,6 +41,7 @@ public class AiPracticeController {
 	private final QuestionModelUtil questionModelUtil;
 	private final EvaluationService evaluationService;
 	private final FavoriteService favoriteService;
+	private final StructureService structureService;
 	
 	@GetMapping("/ai-practice/menu")
 	public String getAiPracticeMenu(
@@ -70,7 +72,7 @@ public class AiPracticeController {
 	    // 画面表示用structureを取得
 	    model.addAttribute(
 	            "structures",
-	            reviewService.findStructures());
+	            structureService.findStructures());
 		
 		return "/ai-practice/menu";
 	}

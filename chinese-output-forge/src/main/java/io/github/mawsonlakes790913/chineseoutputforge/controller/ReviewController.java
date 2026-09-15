@@ -21,6 +21,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
@@ -37,6 +38,7 @@ public class ReviewController {
 	private final QuestionModelUtil questionModelUtil;
 	private final FavoriteService favoriteService;
 	private final EvaluationService evaluationService;
+	private final StructureService structureService;
 	
 	@GetMapping("/review/menu")
 	public String getReviewMenu(HttpSession session,
@@ -81,7 +83,7 @@ public class ReviewController {
 	    // 画面表示用structureを取得
 	    model.addAttribute(
 	            "structures",
-	            reviewService.findStructures());
+	            structureService.findStructures());
 
 	    return "review/menu";
 	}
