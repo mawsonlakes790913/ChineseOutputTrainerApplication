@@ -30,7 +30,6 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
-import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserQuestionService;
@@ -45,7 +44,6 @@ public class UserQuestionController {
 	private final UserAccountService userAccountService;
 	private final UserQuestionService userQuestionService;
 	private final PaginationService paginationService;
-	private final ReviewService reviewService;
 	private final MessageSource messageSource;
 	private final EvaluationService evaluationService;
 	private final StructureService structureService;
@@ -180,7 +178,7 @@ public class UserQuestionController {
 	    Long userId = user.getId();
 		
 	    // 削除
-		userQuestionService.deleteOneQuestion(userId, questionId);
+		userQuestionService.deleteOwnedQuestion(userId, questionId);
 		
 		redirectAttributes.addFlashAttribute(
 		        "successMessage",

@@ -88,7 +88,7 @@ public class UserQuestionService {
 	}		
 	
 	@Transactional
-	public void deleteOneQuestion(Long userId, Long questionId) {
+	public void deleteOwnedQuestion(Long userId, Long questionId) {
 
 	    Question question = questionRepository.findById(questionId)
 	            .orElseThrow();
