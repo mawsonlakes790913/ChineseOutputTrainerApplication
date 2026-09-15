@@ -42,9 +42,7 @@ public class AdminUserService {
 	        throw new IllegalStateException("管理者ユーザーは凍結できません。");
 	    }
 	    
-	    if (!user.isAccountLocked()) {
-	    	user.setAccountLocked(true);
-	    }
+	    user.setAccountLocked(true);
 	    userRepository.save(user);
 	}
 	
@@ -54,10 +52,7 @@ public class AdminUserService {
 	    Users user = userRepository.findById(userId)
 	            .orElseThrow();
 
-	    if (user.isAccountLocked()) {
-	    	user.setAccountLocked(false);
-	    }
-
+	    user.setAccountLocked(false);
 	    userRepository.save(user);
 	}
 
