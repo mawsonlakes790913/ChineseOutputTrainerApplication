@@ -36,15 +36,15 @@ public class AdminUserController {
 	        @PageableDefault(page = 0, size = 50) Pageable pageable,
 	        Model model) {
 
-	    Page<Users> userList =
+	    Page<Users> userPage =
 	            adminUserService.getUsers(searchDto, pageable);
 
 	    PaginationDto pagination =
-	            paginationService.createPagination(userList);
+	            paginationService.createPagination(userPage);
 
 	    // 一覧
-	    model.addAttribute("userList", userList.getContent());
-	    model.addAttribute("page", userList);
+	    model.addAttribute("userList", userPage.getContent());
+	    model.addAttribute("page", userPage);
 	    model.addAttribute("pagination", pagination);
 
 	    // 検索条件
@@ -55,7 +55,7 @@ public class AdminUserController {
 	
 	// ユーザー凍結
 	@PostMapping("/admin/user/lock")
-	public String lockUser(
+	public String postUserLock(
 	        @RequestParam Long userId,
 	        RedirectAttributes redirectAttributes) {
 
@@ -71,7 +71,7 @@ public class AdminUserController {
 
 	// ユーザー凍結解除
 	@PostMapping("/admin/user/unlock")
-	public String unlockUser(
+	public String postUserUnlock(
 	        @RequestParam Long userId,
 	        RedirectAttributes redirectAttributes) {
 
@@ -86,12 +86,12 @@ public class AdminUserController {
 	
 	// ユーザー削除
 	@PostMapping("/admin/user/delete")
-	public String deleteUser(
+	public String postUserDelete(
 	        @RequestParam Long userId,
 	        RedirectAttributes redirectAttributes,
-	        Locale local) {
+	        Locale locale) {
 
-	    userAccountService.deleteUser(userId, local);
+	    userAccountService.deleteUser(userId, locale);
 
 	    redirectAttributes.addFlashAttribute(
 	            "successMessage",
