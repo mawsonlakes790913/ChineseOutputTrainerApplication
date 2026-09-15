@@ -33,19 +33,19 @@ public class AdminStructureController {
             @PageableDefault(page = 0, size = 50) Pageable pageable,
             Model model) {
 
-        Page<Structure> structureList =
+        Page<Structure> structurePage =
                 adminStructureService.getStructures(pageable);
 
         PaginationDto pagination =
-                paginationService.createPagination(structureList);
+                paginationService.createPagination(structurePage);
 
         model.addAttribute(
                 "structureList",
-                structureList.getContent());
+                structurePage.getContent());
 
         model.addAttribute(
                 "page",
-                structureList);
+                structurePage);
 
         model.addAttribute(
                 "pagination",
@@ -64,7 +64,7 @@ public class AdminStructureController {
 
     // 文法追加
     @PostMapping("/admin/structure/add")
-    public String addStructure(
+    public String postStructureAdd(
             @Validated @ModelAttribute StructureForm structureForm,
             BindingResult bindingResult,
             RedirectAttributes redirectAttributes) {
@@ -115,7 +115,7 @@ public class AdminStructureController {
 
     // 文法編集
     @PostMapping("/admin/structure/edit")
-    public String updateStructure(
+    public String postStructureEdit(
             @RequestParam Long structureId,
             @Validated @ModelAttribute StructureForm structureForm,
             BindingResult bindingResult,
@@ -151,7 +151,7 @@ public class AdminStructureController {
     
     // 文法削除
     @PostMapping("/admin/structure/delete")
-    public String deleteStructure(
+    public String postStructureDelete(
             @RequestParam Long structureId,
             RedirectAttributes redirectAttributes) {
 
