@@ -24,6 +24,7 @@ import com.openai.models.responses.ResponseCreateParams;
 import com.openai.models.responses.StructuredResponse;
 import com.openai.models.responses.StructuredResponseCreateParams;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.AiProvider;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
@@ -53,6 +54,8 @@ public class AiPracticeService {
 	private final OpenAIClient openAIClient;
 	private final Client geminiClient;
 	private final AiGenerationHistoryService aiGenerationHistoryService;
+	private static final AiProvider AI_PROVIDER =
+	        AiProvider.GEMINI;
 	
 	public Long countAiGenerationSourceQuestions(
 	        long userId,
@@ -115,74 +118,83 @@ public class AiPracticeService {
 	            aiPromptService.getLanguageProfile(
 	                    languageVariant,
 	                    locale);
+	    
+	    List<AiGenerationSourceDto> generationSources = createGenerationSources(
+	    		user, 
+	    		sourceQuestions);
 
-	    // 生成元問題をAI送信用DTOへ変換
-	    List<AiGenerationSourceDto> generationSources =
-	            new ArrayList<>();
-
-	    for (int i = 0; i < sourceQuestions.size(); i++) {
-
-	        Question sourceQuestion =
-	                sourceQuestions.get(i);
-
-	        // ログインユーザーの生成元問題に対する直近3件のAI生成履歴を取得
-	        List<AiGenerationHistory> aiGenerationHistories =
-	                aiGenerationHistoryService
-	                        .getGenerationHistories(
-	                                user.getId(),
-	                                sourceQuestion.getQuestionId());
-
-	        AiGenerationSourceDto source =
-	                new AiGenerationSourceDto();
-
-	        source.setSourceIndex(i);
-	        source.setJapaneseText(
-	                sourceQuestion.getJapaneseText());
-	        source.setChineseText(
-	                sourceQuestion.getChineseText());
-	        source.setTemplate(
-	                sourceQuestion.getTemplate());
-
-	        // AI生成履歴から生成済みの中国語文を取得
-	        List<String> chineseListHistory =
-	                new ArrayList<>();
-
-	        for (int j = 0; j < aiGenerationHistories.size(); j++) {
-
-	            String chineseTextHistory;
-
-	            chineseTextHistory =
-	                    aiGenerationHistories.get(j).getChineseText();
-
-	            chineseListHistory.add(
-	                    chineseTextHistory);
-	        }
-
-	        // 生成元問題に過去のAI生成文を設定
-	        source.setGenerationHistory(
-	                chineseListHistory);
-
-	        generationSources.add(source);
-	    }
-
+//	    // 生成元問題をAI送信用DTOへ変換
+//	    List<AiGenerationSourceDto> generationSources =
+//	            new ArrayList<>();
+//
+//	    for (int i = 0; i < sourceQuestions.size(); i++) {
+//
+//	        Question sourceQuestion =
+//	                sourceQuestions.get(i);
+//
+//	        // ログインユーザーの生成元問題に対する直近10件のAI生成履歴を取得
+//	        List<AiGenerationHistory> aiGenerationHistories =
+//	                aiGenerationHistoryService
+//	                        .getGenerationHistories(
+//	                                user.getId(),
+//	                                sourceQuestion.getQuestionId());
+//
+//	        AiGenerationSourceDto source =
+//	                new AiGenerationSourceDto();
+//
+//	        source.setSourceIndex(i);
+//	        source.setJapaneseText(
+//	                sourceQuestion.getJapaneseText());
+//	        source.setChineseText(
+//	                sourceQuestion.getChineseText());
+//	        source.setTemplate(
+//	                sourceQuestion.getTemplate());
+//
+//	        // AI生成履歴から生成済みの中国語文を取得
+//	        List<String> chineseListHistory =
+//	                new ArrayList<>();
+//
+//	        for (int j = 0; j < aiGenerationHistories.size(); j++) {
+//
+//	            String chineseTextHistory;
+//
+//	            chineseTextHistory =
+//	                    aiGenerationHistories.get(j).getChineseText();
+//
+//	            chineseListHistory.add(
+//	                    chineseTextHistory);
+//	        }
+//
+//	        // 生成元問題に過去のAI生成文を設定
+//	        source.setGenerationHistory(
+//	                chineseListHistory);
+//
+//	        generationSources.add(source);
+//	    }
+	    
 	    // 生成元問題をJSON形式に変換
-	    String generationSourcesJson;
+	    String generationSourcesJson = convertGenerationSourcesToJson(
+	    		generationSources,
+	    		locale);
 
-	    try {
-
-	        generationSourcesJson =
-	                objectMapper.writeValueAsString(
-	                        generationSources);
-
-	    } catch (JsonProcessingException e) {
-
-	        throw new IllegalStateException(
-	                messageSource.getMessage(
-	                        "ai.generation.error.json",
-	                        null,
-	                        locale),
-	                e);
-	    }
+//	    // 生成元問題をJSON形式に変換
+//	    String generationSourcesJson;
+//
+//	    try {
+//
+//	        generationSourcesJson =
+//	                objectMapper.writeValueAsString(
+//	                        generationSources);
+//
+//	    } catch (JsonProcessingException e) {
+//
+//	        throw new IllegalStateException(
+//	                messageSource.getMessage(
+//	                        "ai.generation.error.json",
+//	                        null,
+//	                        locale),
+//	                e);
+//	    }
 
 	    // AIへ送信する入力を作成
 	    String input =
@@ -193,29 +205,25 @@ public class AiPracticeService {
 	            + "## 生成元問題\n"
 	            + generationSourcesJson;
 
-	    // 使用するAIを一時的に切り替える
-	    boolean useChatGPT = false;
-
 	    long inputCompletedTime =
 	            System.currentTimeMillis();
 
 	    TemporaryGeneratedQuestionListDto
 	            temporaryGeneratedQuestionListDto;
 
-	    if (useChatGPT) {
+	    temporaryGeneratedQuestionListDto =
+	            switch (AI_PROVIDER) {
 
-	        temporaryGeneratedQuestionListDto =
-	                generateQuestionsWithChatGPT(
-	                        input,
-	                        locale);
+	                case CHAT_GPT ->
+	                        generateQuestionsWithChatGPT(
+	                                input,
+	                                locale);
 
-	    } else {
-
-	        temporaryGeneratedQuestionListDto =
-	                generateQuestionsWithGemini(
-	                        input,
-	                        locale);
-	    }
+	                case GEMINI ->
+	                        generateQuestionsWithGemini(
+	                                input,
+	                                locale);
+	            };
 
 	    long apiCompletedTime =
 	            System.currentTimeMillis();
@@ -318,6 +326,91 @@ public class AiPracticeService {
 
 	    return null;
 	}
+	
+	// 生成元問題のDTOを作成
+	private List<AiGenerationSourceDto> createGenerationSources(
+	        Users user,
+	        List<Question> sourceQuestions) {
+		
+	    // 生成元問題をAI送信用DTOへ変換
+	    List<AiGenerationSourceDto> generationSources =
+	            new ArrayList<>();
+
+	    for (int i = 0; i < sourceQuestions.size(); i++) {
+
+	        Question sourceQuestion =
+	                sourceQuestions.get(i);
+
+	        // ログインユーザーの生成元問題に対する直近10件のAI生成履歴を取得
+	        List<AiGenerationHistory> aiGenerationHistories =
+	                aiGenerationHistoryService
+	                        .getGenerationHistories(
+	                                user.getId(),
+	                                sourceQuestion.getQuestionId());
+
+	        AiGenerationSourceDto source =
+	                new AiGenerationSourceDto();
+
+	        source.setSourceIndex(i);
+	        source.setJapaneseText(
+	                sourceQuestion.getJapaneseText());
+	        source.setChineseText(
+	                sourceQuestion.getChineseText());
+	        source.setTemplate(
+	                sourceQuestion.getTemplate());
+
+	        // AI生成履歴から生成済みの中国語文を取得
+	        List<String> chineseListHistory =
+	                new ArrayList<>();
+
+	        for (int j = 0; j < aiGenerationHistories.size(); j++) {
+
+	            String chineseTextHistory;
+
+	            chineseTextHistory =
+	                    aiGenerationHistories.get(j).getChineseText();
+
+	            chineseListHistory.add(
+	                    chineseTextHistory);
+	        }
+
+	        // 生成元問題に過去のAI生成文を設定
+	        source.setGenerationHistory(
+	                chineseListHistory);
+
+	        generationSources.add(source);
+	    }
+	    
+	    return generationSources;
+		
+	}
+	
+	// 生成元DTOをJSONへ変換
+	private String convertGenerationSourcesToJson(
+	        List<AiGenerationSourceDto> generationSources,
+	        Locale locale) {
+		
+	    String generationSourcesJson;
+
+	    try {
+
+	        generationSourcesJson =
+	                objectMapper.writeValueAsString(
+	                        generationSources);
+
+	    } catch (JsonProcessingException e) {
+
+	        throw new IllegalStateException(
+	                messageSource.getMessage(
+	                        "ai.generation.error.json",
+	                        null,
+	                        locale),
+	                e);
+	    }
+	    
+	    return generationSourcesJson;
+		
+	}
 
 	private TemporaryGeneratedQuestionListDto generateQuestionsWithChatGPT(
 	        String input,
@@ -388,54 +481,57 @@ public class AiPracticeService {
 	private TemporaryGeneratedQuestionListDto generateQuestionsWithGemini(
 	        String input,
 	        Locale locale) {
+		
+		Schema responseSchema =
+		        createGeminiResponseSchema();
 
-	    // 1問分のStructured OutputsのJSON Schemaを作成
-	    Schema questionSchema =
-	            Schema.builder()
-	                    .type(Type.Known.OBJECT)
-	                    .properties(Map.of(
-	                            "sourceIndex",
-	                            Schema.builder()
-	                                    .type(Type.Known.INTEGER)
-	                                    .build(),
-	                            "japaneseText",
-	                            Schema.builder()
-	                                    .type(Type.Known.STRING)
-	                                    .build(),
-	                            "chineseText",
-	                            Schema.builder()
-	                                    .type(Type.Known.STRING)
-	                                    .build(),
-	                            "pinyin",
-	                            Schema.builder()
-	                                    .type(Type.Known.STRING)
-	                                    .build(),
-	                            "zhuyin",
-	                            Schema.builder()
-	                                    .type(Type.Known.STRING)
-	                                    .build()
-	                    ))
-	                    .required(List.of(
-	                            "sourceIndex",
-	                            "japaneseText",
-	                            "chineseText",
-	                            "pinyin",
-	                            "zhuyin"))
-	                    .build();
-
-	    // レスポンス全体の出力形式を定義
-	    Schema responseSchema =
-	            Schema.builder()
-	                    .type(Type.Known.OBJECT)
-	                    .properties(Map.of(
-	                            "questions",
-	                            Schema.builder()
-	                                    .type(Type.Known.ARRAY)
-	                                    .items(questionSchema)
-	                                    .build()
-	                    ))
-	                    .required(List.of("questions"))
-	                    .build();
+//	    // 1問分のStructured OutputsのJSON Schemaを作成
+//	    Schema questionSchema =
+//	            Schema.builder()
+//	                    .type(Type.Known.OBJECT)
+//	                    .properties(Map.of(
+//	                            "sourceIndex",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.INTEGER)
+//	                                    .build(),
+//	                            "japaneseText",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.STRING)
+//	                                    .build(),
+//	                            "chineseText",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.STRING)
+//	                                    .build(),
+//	                            "pinyin",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.STRING)
+//	                                    .build(),
+//	                            "zhuyin",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.STRING)
+//	                                    .build()
+//	                    ))
+//	                    .required(List.of(
+//	                            "sourceIndex",
+//	                            "japaneseText",
+//	                            "chineseText",
+//	                            "pinyin",
+//	                            "zhuyin"))
+//	                    .build();
+//
+//	    // レスポンス全体の出力形式を定義
+//	    Schema responseSchema =
+//	            Schema.builder()
+//	                    .type(Type.Known.OBJECT)
+//	                    .properties(Map.of(
+//	                            "questions",
+//	                            Schema.builder()
+//	                                    .type(Type.Known.ARRAY)
+//	                                    .items(questionSchema)
+//	                                    .build()
+//	                    ))
+//	                    .required(List.of("questions"))
+//	                    .build();
 	    
 	    // Thinking LevelをLOWに設定
 	    ThinkingConfig thinkingConfig =
@@ -484,6 +580,61 @@ public class AiPracticeService {
 	    }
 
 	    return temporaryGeneratedQuestionListDto;
+	}
+	
+	// スキーマを定義
+	private Schema createGeminiResponseSchema() {
+		
+	    // 1問分のStructured OutputsのJSON Schemaを作成
+	    Schema questionSchema =
+	            Schema.builder()
+	                    .type(Type.Known.OBJECT)
+	                    .properties(Map.of(
+	                            "sourceIndex",
+	                            Schema.builder()
+	                                    .type(Type.Known.INTEGER)
+	                                    .build(),
+	                            "japaneseText",
+	                            Schema.builder()
+	                                    .type(Type.Known.STRING)
+	                                    .build(),
+	                            "chineseText",
+	                            Schema.builder()
+	                                    .type(Type.Known.STRING)
+	                                    .build(),
+	                            "pinyin",
+	                            Schema.builder()
+	                                    .type(Type.Known.STRING)
+	                                    .build(),
+	                            "zhuyin",
+	                            Schema.builder()
+	                                    .type(Type.Known.STRING)
+	                                    .build()
+	                    ))
+	                    .required(List.of(
+	                            "sourceIndex",
+	                            "japaneseText",
+	                            "chineseText",
+	                            "pinyin",
+	                            "zhuyin"))
+	                    .build();
+
+	    // レスポンス全体の出力形式を定義
+	    Schema responseSchema =
+	            Schema.builder()
+	                    .type(Type.Known.OBJECT)
+	                    .properties(Map.of(
+	                            "questions",
+	                            Schema.builder()
+	                                    .type(Type.Known.ARRAY)
+	                                    .items(questionSchema)
+	                                    .build()
+	                    ))
+	                    .required(List.of("questions"))
+	                    .build();
+	    
+	    return responseSchema;
+		
 	}
 
 	private List<AiGeneratedQuestionDto> convertToGeneratedQuestions(
