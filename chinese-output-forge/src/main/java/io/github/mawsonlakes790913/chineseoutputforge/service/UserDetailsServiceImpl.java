@@ -41,7 +41,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         authorities.add(authority);
         
         // UserDetails生成 
-        UserDetails userDetails = new User(
+        return new User(
                 loginUser.getLoginId(),
                 loginUser.getPassword(),
                 true,
@@ -50,7 +50,5 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 !loginUser.isAccountLocked(),
                 authorities
         );
-
-        return userDetails;
 	}
 }
