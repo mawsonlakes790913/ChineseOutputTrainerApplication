@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AiGenerationHistoryService {
 
     private final AiGenerationHistoryRepository aiGenerationHistoryRepository;
+    private static final int MAX_HISTORY_SIZE = 10;
 
  // ユーザーと生成元問題に紐づくAI生成履歴を取得
     public List<AiGenerationHistory> getGenerationHistories(
@@ -44,7 +45,7 @@ public class AiGenerationHistoryService {
                         question.getQuestionId());
 
         // すでに10件ある場合は最も古い履歴を削除
-        if (histories.size() >= 10) {
+        if (histories.size() >= MAX_HISTORY_SIZE) {
 
             AiGenerationHistory oldestHistory =
                     histories.get(histories.size() - 1);
@@ -66,7 +67,7 @@ public class AiGenerationHistoryService {
                 chineseText);
     }
     
-    public void saveGenerationHistory(
+    private void saveGenerationHistory(
             Users user,
             Question question,
             String chineseText) {
