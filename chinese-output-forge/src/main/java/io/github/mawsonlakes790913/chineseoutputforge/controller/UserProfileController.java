@@ -96,8 +96,6 @@ public class UserProfileController {
 	                "duplicate",
 	                e.getMessage());
 
-	        model.addAttribute("editLoginIdForm", form);
-
 	        return getEditLoginId(loginUser, model, form);
 
 	    } catch (IllegalArgumentException e) {
@@ -107,18 +105,11 @@ public class UserProfileController {
 	                "same",
 	                e.getMessage());
 
-	        model.addAttribute("editLoginIdForm", form);
-
 	        return getEditLoginId(loginUser, model, form);
 	    }
 	    
 	    // ログアウト状態にする
-	    SecurityContextHolder.clearContext();
-
-	    // SessionからSpring Securityの認証情報だけ削除
-	    session.removeAttribute(
-	    	    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
-	    	);
+	    clearAuthentication(session);
 
 	    // 変更完了メッセージ
 	    redirectAttributes.addFlashAttribute(
@@ -133,7 +124,7 @@ public class UserProfileController {
 	public String getEditPassword(
 	        Model model,
 	        EditPasswordForm form) {
-		model.addAttribute("editpasswordForm", form);
+		model.addAttribute("editPasswordForm", form);
 		return "user/edit/password";
 	}
 	
@@ -171,8 +162,6 @@ public class UserProfileController {
 	                e.getMessage()
 	        );
 
-	        model.addAttribute("editPasswordForm", form);
-
 	        return getEditPassword(model, form);
 
 	    } catch (IllegalArgumentException e) {
@@ -181,8 +170,6 @@ public class UserProfileController {
 	                "userNotFound",
 	                e.getMessage()
 	        );
-
-	        model.addAttribute("editPasswordForm", form);
 
 	        return getEditPassword(model, form);
 	    
@@ -200,12 +187,7 @@ public class UserProfileController {
 	    }
 
 	    // ログアウト状態にする
-	    SecurityContextHolder.clearContext();
-
-	    // SessionからSpring Securityの認証情報だけ削除
-	    session.removeAttribute(
-	    	    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
-	    	);
+	    clearAuthentication(session);
 
 	    // 変更完了メッセージ
 	    redirectAttributes.addFlashAttribute(
@@ -218,7 +200,7 @@ public class UserProfileController {
 	}
 	
 	@PostMapping("/user/delete")
-	public String cancelMembership(
+	public String postUserDelete(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        HttpServletRequest request,
 	        Locale locale)
@@ -241,6 +223,14 @@ public class UserProfileController {
 	
 	private Users getLoginUser(UserDetails loginUser) {
 		return userAccountService.getUserOne(loginUser.getUsername());
+	}
+	
+	private void clearAuthentication(HttpSession session) {
+	    SecurityContextHolder.clearContext();
+
+	    session.removeAttribute(
+	            HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+	    );
 	}
 
 }
