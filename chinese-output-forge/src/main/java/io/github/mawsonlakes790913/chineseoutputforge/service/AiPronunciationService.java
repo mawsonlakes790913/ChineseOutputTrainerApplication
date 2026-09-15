@@ -60,36 +60,8 @@ public class AiPronunciationService {
 	
 	private AiPronunciationResponseDto generatePronunciationWithGemini(String input) {
 		
-		// 発音情報の出力形式を定義
-		Schema responseSchema =
-		        Schema.builder()
-		                .type(Type.Known.OBJECT)
-		                .properties(Map.of(
-		                        "pinyin",
-		                        Schema.builder()
-		                                .type(Type.Known.STRING)
-		                                .build(),
-		                        "zhuyin",
-		                        Schema.builder()
-		                                .type(Type.Known.STRING)
-		                                .build(),
-		                        "alternativeAnswerPinyin",
-		                        Schema.builder()
-		                                .type(Type.Known.STRING)
-		                                .nullable(true)
-		                                .build(),
-		                        "alternativeAnswerZhuyin",
-		                        Schema.builder()
-		                                .type(Type.Known.STRING)
-		                                .nullable(true)
-		                                .build()
-		                ))
-		                .required(List.of(
-		                        "pinyin",
-		                        "zhuyin",
-		                        "alternativeAnswerPinyin",
-		                        "alternativeAnswerZhuyin"))
-		                .build();
+	    Schema responseSchema =
+	            createGeminiResponseSchema();
 
 		// Thinking LevelをLOWに設定
 		ThinkingConfig thinkingConfig =
@@ -135,5 +107,37 @@ public class AiPronunciationService {
 
 	    return aiPronunciationResponseDto;
 	    
+	}
+	
+	private Schema createGeminiResponseSchema() {
+
+	    return Schema.builder()
+	            .type(Type.Known.OBJECT)
+	            .properties(Map.of(
+	                    "pinyin",
+	                    Schema.builder()
+	                            .type(Type.Known.STRING)
+	                            .build(),
+	                    "zhuyin",
+	                    Schema.builder()
+	                            .type(Type.Known.STRING)
+	                            .build(),
+	                    "alternativeAnswerPinyin",
+	                    Schema.builder()
+	                            .type(Type.Known.STRING)
+	                            .nullable(true)
+	                            .build(),
+	                    "alternativeAnswerZhuyin",
+	                    Schema.builder()
+	                            .type(Type.Known.STRING)
+	                            .nullable(true)
+	                            .build()
+	            ))
+	            .required(List.of(
+	                    "pinyin",
+	                    "zhuyin",
+	                    "alternativeAnswerPinyin",
+	                    "alternativeAnswerZhuyin"))
+	            .build();
 	}
 }
