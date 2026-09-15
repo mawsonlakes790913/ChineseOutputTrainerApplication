@@ -17,6 +17,7 @@ public class AdminStructureService {
 
     private final StructureRepository structureRepository;
     private final QuestionRepository questionRepository;
+    private static final Long OTHER_STRUCTURE_ID = 23L;
 
     // 文法一覧取得
     public Page<Structure> getStructures(Pageable pageable) {
@@ -37,9 +38,7 @@ public class AdminStructureService {
 
         Structure structure = new Structure();
 
-        structure.setName(form.getName());
-        structure.setDescriptionZhCn(form.getDescriptionZhCn());
-        structure.setDescriptionZhTw(form.getDescriptionZhTw());
+        applyStructureForm(structure, form);
 
         structureRepository.save(structure);
     }
@@ -73,11 +72,7 @@ public class AdminStructureService {
             );
         }
 
-        structure.setName(structureForm.getName());
-        structure.setDescriptionZhCn(
-                structureForm.getDescriptionZhCn());
-        structure.setDescriptionZhTw(
-                structureForm.getDescriptionZhTw());
+        applyStructureForm(structure, structureForm);
     }
     
     // 文法削除
@@ -85,7 +80,7 @@ public class AdminStructureService {
     public void deleteStructure(Long structureId) {
 
         // 「その他」自体は削除不可
-        if (structureId.equals(23L)) {
+        if (structureId.equals(OTHER_STRUCTURE_ID)) {
             throw new IllegalArgumentException(
                     "「その他」は削除できません。"
             );
@@ -93,16 +88,11 @@ public class AdminStructureService {
 
         // 削除対象の文法を取得
         Structure targetStructure =
-                structureRepository.findById(structureId)
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "文法・構造が存在しません。"
-                                )
-                        );
+                getStructure(structureId);
 
         // 移行先の「その他」を取得
         Structure replacementStructure =
-                structureRepository.findById(23L)
+                structureRepository.findById(OTHER_STRUCTURE_ID)
                         .orElseThrow(() ->
                                 new IllegalStateException(
                                         "「その他」の文法・構造が存在しません。"
@@ -132,5 +122,16 @@ public class AdminStructureService {
                 structure.getDescriptionZhTw());
 
         return form;
+    }
+    
+    private void applyStructureForm(
+            Structure structure,
+            StructureForm form) {
+
+        structure.setName(form.getName());
+        structure.setDescriptionZhCn(
+                form.getDescriptionZhCn());
+        structure.setDescriptionZhTw(
+                form.getDescriptionZhTw());
     }
 }
