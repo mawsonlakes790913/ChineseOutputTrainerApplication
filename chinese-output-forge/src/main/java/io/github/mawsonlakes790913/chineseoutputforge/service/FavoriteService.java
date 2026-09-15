@@ -1,7 +1,5 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
-import java.util.Optional;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +26,7 @@ public class FavoriteService {
 		FavoriteKey key = createFavoriteKey(user, questionId);
 		
 		// 存在確認とINSERT及びDELETE処理
-		Optional<Favorite> optionalFavorite =
-				favoriteRepository.findByFavoriteKey(key);
-		
-		if (optionalFavorite.isEmpty()) {
+		if (!favoriteRepository.existsById(key)) {
 			
 			//ここでINSERT
 			Question question =
