@@ -142,15 +142,12 @@ public class ReviewController {
 	    // 既存の学習状態を破棄
 		clearReviewSession(session);
 	    
-	    //先に宣言
-	    List<Question> questions;
-	    
 	    // user_id(文字列)からUsersを取得
 	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
 	    
 	    // 新しい問題セットを作成
-	    questions = reviewService.getQuestion(
+	    List<Question> questions = reviewService.getQuestion(
 	    		userId, 
 	    		languageVariants, 
 	    		evaluations, 
@@ -220,7 +217,7 @@ public class ReviewController {
 	}
 	
 	@GetMapping("/review/resume")
-	public String getReviewResume(Model model,
+	public String getReviewResume(
 							  HttpSession session
 							  ) {
 		// 中断していないならmenuに戻す
@@ -262,7 +259,7 @@ public class ReviewController {
 	}
 	
 	@PostMapping("/review/evaluation")
-	public String postEvaluation(
+	public String postReviewEvaluation(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long questionId,
 	        @RequestParam Evaluation evaluation,
@@ -270,8 +267,7 @@ public class ReviewController {
 	        HttpSession session) {
 
 	    // ユーザー情報を取得
-	    Users user = userAccountService.getUserOne(
-	            loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 
 	    // 理解度を保存
 	    evaluationService.updateEvaluation(
