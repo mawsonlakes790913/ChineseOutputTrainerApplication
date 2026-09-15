@@ -22,7 +22,6 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
-import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
@@ -35,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AiPracticeController {
 	
-	private final ReviewService reviewService;
 	private final UserAccountService userAccountService;
 	private final AiPracticeService aiPracticeService;
 	private final QuestionModelUtil questionModelUtil;
@@ -97,12 +95,7 @@ public class AiPracticeController {
 	    
 	    // 学習対象言語を取得
 	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-	    
-	    // 未設定の場合は普通話
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
+	            getLanguageVariant(session);
 	   
 	    
 	    // 出題数を返す
@@ -136,23 +129,22 @@ public class AiPracticeController {
 		clearAiPracticeSession(session);
 		
 	    // 学習対象言語を取得
-	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-	    
-	    // 未設定の場合は普通話
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
-	    
-	    //先に宣言
-	    List<Question> sourceQuestions;
+		LanguageVariant languageVariant =
+		        getLanguageVariant(session);
 	    
 	    // user_id(文字列)からUsersを取得
 	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
 	    
 	    // 新しい問題セットを作成
-	    sourceQuestions = aiPracticeService.getQuestion(userId, difficulties, evaluations, favoriteCondition, structureIds, languageVariant);
+	    List<Question> sourceQuestions =
+	            aiPracticeService.getQuestion(
+	                    userId,
+	                    difficulties,
+	                    evaluations,
+	                    favoriteCondition,
+	                    structureIds,
+	                    languageVariant);
 	    
 	    // 問題が1件もない場合は開始しない
 	    if (sourceQuestions.isEmpty()) {
@@ -160,13 +152,12 @@ public class AiPracticeController {
 	    }
 
 	    // AIで問題を生成
-	    List<AiGeneratedQuestionDto> aiPracticeQuestions;
-
-	    aiPracticeQuestions = aiPracticeService.generateQuestions(
-	    		user,
-	    		sourceQuestions,
-	    		languageVariant,
-	    		locale);
+	    List<AiGeneratedQuestionDto> aiPracticeQuestions = 
+	    		aiPracticeService.generateQuestions(
+		    		user,
+		    		sourceQuestions,
+		    		languageVariant,
+		    		locale);
 	    
 		session.setAttribute("aiPracticeQuestions", aiPracticeQuestions);
 	    session.setAttribute("aiPracticeQuestionsCurrentPage", 0);
@@ -203,8 +194,7 @@ public class AiPracticeController {
 	    session.setAttribute("aiPracticeQuestionsCurrentPage", page);
 	    
 	    // ユーザー情報を取得
-	    Users user = userAccountService.getUserOne(
-	            loginUser.getUsername());
+	    Users user = getLoginUser(loginUser);
 
 	    // このAI生成問題がすでにQuestionに保存されているか確認
 	    // 保存済みの場合はquestionIdを取得
@@ -239,7 +229,7 @@ public class AiPracticeController {
 	}
 	
 	@GetMapping("/ai-practice/resume")
-	public String getAiPracticeResume(Model model,
+	public String getAiPracticeResume(
 							  HttpSession session
 							  ) {
 		// 中断していないならmenuに戻す
@@ -315,8 +305,7 @@ public class AiPracticeController {
 	        HttpSession session) {
 
 	    // ユーザー情報を取得
-	    Users user = userAccountService.getUserOne(
-	            loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 
 	    // 理解度を保存
 	    evaluationService.updateEvaluation(
@@ -344,6 +333,18 @@ public class AiPracticeController {
 	
 	private Users getLoginUser(UserDetails loginUser) {
 		return userAccountService.getUserOne(loginUser.getUsername());
+	}
+	
+	private LanguageVariant getLanguageVariant(HttpSession session) {
+
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    if (languageVariant == null) {
+	        return LanguageVariant.MAINLAND;
+	    }
+
+	    return languageVariant;
 	}
 
 }
