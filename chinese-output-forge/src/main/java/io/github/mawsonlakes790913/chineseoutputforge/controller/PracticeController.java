@@ -57,12 +57,7 @@ public class PracticeController {
 	    
 	    // 学習対象言語を取得
 	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-
-	    // 未設定の場合は普通話
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
+	            getLanguageVariant(session);
 	    
 	    // ログインしていればIDを取得
 	    Long userId = null;
@@ -129,11 +124,7 @@ public class PracticeController {
 	    
 	    // 言語情報を取得
 	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-	    
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
+	            getLanguageVariant(session);
 	    
 	    // 出題数を返す
 	    return practiceService.countPracticeQuestions(
@@ -199,11 +190,7 @@ public class PracticeController {
 	    
 	    // 言語情報を取得
 	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
+	            getLanguageVariant(session);
 	    
 	    // ログインしていればIDを取得
 	    Long userId = null;
@@ -246,12 +233,8 @@ public class PracticeController {
 		clearPracticeSession(session);
 		
 	    // 言語情報を取得
-	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
+		LanguageVariant languageVariant =
+		        getLanguageVariant(session);
 	    
 	    //先に宣言
 	    List<Question> questions;
@@ -390,5 +373,17 @@ public class PracticeController {
 	
 	private Users getLoginUser(UserDetails loginUser) {
 		return userAccountService.getUserOne(loginUser.getUsername());
+	}
+	
+	private LanguageVariant getLanguageVariant(HttpSession session) {
+
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    if (languageVariant == null) {
+	        return LanguageVariant.MAINLAND;
+	    }
+
+	    return languageVariant;
 	}
 }
