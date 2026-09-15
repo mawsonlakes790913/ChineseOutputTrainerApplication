@@ -20,18 +20,18 @@ public class LanguageVariantController {
 	private final UserAccountService userAccountService;
 
 	@GetMapping("/language-variant")
-	public String changeLanguageVariant(
+	public String getLanguageVariantChange(
 			@AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam LanguageVariant languageVariant,
 	        @RequestParam(required = false) String redirect,
 	        Locale locale,
 	        HttpSession session) {
 
-	    LanguageVariant current =
+	    LanguageVariant currentLanguageVariant =
 	            (LanguageVariant) session.getAttribute("languageVariant");
 
 	    // 同じ言語なら変更処理をしない
-	    if (languageVariant == current) {
+	    if (languageVariant == currentLanguageVariant) {
 	        return redirect != null
 	                ? "redirect:" + redirect
 	                : "redirect:/";
