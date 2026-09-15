@@ -106,76 +106,39 @@ public class AdminQuestionService {
 	    log.info("問題削除 questionId={}", questionId);
 	}
 	
+	@Transactional
 	public void addQuestion(QuestionForm form) {
-		
-    	Question question = new Question();
-    	
-        // 発音生成用DTOを作成
-        AiPronunciationRequestDto request =
-                new AiPronunciationRequestDto(
-                        form.getLanguageVariant(),
-                        form.getChineseText(),
-                        form.getAlternativeAnswer()
-                );
 
-        // AIで発音情報を生成
-        AiPronunciationResponseDto pronunciation =
-                aiPronunciationService.generatePronunciation(request);
+	    Question question = new Question();
 
-    	// 文法コード以外をQuestionにSET
-    	copyQuestionForm(question, form, pronunciation);
-    	
-    	// 文法コードをQuestionにSET
-        Structure structure = structureRepository
-                .findById(form.getStructureId())
-                .orElseThrow();
-        
-        question.setStructure(structure);
-    	
-        // INSERT
-    	Question savedQuestion = questionRepository.save(question);
-    	
-    	log.info("問題登録完了 questionId={}", savedQuestion.getQuestionId());
-		
+	    applyQuestionForm(question, form);
+
+	    Question savedQuestion =
+	            questionRepository.save(question);
+
+	    log.info(
+	            "問題登録完了 questionId={}",
+	            savedQuestion.getQuestionId());
 	}
-	
+
+	@Transactional
 	public void updateOneQuestion(
-			long questionId, 
-			QuestionForm form
-			) {
-		
-		Question question = questionRepository.findById(questionId)
-		        .orElseThrow(() ->
-		                new IllegalArgumentException("Question not found."));
-		
-		log.info("問題更新前 {}", question);
-		
-        // 発音生成用DTOを作成
-        AiPronunciationRequestDto request =
-                new AiPronunciationRequestDto(
-                        form.getLanguageVariant(),
-                        form.getChineseText(),
-                        form.getAlternativeAnswer()
-                );
+	        long questionId,
+	        QuestionForm form) {
 
-        // AIで発音情報を生成
-        AiPronunciationResponseDto pronunciation =
-                aiPronunciationService.generatePronunciation(request);
-        
-    	// 文法コード以外をQuestionにSET
-		copyQuestionForm(question, form, pronunciation);
-		
-    	// 文法コードをQuestionにSET
-        Structure structure = structureRepository
-                .findById(form.getStructureId())
-                .orElseThrow();
-        
-        question.setStructure(structure);
+	    Question question =
+	            questionRepository.findById(questionId)
+	                    .orElseThrow(() ->
+	                            new IllegalArgumentException(
+	                                    "Question not found."));
 
-        // UPDATE
-		questionRepository.save(question);
+	    log.info("問題更新前 {}", question);
 
-		log.info("問題更新後 {}", question);
+	    applyQuestionForm(question, form);
+
+	    questionRepository.save(question);
+
+	    log.info("問題更新後 {}", question);
 	}
 	
 	public OriginalQuestionDTO getOriginalQuestion(long questionId) {
@@ -264,5 +227,31 @@ public class AdminQuestionService {
 	    question.setDifficulty(form.getDifficulty());
 		question.setAllowAiVariation(form.isAllowAiVariation());
 		question.setTemplate(form.getTemplate());
+	}
+	
+	private void applyQuestionForm(
+	        Question question,
+	        QuestionForm form) {
+
+	    AiPronunciationRequestDto request =
+	            new AiPronunciationRequestDto(
+	                    form.getLanguageVariant(),
+	                    form.getChineseText(),
+	                    form.getAlternativeAnswer());
+
+	    AiPronunciationResponseDto pronunciation =
+	            aiPronunciationService.generatePronunciation(request);
+
+	    copyQuestionForm(
+	            question,
+	            form,
+	            pronunciation);
+
+	    Structure structure =
+	            structureRepository
+	                    .findById(form.getStructureId())
+	                    .orElseThrow();
+
+	    question.setStructure(structure);
 	}
 }
