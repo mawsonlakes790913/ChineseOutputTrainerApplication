@@ -25,10 +25,8 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.form.QuestionForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AdminQuestionService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
-import io.github.mawsonlakes790913.chineseoutputforge.service.ReviewService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,7 +38,6 @@ public class AdminQuestionController {
 	
 	private final AdminQuestionService adminQuestionService;
 	private final PaginationService paginationService;
-	private final ReviewService reviewService;
 	private final StructureService structureService;
 	
 	@GetMapping("/admin/question/list")
@@ -57,7 +54,6 @@ public class AdminQuestionController {
 	                defaultValue = "UPDATED_DESC"
 	        )
 	        AdminQuestionSortCondition sortCondition,
-	        HttpSession session,
 	        HttpServletRequest request,
 	        Model model) {
 		
@@ -70,7 +66,7 @@ public class AdminQuestionController {
 
 		model.addAttribute("currentUrl", currentUrl);
 		
-		Page<AdminQuestionListDto> allFilteredQuestionList = 
+		Page<AdminQuestionListDto> questionPage = 
 				adminQuestionService.getFilteredAdminQuestions(
 						difficulties,
 						sourceCondition,
@@ -82,18 +78,27 @@ public class AdminQuestionController {
 						pageable
 						);
 						
-		PaginationDto pagination = paginationService.createPagination(allFilteredQuestionList);
+		PaginationDto pagination = paginationService.createPagination(questionPage);
 		
-		long start = allFilteredQuestionList.getNumber() * allFilteredQuestionList.getSize() + 1;
-		long end = start + allFilteredQuestionList.getNumberOfElements() - 1;
+		long start = 0;
+		long end = 0;
+
+		if (questionPage.hasContent()) {
+		    start =
+		            (long) questionPage.getNumber()
+		            * questionPage.getSize() + 1;
+
+		    end =
+		            start + questionPage.getNumberOfElements() - 1;
+		}
 		
 		// ページ情報
 		model.addAttribute("start", start);
 		model.addAttribute("end", end);
-		model.addAttribute("total", allFilteredQuestionList.getTotalElements());
+		model.addAttribute("total", questionPage.getTotalElements());
 
-		model.addAttribute("questionList", allFilteredQuestionList.getContent());
-		model.addAttribute("page", allFilteredQuestionList);
+		model.addAttribute("questionList", questionPage.getContent());
+		model.addAttribute("page", questionPage);
 		model.addAttribute("pagination", pagination);
 
 		// 検索条件
