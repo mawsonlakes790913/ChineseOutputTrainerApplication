@@ -298,7 +298,8 @@ public class AiPracticeController {
 	        @RequestParam Long questionId,
 	        @RequestParam Evaluation evaluation,
 	        @RequestParam Integer page,
-	        HttpSession session) {
+	        HttpSession session,
+	        Locale locale) {
 
 	    // ユーザー情報を取得
 		Users user = getLoginUser(loginUser);
@@ -307,7 +308,8 @@ public class AiPracticeController {
 	    evaluationService.updateEvaluation(
 	            user,
 	            questionId,
-	            evaluation);
+	            evaluation,
+	            locale);
 
 	    // Sessionからquestions取得
 	    List<AiGeneratedQuestionDto> questions =

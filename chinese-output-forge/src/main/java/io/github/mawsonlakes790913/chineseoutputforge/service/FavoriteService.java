@@ -1,5 +1,8 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
+import java.util.Locale;
+
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +23,21 @@ public class FavoriteService {
 	
 	private final FavoriteRepository favoriteRepository;
 	private final QuestionRepository questionRepository;
+	private final MessageSource messageSource;
 	
-	public boolean toggleFavorite(Users user, long questionId) {
+	public boolean toggleFavorite(Users user, long questionId, Locale locale) {
+		
+		// 操作可能な問題か確認
+		if (!questionRepository.existsAccessibleQuestion(
+		        questionId,
+		        user.getId())) {
+
+		    throw new IllegalArgumentException(
+		            messageSource.getMessage(
+		                    "question.error.accessDenied",
+		                    null,
+		                    locale));
+		}
 		
 		FavoriteKey key = createFavoriteKey(user, questionId);
 		

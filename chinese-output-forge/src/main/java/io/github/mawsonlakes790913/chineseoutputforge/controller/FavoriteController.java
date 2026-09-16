@@ -1,5 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
+import java.util.Locale;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -24,13 +26,15 @@ public class FavoriteController {
 	@ResponseBody
 	public boolean toggleFavorite(
 	        @RequestParam Long questionId,
-	        @AuthenticationPrincipal UserDetails loginUser) {
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        Locale locale) {
 		
 		// ユーザー情報を取得
 		Users user = userAccountService.getUserOne(loginUser.getUsername());
 
 	    return favoriteService.toggleFavorite(
 	            user,
-	            questionId);
+	            questionId,
+	            locale);
 	}
 }

@@ -219,6 +219,7 @@ public class PracticeController {
 	    return "redirect:/practice/question?page=0";	    
 	}	
 	
+	@PreAuthorize("isAuthenticated()")
 	@GetMapping("/practice/new/start")
 	public String getPracticeNewStart(
 	        HttpSession session,
@@ -337,13 +338,15 @@ public class PracticeController {
 	    session.removeAttribute("practiceCurrentPage");
 	}
 	
+	@PreAuthorize("isAuthenticated()")
 	@PostMapping("/practice/evaluation")
 	public String postPracticeEvaluation(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long questionId,
 	        @RequestParam Evaluation evaluation,
 	        @RequestParam Integer page,
-	        HttpSession session) {
+	        HttpSession session,
+	        Locale locale) {
 
 	    // ユーザー情報を取得
 		Users user = getLoginUser(loginUser);
@@ -352,7 +355,8 @@ public class PracticeController {
 	    evaluationService.updateEvaluation(
 	            user,
 	            questionId,
-	            evaluation);
+	            evaluation,
+	            locale);
 
 	    // セッションから問題一覧を取得
 	    List<Question> questions =

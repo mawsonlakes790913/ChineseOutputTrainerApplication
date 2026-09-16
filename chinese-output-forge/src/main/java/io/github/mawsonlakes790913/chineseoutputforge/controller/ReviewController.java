@@ -1,6 +1,7 @@
 package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -260,7 +261,8 @@ public class ReviewController {
 	        @RequestParam Long questionId,
 	        @RequestParam Evaluation evaluation,
 	        @RequestParam Integer page,
-	        HttpSession session) {
+	        HttpSession session,
+	        Locale locale) {
 
 	    // ユーザー情報を取得
 		Users user = getLoginUser(loginUser);
@@ -269,7 +271,8 @@ public class ReviewController {
 	    evaluationService.updateEvaluation(
 	            user,
 	            questionId,
-	            evaluation);
+	            evaluation,
+	            locale);
 
 	    // セッションから問題一覧を取得
 	    List<Question> questions =

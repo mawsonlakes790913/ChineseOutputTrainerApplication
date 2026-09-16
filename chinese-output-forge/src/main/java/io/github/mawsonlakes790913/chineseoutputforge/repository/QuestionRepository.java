@@ -17,6 +17,19 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 	
+	@Query("""
+	        SELECT COUNT(q) > 0
+	        FROM Question q
+	        WHERE q.questionId = :questionId
+	        AND (
+	            q.aiGenerated = false
+	            OR q.owner.id = :userId
+	        )
+	        """)
+	boolean existsAccessibleQuestion(
+	        @Param("questionId") Long questionId,
+	        @Param("userId") Long userId);
+	
 	@Modifying
 	@Query("""
 	        DELETE FROM Question q

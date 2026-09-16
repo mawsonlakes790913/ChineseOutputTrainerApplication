@@ -194,7 +194,8 @@ public class UserQuestionController {
 	@ResponseBody
 	public void postEvaluationToggle(@AuthenticationPrincipal UserDetails loginUser,
 	        				   @RequestParam Long questionId,
-	        				   @RequestParam Evaluation evaluation) {
+	        				   @RequestParam Evaluation evaluation,
+	        				   Locale locale) {
 		
 		// ユーザー情報を取得
 		Users user = getLoginUser(loginUser);
@@ -202,7 +203,8 @@ public class UserQuestionController {
 		evaluationService.updateEvaluation(
 		        user,
 		        questionId,
-		        evaluation);
+		        evaluation,
+		        locale);
 		
 	}
 	

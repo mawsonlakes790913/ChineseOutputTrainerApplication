@@ -1,13 +1,16 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistory;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistoryKey;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
+import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,11 +21,26 @@ import lombok.extern.slf4j.Slf4j;
 public class EvaluationService {
 	
 	private final StudyHistoryRepository studyHistoryRepository;
+	private final QuestionRepository questionRepository;
+	private final MessageSource messageSource;
 	
 	public void updateEvaluation(
 	        Users user,
 	        Long questionId,
-	        Evaluation evaluation) {
+	        Evaluation evaluation,
+	        Locale locale) {
+		
+		// 操作可能な問題か確認
+		if (!questionRepository.existsAccessibleQuestion(
+		        questionId,
+		        user.getId())) {
+
+		    throw new IllegalArgumentException(
+		            messageSource.getMessage(
+		                    "question.error.accessDenied",
+		                    null,
+		                    locale));
+		}
 
 	    // 複合キー情報を作成
 	    StudyHistoryKey key =
