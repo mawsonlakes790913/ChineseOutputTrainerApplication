@@ -10,9 +10,11 @@ import io.github.mawsonlakes790913.chineseoutputforge.form.StructureForm;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminStructureService {
 
     private final StructureRepository structureRepository;
@@ -40,7 +42,13 @@ public class AdminStructureService {
 
         applyStructureForm(structure, form);
 
-        structureRepository.save(structure);
+        Structure savedStructure =
+                structureRepository.save(structure);
+
+        log.info(
+                "文法・構造登録完了 structureId={}, name={}",
+                savedStructure.getStructureId(),
+                savedStructure.getName());
     }
     
     // 文法取得
@@ -73,6 +81,11 @@ public class AdminStructureService {
         }
 
         applyStructureForm(structure, structureForm);
+
+        log.info(
+                "文法・構造更新完了 structureId={}, name={}",
+                structureId,
+                structure.getName());
     }
     
     // 文法削除
@@ -106,6 +119,11 @@ public class AdminStructureService {
 
         // 文法を削除
         structureRepository.delete(targetStructure);
+        
+        log.info(
+                "文法・構造削除完了 structureId={}, name={}",
+                structureId,
+                targetStructure.getName());
     }
     
     // 変更前の文法・構造情報から編集フォームを作成

@@ -101,7 +101,10 @@ public class UserQuestionService {
 	                .deleteByStudyHistoryKeyQuestionId(questionId);
 	        questionRepository.deleteById(questionId);
 
-	        log.info("問題削除 questionId={}", questionId);
+	        log.info(
+	                "所有問題削除完了 userId={}, questionId={}",
+	                userId,
+	                questionId);
 	    }
 	}
 

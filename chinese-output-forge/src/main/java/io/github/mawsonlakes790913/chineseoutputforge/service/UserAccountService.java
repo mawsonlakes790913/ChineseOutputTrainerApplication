@@ -90,10 +90,10 @@ public class UserAccountService {
         userRepository.save(user);
 
         log.info(
-                "ユーザーID変更 currentUserId={}, newUserId={}",
+                "ログインID変更完了 userId={}, oldLoginId={}, newLoginId={}",
+                user.getId(),
                 currentLoginId,
-                newLoginId
-        );
+                newLoginId);
     }
     
 	@Transactional
@@ -138,7 +138,10 @@ public class UserAccountService {
 	    // 更新
 	    userRepository.save(user);
 
-		log.info("パスワード変更 loginId={}", loginId);
+	    log.info(
+	            "パスワード変更完了 userId={}, loginId={}",
+	            user.getId(),
+	            user.getLoginId());
 
 	}
 	
@@ -151,11 +154,16 @@ public class UserAccountService {
         		"user.delete.error.notFound",
                 locale);
 	    
-	    
+        // ログ用にidとログインidを取得
+        Long userId = user.getId();
+        String deletedLoginId = user.getLoginId();
 
-	    deleteUserData(user);
+        deleteUserData(user);
 
-	    log.info("退会完了 loginId={}", loginId);
+        log.info(
+                "退会完了 userId={}, loginId={}",
+                userId,
+                deletedLoginId);
 	}
 
 
@@ -183,9 +191,14 @@ public class UserAccountService {
 	        );
 	    }
 
+	    String deletedLoginId = user.getLoginId();
+
 	    deleteUserData(user);
 
-	    log.info("ユーザー削除完了 userId={}", userId);
+	    log.info(
+	            "ユーザー削除完了 userId={}, loginId={}",
+	            userId,
+	            deletedLoginId);
 	}
 
 
@@ -225,11 +238,10 @@ public class UserAccountService {
 
 	    userRepository.save(user);
 
-	    log.info(
-	            "学習対象言語変更 loginId={}, languageVariant={}",
-	            user.getLoginId(),
-	            languageVariant
-	    );
+	    log.debug(
+	            "学習対象言語変更 userId={}, languageVariant={}",
+	            user.getId(),
+	            languageVariant);
 	}
 	
 	@Transactional
@@ -248,11 +260,10 @@ public class UserAccountService {
 
 	    userRepository.save(user);
 
-	    log.info(
-	            "表示発音記号変更 loginId={}, pronunciationType={}",
-	            user.getLoginId(),
-	            pronunciationType
-	    );
+	    log.debug(
+	            "表示発音記号変更 userId={}, pronunciationType={}",
+	            user.getId(),
+	            pronunciationType);
 	}
 	
 	private Users getUserOrThrow(

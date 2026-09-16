@@ -10,9 +10,11 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminUserService {
 	
 	private final UserRepository userRepository;
@@ -44,6 +46,11 @@ public class AdminUserService {
 	    
 	    user.setAccountLocked(true);
 	    userRepository.save(user);
+	    
+	    log.info(
+	            "ユーザー凍結完了 userId={}, loginId={}",
+	            user.getId(),
+	            user.getLoginId());
 	}
 	
 	// ユーザー凍結解除
@@ -54,6 +61,11 @@ public class AdminUserService {
 
 	    user.setAccountLocked(false);
 	    userRepository.save(user);
+	    
+	    log.info(
+	            "ユーザー凍結解除完了 userId={}, loginId={}",
+	            user.getId(),
+	            user.getLoginId());
 	}
 
 }

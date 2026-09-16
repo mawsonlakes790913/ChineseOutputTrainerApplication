@@ -53,7 +53,7 @@ public class AiGenerationHistoryService {
             aiGenerationHistoryRepository.delete(
                     oldestHistory);
 
-            log.info(
+            log.debug(
                     "AI生成履歴を削除しました。userId={}, questionId={}, chineseText={}",
                     user.getId(),
                     question.getQuestionId(),
@@ -82,7 +82,7 @@ public class AiGenerationHistoryService {
 
         aiGenerationHistoryRepository.save(aiGenerationHistory);
         
-        log.info(
+        log.debug(
                 "AI生成履歴を保存しました。userId={}, questionId={}, chineseText={}",
                 user.getId(),
                 question.getQuestionId(),

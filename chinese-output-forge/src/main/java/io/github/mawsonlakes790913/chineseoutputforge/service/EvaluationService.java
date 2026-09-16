@@ -51,7 +51,7 @@ public class EvaluationService {
 
 	    studyHistoryRepository.save(studyHistory);
 
-	    log.info(
+	    log.debug(
 	            "評価更新 userId={}, questionId={}, evaluation={}",
 	            user.getId(),
 	            questionId,

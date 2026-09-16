@@ -40,9 +40,11 @@ import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionReposit
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.util.SearchConditionConverter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiPracticeService {
 	
 	private final StructureRepository structureRepository;
@@ -244,25 +246,21 @@ public class AiPracticeService {
 	            System.currentTimeMillis();
 
 	    // 処理時間を確認
-	    System.out.println(
-	            "入力作成: "
-	            + (inputCompletedTime - startTime)
-	            + " ms");
+	    log.debug(
+	            "AI生成 入力作成時間: {} ms",
+	            inputCompletedTime - startTime);
 
-	    System.out.println(
-	            "AI API: "
-	            + (apiCompletedTime - inputCompletedTime)
-	            + " ms");
+	    log.debug(
+	            "AI生成 API処理時間: {} ms",
+	            apiCompletedTime - inputCompletedTime);
 
-	    System.out.println(
-	            "DTO変換: "
-	            + (conversionCompletedTime - apiCompletedTime)
-	            + " ms");
+	    log.debug(
+	            "AI生成 DTO変換・履歴更新時間: {} ms",
+	            conversionCompletedTime - apiCompletedTime);
 
-	    System.out.println(
-	            "合計: "
-	            + (conversionCompletedTime - startTime)
-	            + " ms");
+	    log.debug(
+	            "AI生成 合計処理時間: {} ms",
+	            conversionCompletedTime - startTime);
 
 	    return generatedQuestions;
 	}
@@ -305,8 +303,16 @@ public class AiPracticeService {
 		savedQuestion.setAiGenerated(true);
 		savedQuestion.setOwner(user);
 		
-		return questionRepository.save(savedQuestion);
-		
+		Question savedQuestionResult =
+		        questionRepository.save(savedQuestion);
+
+		log.info(
+		        "AI生成問題保存完了 userId={}, questionId={}, sourceQuestionId={}",
+		        user.getId(),
+		        savedQuestionResult.getQuestionId(),
+		        sourceQuestion.getQuestionId());
+
+		return savedQuestionResult;
 		
 	}
 	
@@ -484,54 +490,6 @@ public class AiPracticeService {
 		
 		Schema responseSchema =
 		        createGeminiResponseSchema();
-
-//	    // 1問分のStructured OutputsのJSON Schemaを作成
-//	    Schema questionSchema =
-//	            Schema.builder()
-//	                    .type(Type.Known.OBJECT)
-//	                    .properties(Map.of(
-//	                            "sourceIndex",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.INTEGER)
-//	                                    .build(),
-//	                            "japaneseText",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.STRING)
-//	                                    .build(),
-//	                            "chineseText",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.STRING)
-//	                                    .build(),
-//	                            "pinyin",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.STRING)
-//	                                    .build(),
-//	                            "zhuyin",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.STRING)
-//	                                    .build()
-//	                    ))
-//	                    .required(List.of(
-//	                            "sourceIndex",
-//	                            "japaneseText",
-//	                            "chineseText",
-//	                            "pinyin",
-//	                            "zhuyin"))
-//	                    .build();
-//
-//	    // レスポンス全体の出力形式を定義
-//	    Schema responseSchema =
-//	            Schema.builder()
-//	                    .type(Type.Known.OBJECT)
-//	                    .properties(Map.of(
-//	                            "questions",
-//	                            Schema.builder()
-//	                                    .type(Type.Known.ARRAY)
-//	                                    .items(questionSchema)
-//	                                    .build()
-//	                    ))
-//	                    .required(List.of("questions"))
-//	                    .build();
 	    
 	    // Thinking LevelをLOWに設定
 	    ThinkingConfig thinkingConfig =
@@ -648,7 +606,7 @@ public class AiPracticeService {
 	    // 最終的なAI生成問題を格納するListを作成
 	    List<AiGeneratedQuestionDto> generatedQuestions =
 	            new ArrayList<>();
-
+	    
 	    // AIから返された生成問題を順番に処理
 	    for (int i = 0;
 	            i < temporaryGeneratedQuestionDtos.size();
@@ -664,37 +622,48 @@ public class AiPracticeService {
 
 	        // 最終的なAI生成問題DTOを作成
 	        AiGeneratedQuestionDto generatedQuestion =
-	                new AiGeneratedQuestionDto();
+	        		createGeneratedQuestion(
+	        				temporaryGeneratedQuestionDto,
+	        				sourceQuestion);
 
-	        generatedQuestion.setSourceQuestionId(
-	                sourceQuestion.getQuestionId());
-
-	        generatedQuestion.setSourceJapaneseText(
-	                sourceQuestion.getJapaneseText());
-
-	        generatedQuestion.setSourceChineseText(
-	                sourceQuestion.getChineseText());
-
-	        generatedQuestion.setJapaneseText(
-	                temporaryGeneratedQuestionDto.getJapaneseText());
-
-	        generatedQuestion.setChineseText(
-	                temporaryGeneratedQuestionDto.getChineseText());
-
-	        generatedQuestion.setPinyin(
-	                temporaryGeneratedQuestionDto.getPinyin());
-
-	        generatedQuestion.setZhuyin(
-	                temporaryGeneratedQuestionDto.getZhuyin());
-
-	        generatedQuestion.setDifficulty(
-	                sourceQuestion.getDifficulty());
-
-	        generatedQuestions.add(
-	                generatedQuestion);
+	        generatedQuestions.add(generatedQuestion);
 	    }
 
 	    return generatedQuestions;
+	}
+	
+	private AiGeneratedQuestionDto createGeneratedQuestion(
+	        TemporaryGeneratedQuestionDto temporaryGeneratedQuestionDto,
+	        Question sourceQuestion) {
+
+	    AiGeneratedQuestionDto generatedQuestion =
+	            new AiGeneratedQuestionDto();
+
+	    generatedQuestion.setSourceQuestionId(
+	            sourceQuestion.getQuestionId());
+
+	    generatedQuestion.setSourceJapaneseText(
+	            sourceQuestion.getJapaneseText());
+
+	    generatedQuestion.setSourceChineseText(
+	            sourceQuestion.getChineseText());
+
+	    generatedQuestion.setJapaneseText(
+	            temporaryGeneratedQuestionDto.getJapaneseText());
+
+	    generatedQuestion.setChineseText(
+	            temporaryGeneratedQuestionDto.getChineseText());
+
+	    generatedQuestion.setPinyin(
+	            temporaryGeneratedQuestionDto.getPinyin());
+
+	    generatedQuestion.setZhuyin(
+	            temporaryGeneratedQuestionDto.getZhuyin());
+
+	    generatedQuestion.setDifficulty(
+	            sourceQuestion.getDifficulty());
+
+	    return generatedQuestion;
 	}
 
 	private void updateGenerationHistory(

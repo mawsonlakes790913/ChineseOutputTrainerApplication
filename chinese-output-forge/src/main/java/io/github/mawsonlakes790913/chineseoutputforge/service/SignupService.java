@@ -51,7 +51,8 @@ public class SignupService {
 	            userRepository.save(user);
 
 	    log.info(
-	            "ユーザー登録完了 loginId={}",
+	            "ユーザー登録完了 userId={}, loginId={}",
+	            savedUser.getId(),
 	            savedUser.getLoginId());
 	}
 }

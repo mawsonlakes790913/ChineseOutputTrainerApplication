@@ -39,7 +39,7 @@ public class FavoriteService {
 
 			favoriteRepository.save(favorite);
 	        
-	        log.info("お気に入り追加 userId={}, questionId={}",
+	        log.debug("お気に入り追加 userId={}, questionId={}",
 	                 user.getId(), questionId);
 	        
 	        return true;
@@ -48,7 +48,7 @@ public class FavoriteService {
 
 	        favoriteRepository.deleteById(key);
 
-	        log.info("お気に入り解除 userId={}, questionId={}",
+	        log.debug("お気に入り解除 userId={}, questionId={}",
 	                 user.getId(), questionId);
 			return false;
 

@@ -28,12 +28,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 
 @Controller
 @RequiredArgsConstructor
-@Slf4j
 public class AdminQuestionController {
 	
 	private final AdminQuestionService adminQuestionService;
@@ -158,8 +156,6 @@ public class AdminQuestionController {
 	        return getQuestionAdd(form, model);
 	    }
 
-	    log.info("問題登録 {}", form);
-
 	    adminQuestionService.addQuestion(form);
 
 	    redirectAttributes.addFlashAttribute(
@@ -219,8 +215,6 @@ public class AdminQuestionController {
 
 	        return "admin/question/edit";
 	    }
-
-	    log.info("問題更新 {}", form);
 
 	    adminQuestionService.updateOneQuestion(
 	            questionId,

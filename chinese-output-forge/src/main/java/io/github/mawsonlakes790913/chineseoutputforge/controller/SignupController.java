@@ -13,10 +13,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import io.github.mawsonlakes790913.chineseoutputforge.form.SignupForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.SignupService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Controller
-@Slf4j
 @RequiredArgsConstructor
 public class SignupController {
 	
@@ -39,8 +37,6 @@ public class SignupController {
 	    }
 		
 	    try {
-	    	log.debug("ユーザー登録開始 userId={}", form.getLoginId());
-
 	    	// ② Serviceの業務処理
 	    	signupService.signup(form);
 

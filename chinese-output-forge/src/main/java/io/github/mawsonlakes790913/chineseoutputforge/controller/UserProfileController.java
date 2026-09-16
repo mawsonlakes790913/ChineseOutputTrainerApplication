@@ -25,12 +25,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 
 @Controller
 @RequiredArgsConstructor
-@Slf4j
 public class UserProfileController {
 	
 	private final UserAccountService userAccountService;
@@ -145,8 +143,6 @@ public class UserProfileController {
 
 
 	    try {
-	    	log.debug("パスワード変更開始 loginId={}", loginUser.getUsername());
-
 	        // Serviceの業務処理
 	        userAccountService.updatePassword(
 	                loginUser.getUsername(),

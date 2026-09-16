@@ -132,13 +132,13 @@ public class AdminQuestionService {
 	                            new IllegalArgumentException(
 	                                    "Question not found."));
 
-	    log.info("問題更新前 {}", question);
-
 	    applyQuestionForm(question, form);
 
 	    questionRepository.save(question);
 
-	    log.info("問題更新後 {}", question);
+	    log.info(
+	            "問題更新完了 questionId={}",
+	            questionId);
 	}
 	
 	public OriginalQuestionDTO getOriginalQuestion(long questionId) {
