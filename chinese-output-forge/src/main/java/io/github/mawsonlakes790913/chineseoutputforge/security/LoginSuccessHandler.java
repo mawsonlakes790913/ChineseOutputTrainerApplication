@@ -14,9 +14,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
 
 
 @Component
+@Slf4j
 public class LoginSuccessHandler
 extends SavedRequestAwareAuthenticationSuccessHandler {
 	
@@ -42,6 +44,9 @@ extends SavedRequestAwareAuthenticationSuccessHandler {
         //  セッションに学習対象言語と発音記号の情報を保存
         session.setAttribute("languageVariant", languageVariant);
         session.setAttribute("pronunciationType", pronunciationType);
+        
+        // ログイン成功を記録
+        log.info("Login succeeded: loginId={}", authentication.getName());
         
         // Spring Security標準のログイン成功後処理を実行
         super.onAuthenticationSuccess(request, response, authentication);

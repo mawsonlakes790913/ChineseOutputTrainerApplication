@@ -19,10 +19,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Configuration
 @RequiredArgsConstructor
 @EnableMethodSecurity
+@Slf4j
 public class SecurityConfig {
 	
 	private final LoginSuccessHandler loginSuccessHandler;
@@ -64,14 +66,21 @@ public class SecurityConfig {
      		                throws IOException {
 
      		            HttpSession session = request.getSession(true);
+     		            String loginId = request.getParameter("loginId");
      		            if (exception instanceof LockedException) {
      		        	     session.setAttribute(
      		        	             "loginErrorMessage",
      		        	             "login.error.locked");
+     		                 log.warn(
+     		                       "Login failed because account is locked: loginId={}",
+     		                       loginId);
      		        	 } else {
      		        	     session.setAttribute(
      		        	             "loginErrorMessage",
      		        	             "login.error");
+     		                 log.warn(
+     		                       "Login failed: loginId={}",
+     		                       loginId);
      		        	 }
 
      		            response.sendRedirect("/login");
