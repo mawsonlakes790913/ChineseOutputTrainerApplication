@@ -5,7 +5,7 @@ import java.util.Locale;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
@@ -19,8 +19,8 @@ public class PronunciationTypeController {
 	
 	private final UserAccountService userAccountService;
 
-    @GetMapping("/pronunciation-type")
-    public String getPronunciationTypeChange(
+    @PostMapping("/pronunciation-type")
+    public String postPronunciationTypeChange(
     		@AuthenticationPrincipal UserDetails loginUser,
             @RequestParam PronunciationType pronunciationType,
             Locale locale,

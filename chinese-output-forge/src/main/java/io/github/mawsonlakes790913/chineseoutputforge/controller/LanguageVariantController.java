@@ -5,7 +5,7 @@ import java.util.Locale;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
@@ -19,8 +19,8 @@ public class LanguageVariantController {
 	
 	private final UserAccountService userAccountService;
 
-	@GetMapping("/language-variant")
-	public String getLanguageVariantChange(
+	@PostMapping("/language-variant")
+	public String postLanguageVariantChange(
 			@AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam LanguageVariant languageVariant,
 	        @RequestParam(required = false) String redirect,
