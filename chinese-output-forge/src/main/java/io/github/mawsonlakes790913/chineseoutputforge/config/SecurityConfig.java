@@ -43,6 +43,10 @@ public class SecurityConfig {
 	            .requestMatchers("/user/canceled").permitAll()
 	            .requestMatchers("/about").permitAll()
 	            .requestMatchers("/error").permitAll()
+	            
+	            // 管理者のみアクセス可能
+	            .requestMatchers("/admin/**").hasRole("ADMIN")
+	            
 	            .anyRequest().authenticated()
 	        )
 	        
