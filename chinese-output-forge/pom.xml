@@ -126,7 +126,17 @@
 		    <groupId>com.google.genai</groupId>
 		    <artifactId>google-genai</artifactId>
 		    <version>1.67.0</version>
-		</dependency>						
+		</dependency>	
+		<!-- Spring AOP -->
+	    <dependency>
+	        <groupId>org.springframework</groupId>
+	        <artifactId>spring-aop</artifactId>
+	    </dependency>
+	    <!-- AspectJ -->
+	    <dependency>
+	        <groupId>org.aspectj</groupId>
+	        <artifactId>aspectjweaver</artifactId>
+	    </dependency>					
 	</dependencies>
 
 	<build>
