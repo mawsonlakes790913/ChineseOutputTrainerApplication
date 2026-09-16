@@ -14,6 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
+import io.github.mawsonlakes790913.chineseoutputforge.security.CustomAccessDeniedHandler;
 import io.github.mawsonlakes790913.chineseoutputforge.security.LoginSuccessHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SecurityConfig {
 	
 	private final LoginSuccessHandler loginSuccessHandler;
+	private final CustomAccessDeniedHandler customAccessDeniedHandler;
 	
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -110,6 +112,10 @@ public class SecurityConfig {
 	        .rememberMe(remember -> remember
 	        	    .rememberMeParameter("remember-me")
 	        	    .tokenValiditySeconds(3600)
+	        )
+	        // アクセス拒否の設定
+	        .exceptionHandling(exception -> exception
+	            .accessDeniedHandler(customAccessDeniedHandler)
 	        );
 	    
 //	    // CSRFを無効化
