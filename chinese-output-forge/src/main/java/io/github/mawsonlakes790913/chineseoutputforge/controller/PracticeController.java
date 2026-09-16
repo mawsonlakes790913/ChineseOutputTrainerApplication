@@ -32,11 +32,9 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequiredArgsConstructor
-@Slf4j
 public class PracticeController {
 	
 	private final PracticeService practiceService;
@@ -236,15 +234,16 @@ public class PracticeController {
 		LanguageVariant languageVariant =
 		        getLanguageVariant(session);
 	    
-	    //先に宣言
-	    List<Question> questions;
-	    
 	    // user_id(文字列)からUsersを取得
 	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
 	    
 	    //問題セットを取得
-	    questions = practiceService.getNewQuestions(userId, languageVariant, difficulty);
+	    List<Question> questions =
+	            practiceService.getNewQuestions(
+	                    userId,
+	                    languageVariant,
+	                    difficulty);
 	    
 	    if (questions.isEmpty()) {
 	        return "redirect:/practice/menu";
@@ -295,7 +294,7 @@ public class PracticeController {
 	}
 	
 	@GetMapping("/practice/resume")
-	public String getPracticeResume(Model model,
+	public String getPracticeResume(
 							  HttpSession session
 							  ) {
 		// 中断していないならmenuに戻す
@@ -319,8 +318,6 @@ public class PracticeController {
 	@GetMapping("/practice/suspend")
 	public String getPracticeSuspend(@RequestParam int page,
 	                              HttpSession session) {
-		
-		log.info("getPracticeSuspend reached");
 
 	    session.setAttribute("practiceCurrentPage", page);
 
@@ -341,7 +338,7 @@ public class PracticeController {
 	}
 	
 	@PostMapping("/practice/evaluation")
-	public String postEvaluation(
+	public String postPracticeEvaluation(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long questionId,
 	        @RequestParam Evaluation evaluation,
@@ -349,8 +346,7 @@ public class PracticeController {
 	        HttpSession session) {
 
 	    // ユーザー情報を取得
-	    Users user = userAccountService.getUserOne(
-	            loginUser.getUsername());
+		Users user = getLoginUser(loginUser);
 
 	    // 理解度を保存
 	    evaluationService.updateEvaluation(

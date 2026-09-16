@@ -27,11 +27,9 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequiredArgsConstructor
-@Slf4j
 public class AiPracticeController {
 	
 	private final UserAccountService userAccountService;
@@ -254,8 +252,6 @@ public class AiPracticeController {
 	public String getAiPracticeSuspend(@RequestParam int page,
 	                              HttpSession session) {
 		
-		log.info("getAiPracticeSuspend reached");
-
 	    session.setAttribute("aiPracticeQuestionsCurrentPage", page);
 
 	    return "redirect:/";
