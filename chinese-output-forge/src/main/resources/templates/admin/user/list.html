@@ -138,6 +138,8 @@
                         <tr>
 
                             <th>ユーザーID</th>
+                            
+                            <th>メールアドレス</th>
 
                             <th>Role</th>
 
@@ -156,6 +158,8 @@
                         <tr th:each="item : ${userList}">
 
                             <td th:text="${item.loginId}"></td>
+                            
+                            <td th:text="${item.email}"></td>
 
                             <td th:text="${item.role}"></td>
 
