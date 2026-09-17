@@ -29,7 +29,12 @@
             th:text="#{user.profile.heading}">
             会員情報
         </h1>
-
+        
+		<!-- メールアドレス変更完了メッセージ -->
+		<div th:if="${messageKey}"
+		     class="alert alert-success"
+		     th:text="#{${messageKey}}">
+		</div>        
 
         <!-- ========================= -->
         <!-- 会員情報 -->
@@ -68,6 +73,32 @@
                         </td>
 
                     </tr>
+                    
+                    <!-- メールアドレス -->
+
+                    <tr>
+
+                        <th class="align-middle text-center"
+                            th:text="#{user.profile.email}">
+                            メールアドレス
+                        </th>
+
+                        <td class="align-middle"
+                            th:text="${user.email}">
+                        </td>
+
+                        <td class="align-middle text-center"
+                            style="width:120px;">
+
+                            <a th:href="@{/user/edit/email}"
+                               class="btn btn-primary"
+                               th:text="#{user.profile.edit}">
+                                編集
+                            </a>
+
+                        </td>
+
+                    </tr>                    
 
 
                     <!-- パスワード -->

@@ -3,7 +3,6 @@ package io.github.mawsonlakes790913.chineseoutputforge.service;
 import java.util.Locale;
 
 import org.springframework.context.MessageSource;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +12,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
+import io.github.mawsonlakes790913.chineseoutputforge.exception.DuplicateSignupException;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.AiGenerationHistoryRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.FavoriteRepository;
@@ -44,57 +44,54 @@ public class UserAccountService {
 	            .orElse(null);
 	}
 	
-    @Transactional
-    public void updateLoginId(
-            String currentLoginId,
-            String newLoginId,
-            Locale locale) {
+	@Transactional
+	public void updateLoginId(
+	        String currentLoginId,
+	        String newLoginId,
+	        Locale locale) {
 
-        // 変更前と変更後が同じか確認
-        if (newLoginId.equals(currentLoginId)) {
+	    // 現在のユーザーを取得
+	    Users user = getUserOrThrow(
+	            currentLoginId,
+	            "user.edit.loginId.error.notFound",
+	            locale);
 
-            throw new IllegalArgumentException(
-                    messageSource.getMessage(
-                            "user.edit.loginId.error.same",
-                            null,
-                            locale
-                    )
-            );
-        }
+	    // 変更前と変更後が同じか確認
+	    if (newLoginId.equals(user.getLoginId())) {
 
-        // 新しいユーザーIDが既に使われているか確認
-        boolean isExists =
-                userRepository.existsByLoginId(newLoginId);
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                        "user.edit.loginId.error.same",
+	                        null,
+	                        locale));
+	    }
 
-        if (isExists) {
+	    // 新しいログインIDが既に使われているか確認
+	    boolean loginIdExists =
+	            userRepository.existsByLoginId(newLoginId);
 
-            throw new DuplicateKeyException(
-                    messageSource.getMessage(
-                            "user.edit.loginId.error.duplicate",
-                            null,
-                            locale
-                    )
-            );
-        }
+	    if (loginIdExists) {
 
-        // 現在のユーザーを取得
-        Users user = getUserOrThrow(
-        		currentLoginId,
-        		"user.edit.loginId.error.notFound",
-                locale);
+	        throw new DuplicateSignupException(
+	                "loginId",
+	                messageSource.getMessage(
+	                        "user.edit.loginId.error.duplicate",
+	                        null,
+	                        locale));
+	    }
 
-        // ユーザーIDを変更
-        user.setLoginId(newLoginId);
+	    // ログインIDを変更
+	    user.setLoginId(newLoginId);
 
-        // 更新
-        userRepository.save(user);
+	    // 更新
+	    userRepository.save(user);
 
-        log.info(
-                "ログインID変更完了 userId={}, oldLoginId={}, newLoginId={}",
-                user.getId(),
-                currentLoginId,
-                newLoginId);
-    }
+	    log.info(
+	            "ログインID変更完了 userId={}, oldLoginId={}, newLoginId={}",
+	            user.getId(),
+	            currentLoginId,
+	            newLoginId);
+	}
     
 	@Transactional
 	public void updatePassword(String loginId, String currentPassword, String newPassword, Locale locale) {
@@ -143,6 +140,58 @@ public class UserAccountService {
 	            user.getId(),
 	            user.getLoginId());
 
+	}
+	
+	@Transactional
+	public void updateEmail(
+	        String loginId,
+	        String newEmail,
+	        Locale locale) {
+
+	    // 現在のユーザーを取得
+	    Users user = getUserOrThrow(
+	            loginId,
+	            "user.edit.email.error.notFound",
+	            locale);
+
+	    // 現在のメールアドレスを取得
+	    String currentEmail = user.getEmail();
+
+	    // 変更前と変更後が同じか確認
+	    if (newEmail.equals(currentEmail)) {
+
+	        throw new IllegalArgumentException(
+	                messageSource.getMessage(
+	                        "user.edit.email.error.same",
+	                        null,
+	                        locale));
+	    }
+
+	    // 新しいメールアドレスが既に使われているか確認
+	    boolean emailExists =
+	            userRepository.existsByEmail(newEmail);
+
+	    if (emailExists) {
+
+	        throw new DuplicateSignupException(
+	                "email",
+	                messageSource.getMessage(
+	                        "signup.email.duplicate",
+	                        null,
+	                        locale));
+	    }
+
+	    // メールアドレスを変更
+	    user.setEmail(newEmail);
+
+	    // 更新
+	    userRepository.save(user);
+
+	    log.info(
+	            "メールアドレス変更完了 userId={}, oldEmail={}, newEmail={}",
+	            user.getId(),
+	            currentEmail,
+	            newEmail);
 	}
 	
 	@Transactional

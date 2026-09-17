@@ -2,7 +2,6 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.Locale;
 
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,7 +16,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.CurrentPasswordMismatchException;
+import io.github.mawsonlakes790913.chineseoutputforge.exception.DuplicateSignupException;
 import io.github.mawsonlakes790913.chineseoutputforge.exception.PasswordSameException;
+import io.github.mawsonlakes790913.chineseoutputforge.form.EditEmailForm;
 import io.github.mawsonlakes790913.chineseoutputforge.form.EditLoginIdForm;
 import io.github.mawsonlakes790913.chineseoutputforge.form.EditPasswordForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
@@ -86,11 +87,11 @@ public class UserProfileController {
 	                loginUser.getUsername(),
 	                form.getLoginId(),
 	                locale);
-
-	    } catch (DuplicateKeyException e) {
-
+	        
+	    } catch (DuplicateSignupException e) {
+	        
 	        bindingResult.rejectValue(
-	                "loginId",
+	                e.getField(),
 	                "duplicate",
 	                e.getMessage());
 
@@ -116,6 +117,76 @@ public class UserProfileController {
 	    );
 
 	    return "redirect:/login";
+	}
+	
+	@GetMapping("/user/edit/email")
+	public String getEditEmail(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        Model model,
+	        EditEmailForm form) {
+
+	    Users user = getLoginUser(loginUser);
+
+	    // 現在のユーザーIDを表示するため
+	    model.addAttribute(
+	            "currentEmail",
+	            user.getEmail()
+	    );
+
+	    // 新しいユーザーIDの入力フォーム
+	    model.addAttribute(
+	            "editEmailForm",
+	            form
+	    );
+
+	    return "user/edit/email";
+	}
+	
+	@PostMapping("/user/edit/email")
+	public String postEditEmail(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        HttpSession session,
+	        Model model,
+	        @Validated EditEmailForm form,
+	        BindingResult bindingResult,
+	        Locale locale,
+	        RedirectAttributes redirectAttributes) {
+
+	    if (bindingResult.hasErrors()) {
+	        return getEditEmail(loginUser, model, form);
+	    }
+
+	    try {
+	    	userAccountService.updateEmail(
+	    			loginUser.getUsername(),
+	                form.getEmail(),
+	                locale);
+
+	    } catch (DuplicateSignupException e) {
+	        
+	        bindingResult.rejectValue(
+	                e.getField(),
+	                "duplicate",
+	                e.getMessage());
+
+	        return getEditEmail(loginUser, model, form);
+
+	    } catch (IllegalArgumentException e) {
+
+	        bindingResult.rejectValue(
+	                "email",
+	                "same",
+	                e.getMessage());
+
+	        return getEditEmail(loginUser, model, form);
+	    }
+	    
+	    // 変更完了メッセージ
+	    redirectAttributes.addFlashAttribute(
+	            "messageKey",
+	            "user.email.changed");
+
+	    return "redirect:/user/profile";
 	}
 	
 	@GetMapping("/user/edit/password")
