@@ -42,4 +42,7 @@ public class Users {
     
     @Column(name = "account_locked")
     private boolean accountLocked;
+    
+    @Column(nullable = false, unique = true)
+    private String email;
 }
