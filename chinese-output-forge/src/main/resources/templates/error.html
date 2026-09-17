@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{error.common.title}">エラー</title>
+</head>
+
+<body>
+
+    <h1 th:text="${status} + ' ' + ${error}">
+        Error
+    </h1>
+
+    <p th:text="#{error.common.message}">
+        エラーが発生しました。
+    </p>
+
+    <a th:href="@{/}"
+       th:text="#{error.back.home}">
+        ホーム画面に戻る
+    </a>
+
+</body>
+
+</html>

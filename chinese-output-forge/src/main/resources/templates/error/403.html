@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{error.403.title}">アクセス権限がありません</title>
+</head>
+
+<body>
+
+    <h1 th:text="#{error.403.title}">
+        アクセス権限がありません
+    </h1>
+
+    <p th:text="#{error.403.message}">
+        このページを表示する権限がありません。
+    </p>
+
+    <a th:href="@{/}"
+       th:text="#{error.back.home}">
+        ホーム画面に戻る
+    </a>
+
+</body>
+</html>
