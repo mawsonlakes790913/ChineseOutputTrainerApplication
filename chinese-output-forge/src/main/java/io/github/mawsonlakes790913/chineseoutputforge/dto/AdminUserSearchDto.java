@@ -9,4 +9,6 @@ public class AdminUserSearchDto {
     private String loginId;
 
     private AccountStatus accountStatus;
+    
+    private String email;
 }

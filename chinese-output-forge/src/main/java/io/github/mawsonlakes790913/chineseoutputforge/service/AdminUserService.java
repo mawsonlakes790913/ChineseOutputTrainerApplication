@@ -31,6 +31,7 @@ public class AdminUserService {
 	    return userRepository.findUsers(
 	            searchDto.getLoginId(),
 	            searchDto.getAccountStatus().name(),
+	            searchDto.getEmail(),
 	            pageable);
 	}
 	

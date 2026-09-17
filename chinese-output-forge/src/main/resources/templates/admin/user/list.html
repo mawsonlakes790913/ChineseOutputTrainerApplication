@@ -45,7 +45,7 @@
 			    <div class="row g-3 align-items-end">
 			
 			        <!-- ログインID -->
-			        <div class="col-md-5">
+			        <div class="col-md-3">
 			
 			            <label for="loginId"
 			                   class="form-label">
@@ -59,9 +59,25 @@
 			                   placeholder="ログインIDを入力">
 			
 			        </div>
+			        
+			        <!-- メールアドレス -->
+			        <div class="col-md-3">
+			
+			            <label for="email"
+			                   class="form-label">
+			                メールアドレス
+			            </label>
+			
+			            <input type="text"
+			                   id="email"
+			                   th:field="*{email}"
+			                   class="form-control"
+			                   placeholder="メールアドレスを入力">
+			
+			        </div>			        
 			
 			        <!-- アカウント状態 -->
-			        <div class="col-md-5">
+			        <div class="col-md-3">
 			
 			            <label class="form-label d-block">
 			                アカウント状態
@@ -115,7 +131,7 @@
 			        </div>
 			
 			        <!-- 検索 -->
-			        <div class="col-md-2">
+			        <div class="col-md-3">
 			
 			            <button type="submit"
 			                    class="btn btn-primary w-100">

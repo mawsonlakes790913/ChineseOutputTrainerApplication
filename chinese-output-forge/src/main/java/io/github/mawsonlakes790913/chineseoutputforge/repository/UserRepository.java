@@ -31,10 +31,17 @@ public interface UserRepository extends JpaRepository<Users, Long> {
 	            (:accountStatus = 'ALL'
 	                OR (:accountStatus = 'ACTIVE' AND u.accountLocked = false)
 	                OR (:accountStatus = 'LOCKED' AND u.accountLocked = true))
+			AND (
+			    :email IS NULL
+			    OR :email = ''
+			    OR LOWER(u.email)
+			        LIKE LOWER(CONCAT('%', :email, '%'))
+			)
 	        """)
 	Page<Users> findUsers(
 	        @Param("loginId") String loginId,
 	        @Param("accountStatus") String accountStatus,
+	        @Param("email") String email,
 	        Pageable pageable);
 
 }
