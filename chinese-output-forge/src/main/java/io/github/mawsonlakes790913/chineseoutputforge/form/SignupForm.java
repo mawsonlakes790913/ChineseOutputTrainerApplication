@@ -3,6 +3,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.form;
 import org.hibernate.validator.constraints.Length;
 
 import io.github.mawsonlakes790913.chineseoutputforge.validator.PasswordMatch;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
@@ -40,4 +41,8 @@ public class SignupForm {
 	
     @NotBlank(message = "{signup.passwordConfirm.notBlank}")
     private String passwordConfirm;
+    
+    @NotBlank(message = "{signup.email.notBlank}")
+    @Email(message = "{signup.email.invalid}")
+    private String email;
 }

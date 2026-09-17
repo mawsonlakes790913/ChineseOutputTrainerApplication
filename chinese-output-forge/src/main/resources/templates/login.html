@@ -19,6 +19,11 @@
                         th:text="#{login.title}">
                         ログイン
                     </h2>
+					<!-- ユーザー登録成功メッセージ -->
+					<div th:if="${signupSuccess}"
+					     class="alert alert-success"
+					     th:text="${signupSuccess}">
+					</div>                    
 					<!-- ユーザーID変更完了メッセージ -->
 					<div class="alert alert-success"
 					     th:if="${messageKey != null}"

@@ -1,7 +1,9 @@
 package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 
-import org.springframework.dao.DuplicateKeyException;
+import java.util.Locale;
+
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import io.github.mawsonlakes790913.chineseoutputforge.exception.DuplicateSignupException;
 import io.github.mawsonlakes790913.chineseoutputforge.form.SignupForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.SignupService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class SignupController {
 	
 	private final SignupService signupService;
+	private final MessageSource messageSource;
 	
 	@GetMapping("/signup")
 	public String getSignup(@ModelAttribute SignupForm form) {
@@ -29,7 +33,8 @@ public class SignupController {
 	public String postSignup(
 							 @ModelAttribute @Validated SignupForm form,
 							 BindingResult bindingResult,
-							 RedirectAttributes redirectAttributes) {
+							 RedirectAttributes redirectAttributes,
+							 Locale locale) {
 
 		// ① 通常のバリデーションエラー確認
 	    if (bindingResult.hasErrors()) {
@@ -38,13 +43,13 @@ public class SignupController {
 		
 	    try {
 	    	// ② Serviceの業務処理
-	    	signupService.signup(form);
+	    	signupService.signup(form, locale);
 
-	    } catch (DuplicateKeyException e) {
+	    } catch (DuplicateSignupException e) {
 
 	        // ③ Serviceで発生した重複エラーをBindingResultへ追加
 	        bindingResult.rejectValue(
-	                "loginId",
+	                e.getField(),
 	                "duplicate",
 	                e.getMessage());
 
@@ -53,8 +58,11 @@ public class SignupController {
 	    
 	    redirectAttributes.addFlashAttribute(
 	            "signupSuccess",
-	            "ユーザー登録が完了しました");
+	            messageSource.getMessage(
+	                    "signup.success",
+	                    null,
+	                    locale));
 
-	    return "redirect:/";
+	    return "redirect:/login";
 	}
 }
