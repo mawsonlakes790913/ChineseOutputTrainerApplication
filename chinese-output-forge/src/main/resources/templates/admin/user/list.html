@@ -45,7 +45,7 @@
 			    <div class="row g-3 align-items-end">
 			
 			        <!-- ログインID -->
-			        <div class="col-md-3">
+			        <div class="col-md-6">
 			
 			            <label for="loginId"
 			                   class="form-label">
@@ -61,7 +61,7 @@
 			        </div>
 			        
 			        <!-- メールアドレス -->
-			        <div class="col-md-3">
+			        <div class="col-md-6">
 			
 			            <label for="email"
 			                   class="form-label">
@@ -77,7 +77,7 @@
 			        </div>			        
 			
 			        <!-- アカウント状態 -->
-			        <div class="col-md-3">
+			        <div class="col-md-4">
 			
 			            <label class="form-label d-block">
 			                アカウント状態
@@ -129,9 +129,38 @@
 			            </div>
 			
 			        </div>
+			        
+					<!-- ========================= -->
+					<!-- 並び順 -->
+					<!-- ========================= -->
+					
+					<div class="col-md-4">
+					
+					    <label class="form-label fw-bold">
+					        並び順
+					    </label>
+					
+					    <select class="form-select"
+					            name="sortCondition">
+					
+					        <option value="LOGIN_ID_ASC"
+					                th:selected="${selectedSortCondition == null
+					                    or sortCondition.name() == 'LOGIN_ID_ASC'}">
+					            ログインID順
+					        </option>
+					
+					        <option value="EMAIL_ASC"
+					                th:selected="${selectedSortCondition != null
+					                    and sortCondition.name() == 'EMAIL_ASC'}">
+					            メールアドレス順
+					        </option>
+					
+					    </select>
+					
+					</div>           			        
 			
 			        <!-- 検索 -->
-			        <div class="col-md-3">
+			        <div class="col-md-4">
 			
 			            <button type="submit"
 			                    class="btn btn-primary w-100">

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.AdminUserSortCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PaginationDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
@@ -33,11 +34,14 @@ public class AdminUserController {
 	@GetMapping("/admin/user/list")
 	public String getUserList(
 	        @ModelAttribute AdminUserSearchDto searchDto,
+	        @RequestParam(
+	                defaultValue = "LOGIN_ID_ASC")
+	        AdminUserSortCondition sortCondition,
 	        @PageableDefault(page = 0, size = 50) Pageable pageable,
 	        Model model) {
 
 	    Page<Users> userPage =
-	            adminUserService.getUsers(searchDto, pageable);
+	            adminUserService.getUsers(searchDto, sortCondition, pageable);
 
 	    PaginationDto pagination =
 	            paginationService.createPagination(userPage);
@@ -49,6 +53,8 @@ public class AdminUserController {
 
 	    // 検索条件
 	    model.addAttribute("searchDto", searchDto);
+	    // 表示順
+	    model.addAttribute("sortCondition", sortCondition);
 
 	    return "/admin/user/list";
 	}

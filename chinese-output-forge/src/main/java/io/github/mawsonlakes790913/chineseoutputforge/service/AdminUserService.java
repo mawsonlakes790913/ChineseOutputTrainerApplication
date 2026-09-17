@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.AccountStatus;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.AdminUserSortCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AdminUserSearchDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
@@ -22,6 +23,7 @@ public class AdminUserService {
 	// ユーザー一覧取得
 	public Page<Users> getUsers(
 	        AdminUserSearchDto searchDto,
+	        AdminUserSortCondition sortCondition,
 	        Pageable pageable) {
 
 	    if (searchDto.getAccountStatus() == null) {
@@ -32,6 +34,7 @@ public class AdminUserService {
 	            searchDto.getLoginId(),
 	            searchDto.getAccountStatus().name(),
 	            searchDto.getEmail(),
+	            sortCondition.name(),
 	            pageable);
 	}
 	

@@ -37,11 +37,21 @@ public interface UserRepository extends JpaRepository<Users, Long> {
 			    OR LOWER(u.email)
 			        LIKE LOWER(CONCAT('%', :email, '%'))
 			)
+			ORDER BY
+				CASE
+				    WHEN :sortCondition = 'LOGIN_ID_ASC'
+				    THEN u.loginId
+				END ASC,
+			    CASE
+			        WHEN :sortCondition = 'EMAIL_ASC'
+			        THEN u.email
+			    END ASC
 	        """)
 	Page<Users> findUsers(
 	        @Param("loginId") String loginId,
 	        @Param("accountStatus") String accountStatus,
 	        @Param("email") String email,
+	        @Param("sortCondition") String sortCondition,
 	        Pageable pageable);
 
 }
