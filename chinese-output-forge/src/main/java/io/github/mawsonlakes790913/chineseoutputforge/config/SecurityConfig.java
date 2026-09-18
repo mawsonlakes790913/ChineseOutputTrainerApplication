@@ -46,6 +46,9 @@ public class SecurityConfig {
 	            .requestMatchers("/complete").permitAll()
 	            .requestMatchers("/user/canceled").permitAll()
 	            .requestMatchers("/about").permitAll()
+	            .requestMatchers("/forgot-password").permitAll()
+	            .requestMatchers("/forgot-password/sent").permitAll()
+	            .requestMatchers("/reset-password").permitAll()
 	            .requestMatchers("/error").permitAll()
 	            
 	            // 管理者のみアクセス可能

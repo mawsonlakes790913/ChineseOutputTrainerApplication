@@ -34,7 +34,13 @@
 					     th:if="${loginErrorMessage}"
 					     th:text="#{__${loginErrorMessage}__}">
 					</div>              
-
+					<!-- パスワードリセットエラーメッセージ -->
+					<div th:if="${errorMessage}"
+					     class="alert alert-danger"
+					     role="alert"
+					     th:text="${errorMessage}">
+					    エラーメッセージ
+					</div>
                     <!-- ログインID -->
                     <div class="mb-3">
                         <input type="text"
@@ -78,7 +84,13 @@
                             新規登録はこちら
                         </a>
                     </div>
-
+                    <!-- パスワードリセット -->
+                    <div class="text-center mt-3">
+						<a th:href="@{/forgot-password}"
+						   th:text="#{login.forgotPassword}">
+						    パスワードを忘れた場合
+						</a>                    
+                    </div>
                     <!-- Topへ戻る -->
                     <div class="text-center mt-3">
                         <a th:href="@{/}"

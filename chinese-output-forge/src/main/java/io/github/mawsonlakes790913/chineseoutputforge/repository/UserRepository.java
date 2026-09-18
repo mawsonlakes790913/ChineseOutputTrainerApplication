@@ -20,6 +20,8 @@ public interface UserRepository extends JpaRepository<Users, Long> {
 
 	void deleteByLoginId(String loginId);
 	
+	Optional<Users> findByEmail(String email);
+	
 	@Query("""
 	        SELECT u
 	        FROM Users u
