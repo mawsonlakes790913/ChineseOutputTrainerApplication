@@ -32,6 +32,13 @@
     </p>
 
     <div class="d-grid gap-3 col-md-4 mx-auto mt-5">
+		
+		<div th:if="${messageKey}"
+		     class="alert alert-success"
+		     role="alert"
+		     th:text="#{${messageKey}(${loginId})}">
+		    おかえりなさい
+		</div>
 
         <!-- 通常学習 -->
         <a th:href="@{/practice/menu}"
