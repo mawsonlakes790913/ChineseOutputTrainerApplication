@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <title th:text="#{login.title}">ログイン</title>
+    <script th:src="@{/js/password-toggle.js}" defer></script>
 </head>
 <body>
 
@@ -50,12 +51,21 @@
                     </div>
 
                     <!-- パスワード -->
-                    <div class="mb-3">
-                        <input type="password"
-                               class="form-control"
-                               th:placeholder="#{login.password}"
-                               name="password">
-                    </div>
+					<div class="mb-3">
+					    <div class="input-group">
+					        <input type="password"
+					               id="password"
+					               class="form-control"
+					               th:placeholder="#{login.password}"
+					               name="password">
+					
+					        <button type="button"
+					                class="btn btn-outline-secondary password-toggle"
+					                data-target="password">
+					            <i class="bi bi-eye"></i>
+					        </button>
+					    </div>
+					</div>
                     
 					<!-- Remember-Me -->
 					<div class="form-group mt-3 text-center">

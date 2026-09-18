@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <title th:text="#{signup.title}">新規登録</title>
+    <script th:src="@{/js/password-toggle.js}" defer></script>
 </head>
 <body>
 
@@ -74,46 +75,62 @@
                              th:errors="*{email}">
                         </div>
                     </div>
-
-                    <!-- パスワード -->
-                    <div class="mb-3">
-                        <label for="password"
-                               class="form-label"
-                               th:text="#{signup.password}">
-                            パスワード
-                        </label>
-
-                        <input type="password"
-                               id="password"
-                               class="form-control"
-                               th:field="*{password}"
-                               th:placeholder="#{signup.password.placeholder}"
-                               th:errorclass="is-invalid">
-
-                        <div class="invalid-feedback"
-                             th:errors="*{password}">
-                        </div>
-                    </div>
-
-                    <!-- パスワード確認 -->
-                    <div class="mb-3">
-                        <label for="passwordConfirm"
-                               class="form-label"
-                               th:text="#{signup.passwordConfirm}">
-                            パスワード（確認）
-                        </label>
-
-                        <input type="password"
-                               id="passwordConfirm"
-                               class="form-control"
-                               th:field="*{passwordConfirm}"
-                               th:placeholder="#{signup.passwordConfirm.placeholder}"
-                               th:errorclass="is-invalid">
-
-                        <div class="invalid-feedback"
-                             th:errors="*{passwordConfirm}">
-                        </div>
-                    </div>
+					
+					<!-- パスワード -->
+					<div class="mb-3">
+					    <label for="password"
+					           class="form-label"
+					           th:text="#{signup.password}">
+					        パスワード
+					    </label>
+					
+					    <div class="input-group">
+					        <input type="password"
+					               id="password"
+					               class="form-control"
+					               th:field="*{password}"
+					               th:placeholder="#{signup.password.placeholder}"
+					               th:errorclass="is-invalid">
+					
+					        <button type="button"
+					                class="btn btn-outline-secondary password-toggle"
+					                data-target="password">
+					            <i class="bi bi-eye"></i>
+					        </button>
+					    </div>
+					
+					    <div class="invalid-feedback"
+					         th:errors="*{password}">
+					    </div>
+					</div>
+					
+					<!-- パスワード確認 -->
+					<div class="mb-3">
+					    <label for="passwordConfirm"
+					           class="form-label"
+					           th:text="#{signup.passwordConfirm}">
+					        パスワード（確認）
+					    </label>
+					
+					    <div class="input-group">
+					        <input type="password"
+					               id="passwordConfirm"
+					               class="form-control"
+					               th:field="*{passwordConfirm}"
+					               th:placeholder="#{signup.passwordConfirm.placeholder}"
+					               th:errorclass="is-invalid">
+					
+					        <button type="button"
+					                class="btn btn-outline-secondary password-toggle"
+					                data-target="passwordConfirm">
+					            <i class="bi bi-eye"></i>
+					        </button>
+					    </div>
+					
+					    <div class="invalid-feedback"
+					         th:errors="*{passwordConfirm}">
+					    </div>
+					</div>
 
                     <!-- 登録ボタン -->
                     <input type="submit"
