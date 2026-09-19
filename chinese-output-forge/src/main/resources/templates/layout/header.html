@@ -171,26 +171,29 @@
 				            </span>
 				        </li>
 				
-				        <li>
-				            <a class="dropdown-item"
-				               th:href="@{?lang=ja}">
-				                <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
-				            </a>
-				        </li>
+						<li>
+						    <a class="dropdown-item display-language-link"
+						       href="#"
+						       data-lang="ja">
+						        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+						    </a>
+						</li>
 				
-				        <li>
-				            <a class="dropdown-item"
-				               th:href="@{?lang=zh_CN}">
-				                <span th:if="${#locale.toString() == 'zh_CN'}">✓ </span>简体中文
-				            </a>
-				        </li>
-				
-				        <li>
-				            <a class="dropdown-item"
-				               th:href="@{?lang=zh_TW}">
-				                <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
-				            </a>
-				        </li>
+						<li>
+						    <a class="dropdown-item display-language-link"
+						       href="#"
+						       data-lang="zh_CN">
+						        <span th:if="${#locale.toString() == 'zh_CN'}">✓ </span>简体中文
+						    </a>
+						</li>
+						
+						<li>
+						    <a class="dropdown-item display-language-link"
+						       href="#"
+						       data-lang="zh_TW">
+						        <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
+						    </a>
+						</li>
 				        
 				        <li><hr class="dropdown-divider"></li>
 						<!-- 未ログイン時 -->
