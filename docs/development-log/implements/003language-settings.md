@@ -862,6 +862,523 @@ MAINLAND / TAIWAN の切り替え
 
 ---
 
+# 追加修正(9月19日) - 表示言語切り替え時のクエリパラメータ維持
+
+```text
+git commit -m "fix: preserve query parameters when switching display language"
+```
+
+チャプター003で表示言語切り替え機能を実装した時点では、表示言語のリンクを以下のように設定していた。
+
+```html
+th:href="@{?lang=ja}"
+```
+
+当時実装済みだったページでは、この方法でも問題なく表示言語を切り替えることができた。
+
+しかし、その後アプリケーションの機能を追加し、検索条件やページ番号、トークンなどをクエリパラメータとして使用するページが増えたことで、表示言語切り替え時に問題が発生するようになった。
+
+## 不具合の発生例
+
+### 問題ページ
+
+#### 表示言語変更前
+
+5問目を表示している。
+
+![](../../images/0003-16.png)
+
+#### 表示言語変更後
+
+表示言語を変更すると、ページ番号を表すクエリパラメータが失われ、1問目に戻ってしまう。
+
+![](../../images/0003-17.png)
+
+### 問題一覧ページ
+
+#### 表示言語変更前
+
+検索条件を指定した結果、67件の問題が表示されている。
+
+![](../../images/0003-18.png)
+
+#### 表示言語変更後
+
+表示言語を変更すると、検索条件を表すクエリパラメータが失われ、検索条件が初期化されて全件表示に戻ってしまう。
+
+![](../../images/0003-19.png)
+## 問題点
+
+チャプター003の実装後に追加した以下のページで、表示言語を切り替えると不具合が発生した。
+
+- 通常学習モードのメニューページおよび問題ページ
+- 復習モードのメニューページおよび問題ページ
+- AI生成モードのメニューページおよび問題ページ
+- 問題一覧ページ
+- パスワードリセット関連のページ群
+
+具体的には、学習モードや問題一覧ページでは、表示言語を切り替えると画面上で指定していた検索条件などがリセットされたり、複数ページある問題一覧で1ページ目に戻ったりする。
+
+また、パスワードリセット関連のページでは、表示言語を切り替えることで必要なパラメータが失われ、`400 Bad Request`が発生する。
+
+## 原因
+
+原因は、`header.html`の表示言語切り替えリンクを以下のように実装していたことにある。
+
+```html
+th:href="@{?lang=ja}"
+```
+
+この書き方では、現在のURLに設定されているクエリパラメータを引き継がず、`lang`だけを指定したURLが生成される。
+
+例えば、現在のURLが、
+
+```text
+/review/question?page=5&difficulty=HARD
+```
+
+だった場合に日本語へ切り替えると、
+
+```text
+/review/question?lang=ja
+```
+
+となり、`page=5`や`difficulty=HARD`が失われる。
+
+そのため、検索条件やページ番号をクエリパラメータで管理しているページでは、表示言語を切り替えた際に条件がリセットされたり、1ページ目へ戻ったりしていた。
+
+また、パスワードリセット画面では、URLに含まれる`token`がパスワードリセット対象を識別するために必要となる。
+
+```text
+/reset-password?token=xxxxxxxx
+```
+
+この状態で表示言語を切り替えると、
+
+```text
+/reset-password?lang=ja
+```
+
+となって`token`が失われる。
+
+その結果、必須の`token`を取得できなくなり、`400 Bad Request`が発生していた。
+
+つまり、表示言語切り替え機能そのものではなく、**表示言語切り替え時に現在のクエリパラメータを維持していなかったこと**が原因だった。
+
+## 修正案
+
+表示言語を切り替える際に、現在のURLに含まれているクエリパラメータを維持したまま、`lang`だけを追加・変更するように修正する。
+
+例えば、
+
+```text
+/review/question?page=5&difficulty=HARD
+```
+
+で日本語へ切り替えた場合は、
+
+```text
+/review/question?page=5&difficulty=HARD&lang=ja
+```
+
+となるようにする。
+
+同様にパスワードリセット画面でも、
+
+```text
+/reset-password?token=xxxxxxxx
+```
+
+から表示言語を切り替えた場合、
+
+```text
+/reset-password?token=xxxxxxxx&lang=ja
+```
+
+として`token`を維持する。
+
+ただし、
+
+問題一覧ページでは、
+
+```text
+?page=5&difficulty=HARD
+```
+
+パスワードリセット画面では、
+
+```text
+?token=xxxxxxxx
+```
+
+のように、それぞれ異なるパラメータを使用しているので、`header.html`で、
+
+```html
+page=...
+difficulty=...
+token=...
+```
+
+のように、必要なパラメータを一つずつ指定して表示言語切り替え用のURLを作る方法では、ページごとにどのパラメータが必要なのかを考慮しなければならない。
+
+さらに、今後新しい検索条件などを追加した場合、そのたびに`header.html`側も修正する必要がある。
+
+そこで、`header.html`で表示言語切り替え用のリンクを生成する際に、特定のパラメータを一つずつ指定するのではなく、**現在のリクエストが持っているクエリパラメータをまとめて引き継ぎ、`lang`だけを追加・変更する**方法にする。
+
+例えば、
+
+```text
+/review/question?page=5&difficulty=HARD
+```
+
+であれば、
+
+```text
+page=5
+difficulty=HARD
+```
+
+をそのまま維持し、
+
+```text
+lang=ja
+```
+
+だけを追加して、
+
+```text
+/review/question?page=5&difficulty=HARD&lang=ja
+```
+
+とする。
+
+これによって、ページごとに使用しているクエリパラメータの種類を`header.html`側で意識する必要がなくなる。
+
+## 修正対象
+
+今回の不具合は、`header.html`の表示言語切り替えリンクで現在のクエリパラメータを引き継いでいないことが原因である。
+
+そのため、基本的には**`header.html`側の修正だけで対応できる**。
+
+先ほども言ったように、現在の、
+
+```html
+th:href="@{?lang=ja}"
+```
+
+のような`lang`だけを指定している設定を、**現在のリクエストが持っているクエリパラメータを引き継ぎ、`lang`だけを追加・変更する**ように修正する。
+
+```text
+修正前
+
+/review/question?page=5&difficulty=HARD
+        ↓ 表示言語を変更
+/review/question?lang=ja
+```
+
+```text
+修正後
+
+/review/question?page=5&difficulty=HARD
+        ↓ 表示言語を変更
+/review/question?page=5&difficulty=HARD&lang=ja
+```
+
+### 各ControllerでSessionへ保存する必要はない
+
+`page`や検索条件、`token`などは、すでに現在のURLにクエリパラメータとして含まれており、現在のHTTPリクエストから取得できる。
+
+そのため、各Controllerで、
+
+```java
+session.setAttribute(...);
+```
+
+を使用してクエリパラメータを一度Sessionへ退避し、表示言語切り替え後に復元する処理を追加する必要はない。
+
+今回必要なのは、**現在のリクエストにすでに存在しているクエリパラメータを、`header.html`の表示言語切り替えリンクでも失わないようにすること**である。
+
+これにより、各Controllerに表示言語切り替え専用のSession管理処理を追加せず、共通の`header.html`側だけで対応できる。
+
+## 実装
+
+現在のコード(日本語)
+
+```html
+<li>
+    <a class="dropdown-item"
+       th:href="@{?lang=ja}">
+        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+    </a>
+</li>
+```
+
+ここを、現在のクエリパラメータを全部引き継いだURLを作る形に変更する。
+
+### Thymeleafだけではきれいなコードではない
+
+Thymeleafでは現在のリクエストパラメータを${param}で取得できる。
+
+```html
+<a th:href="@{/review/question(
+        page=${param.page},
+        difficulty=${param.difficulty},
+        lang='ja'
+    )}">
+    日本語
+</a>
+```
+
+ただし、見てもわかるようにth:hrefだけで対応する場合、現在のクエリパラメータをすべて維持しながらlangだけを変更するには、引き継ぐパラメータを個別に指定する必要がある。
+
+確かに上記のコードは、
+
+/review/question?page=5&difficulty=HARD
+
+なら、
+
+/review/question?page=5&difficulty=HARD&lang=ja
+
+を作れる。
+
+しかし別ページが、
+
+/practice/question?page=3&structureIds=1&structureIds=5&favoriteCondition=FAVORITED
+
+なら、そのページ用に、
+
+```html
+<a th:href="@{/practice/question(
+        page=${param.page},
+        structureIds=${param.structureIds},
+        favoriteCondition=${param.favoriteCondition},
+        lang='ja'
+    )}">
+    日本語
+</a>
+```
+のように必要なパラメータを列挙することになる。
+
+さらにパスワードリセットでは、
+
+```html
+<a th:href="@{/reset-password(
+        token=${param.token},
+        lang='ja'
+    )}">
+    日本語
+</a>
+```
+
+となる。
+
+つまり問題は、共通のheader.htmlなのに、
+
+このページでは page
+このページでは difficulty
+このページでは structureIds
+このページでは favoriteCondition
+このページでは token
+...
+
+と、各ページが使用するクエリパラメータをheader側が知る必要が出てくることである。
+
+なので今回はリンククリック時にJavaScriptで現在のURLのlangだけを書き換える方法がシンプルである。
+
+### JavaScript
+
+現在のURLを丸ごと取得
+        ↓
+既存のクエリパラメータはそのまま
+        ↓
+langだけ追加・変更
+
+するメソッドを作成する。
+
+`header.html`の各表示言語切り替えリンクには、切り替え先の言語を`data-lang`属性として設定する。
+
+リンクがクリックされたらJavaScriptで`data-lang`の値を取得し、現在のURLの`lang`だけを追加・変更したURLへ遷移する。
+
+### /layout/header.html
+
+変更前
+
+```html
+<li>
+    <a class="dropdown-item"
+       th:href="@{?lang=ja}">
+        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+    </a>
+</li>
+```
+
+変更後
+
+```html
+<li>
+    <a class="dropdown-item display-language-link"
+       href="#"
+       data-lang="ja">
+        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+    </a>
+</li>
+```
+
+`th:href`によるURLの生成をやめ、`display-language-link`クラスを追加する。
+
+また、`data-lang`属性に切り替え先の言語を設定する。
+
+他の表示言語についても同様に、
+
+```html
+data-lang="en"
+data-lang="zh_CN"
+data-lang="zh_TW"
+```
+
+を設定する。
+
+### /layout/header.js
+
+```JavaScript
+document.querySelectorAll(".display-language-link").forEach(link => {
+
+    link.addEventListener("click", function(event) {
+
+        event.preventDefault();
+
+        // 現在のURLを取得
+        const url = new URL(window.location.href);
+
+        // langを追加・変更
+        url.searchParams.set("lang", this.dataset.lang);
+
+        // 変更後のURLへ遷移
+        window.location.href = url.toString();
+    });
+});
+```
+
+`document.querySelectorAll()`で、`display-language-link`クラスを持つすべての表示言語切り替えリンクを取得する。
+
+リンクがクリックされたら、`new URL(window.location.href)`によって現在のURL全体を取得する。
+
+```JavaScript
+const url = new URL(window.location.href);
+```
+
+この時点では、現在のURLに含まれているクエリパラメータもそのまま保持されている。
+
+次に、
+
+```JavaScript
+url.searchParams.set("lang", this.dataset.lang);
+```
+
+によって、クリックされたリンクの`data-lang`から切り替え先の言語を取得し、`lang`を追加・変更する。
+
+`set()`を使用するため、すでに`lang`が存在する場合は値を変更し、存在しない場合は新しく追加される。
+
+最後に、
+
+```JavaScript
+window.location.href = url.toString();
+```
+
+で変更後のURLへ遷移する。
+
+これにより、
+
+```text
+/review/question?page=5&difficulty=HARD
+```
+
+で表示言語を日本語へ切り替えた場合、
+
+```text
+/review/question?page=5&difficulty=HARD&lang=ja
+```
+
+となり、既存のクエリパラメータを維持したまま表示言語を変更できる。
+
+### layout.html
+
+共通の`layout.html`で`header.js`を読み込む。
+
+`defer`を指定することで、HTMLの解析が完了した後にJavaScriptを実行し、`header.html`の表示言語切り替えリンクにクリックイベントを設定できるようにする。
+
+```html
+<script th:src="@{/js/layout/header.js}" defer></script>
+```
+
+## 実行
+
+修正後、これまで表示言語を変更するとクエリパラメータが失われていたページで動作確認を行う。
+
+### 問題画面
+
+#### 表示言語変更前
+
+5問目を表示している状態で、日本語から繁體中文へ表示言語を切り替える。
+
+![](../../images/0003-10.png)
+
+#### 表示言語変更後
+
+繁體中文へ切り替えても5問目のままとなり、ページ番号が維持されている。
+
+![](../../images/0003-11.png)
+
+### 問題一覧ページ
+
+#### 表示言語変更前
+
+検索条件を指定した結果、80件の問題が表示されている。
+
+![](../../images/0003-12.png)
+
+#### 表示言語変更後
+
+表示言語を切り替えても80件のままとなり、指定していた検索条件が引き継がれている。
+
+![](../../images/0003-13.png)
+
+### パスワードリセットページ群
+
+#### 表示言語変更前
+
+パスワードリセット用の`token`を含むURLでページを表示する。
+
+![](../../images/0003-14.png)
+
+#### 表示言語変更後
+
+表示言語を切り替えても`token`が維持され、`400 Bad Request`が発生せず正常にページを表示できる。
+
+![](../../images/0003-15.png)
+
+## @ResponseBodyで取得した件数などはやはり初期化される
+
+今回の修正によって、URLに含まれているクエリパラメータは表示言語を切り替えても維持できるようになった。
+
+一方、`@ResponseBody`を使用して取得している問題数など、**URLのクエリパラメータとして保持されていない画面上の状態については、表示言語を切り替えると初期化される**。
+
+今回のJavaScriptで維持しているのは、あくまで現在のURLに含まれている情報である。
+
+```JavaScript
+const url = new URL(window.location.href);
+
+url.searchParams.set("lang", this.dataset.lang);
+```
+
+そのため、JavaScriptによって画面上で選択した条件をControllerへ送信し、`@ResponseBody`で結果だけを取得している場合、その状態が現在のURLに含まれていなければ引き継ぐことはできない。
+
+これらの状態まで維持する場合は、URLへの反映やSessionなどを利用した別の状態管理が必要になる。
+
+今回は、**表示言語切り替え時に現在のURLのクエリパラメータが失われる問題の修正**を目的としているため、`@ResponseBody`で取得した件数などの維持については修正対象外とする。
+
+---
+
 # 20. 次にやること
 
 **学習モードの実装**
