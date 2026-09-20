@@ -76,9 +76,6 @@ extends SavedRequestAwareAuthenticationSuccessHandler {
 		        response,
 		        authentication);
         
-        // Spring Security標準のログイン成功後処理を実行
-        super.onAuthenticationSuccess(request, response, authentication);
-        
 	}
 
 }
