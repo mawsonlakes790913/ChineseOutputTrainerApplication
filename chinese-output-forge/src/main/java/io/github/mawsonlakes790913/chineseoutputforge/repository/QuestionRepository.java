@@ -17,15 +17,16 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 	
-	@Query("""
-	        SELECT COUNT(q) > 0
-	        FROM Question q
-	        WHERE q.questionId = :questionId
+	// 指定した問題がログインユーザーからアクセス可能か確認
+	@Query(value = """
+	        SELECT COUNT(*) > 0
+	        FROM question
+	        WHERE question_id = :questionId
 	        AND (
-	            q.aiGenerated = false
-	            OR q.owner.id = :userId
+	            owner_user_id IS NULL
+	            OR owner_user_id = :userId
 	        )
-	        """)
+	        """, nativeQuery = true)
 	boolean existsAccessibleQuestion(
 	        @Param("questionId") Long questionId,
 	        @Param("userId") Long userId);
@@ -46,30 +47,33 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			WHERE language_variant = :languageVariant
 			AND difficulty = :difficulty
 			AND ai_generated = false
+			AND owner_user_id IS NULL
 			""", nativeQuery = true)
 	long countByLanguageVariantAndDifficulty(
 			@Param("languageVariant") String languageVariant,
 			@Param("difficulty") String difficulty
 			);
 	
+	
+	// ログインユーザー用問題数取得(デフォルト)
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM question
 	        WHERE language_variant = :languageVariant
 	        AND difficulty = :difficulty
 	        AND (
-	            (:sourceCondition = 'ALL'
-	                AND (
-	                    (ai_generated = true AND owner_user_id = :userId)
-	                    OR ai_generated = false
-	                )
-	            )
-	            OR (:sourceCondition = 'ORIGINAL_ONLY'
-	                AND ai_generated = false
-	            )
-	            OR (:sourceCondition = 'GENERATED_ONLY'
-	                AND (ai_generated = true AND owner_user_id = :userId)
-	            )
+				(:sourceCondition = 'ALL'
+				    AND (
+				        (ai_generated = true AND owner_user_id = :userId)
+				        OR ai_generated = false AND (owner_user_id IS NULL OR owner_user_id = :userId)
+				    )
+				)
+				OR (:sourceCondition = 'ORIGINAL_ONLY'
+				    AND ai_generated = false AND (owner_user_id IS NULL OR owner_user_id = :userId)
+				)
+				OR (:sourceCondition = 'GENERATED_ONLY'
+				    AND (ai_generated = true AND owner_user_id = :userId)
+				)
 	        )
 	        """, nativeQuery = true)
 	long countPracticeQuestions(
@@ -86,6 +90,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        WHERE language_variant = :languageVariant
 	        AND difficulty = :difficulty
 	        AND ai_generated = false
+	        AND owner_user_id IS NULL
 	        ORDER BY question_id
 	        LIMIT 50 OFFSET :offset
 	        """, nativeQuery = true)
@@ -103,18 +108,27 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        WHERE language_variant = :languageVariant
 	        AND difficulty = :difficulty
 	        AND (
-	            (:sourceCondition = 'ALL'
-	                AND (
-	                    (ai_generated = true AND owner_user_id = :userId)
-	                    OR ai_generated = false
-	                )
-	            )
-	            OR (:sourceCondition = 'ORIGINAL_ONLY'
-	                AND ai_generated = false
-	            )
-	            OR (:sourceCondition = 'GENERATED_ONLY'
-	                AND (ai_generated = true AND owner_user_id = :userId)
-	            )
+				(:sourceCondition = 'ALL'
+				    AND (
+				        (ai_generated = true AND owner_user_id = :userId)
+				        OR (
+				            ai_generated = false
+				            AND (owner_user_id IS NULL OR owner_user_id = :userId)
+				        )
+				    )
+				)
+				OR (
+				    :sourceCondition = 'ORIGINAL_ONLY'
+				    AND ai_generated = false
+				    AND (owner_user_id IS NULL OR owner_user_id = :userId)
+				)
+				OR (
+				    :sourceCondition = 'GENERATED_ONLY'
+				    AND (
+				        ai_generated = true
+				        AND owner_user_id = :userId
+				    )
+				)
 	        )
 	        ORDER BY question_id
 	        LIMIT 50 OFFSET :offset
@@ -134,40 +148,47 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        Long userId,
 	        String chineseText);	
 
-	
+	// 未学習問題の数を取得
 	@Query(value = """
-			SELECT COUNT(*)
-			FROM question q
-			LEFT JOIN study_history sh
-			  ON q.question_id = sh.question_id
-			 AND sh.user_id = :userId
-			WHERE language_variant = :languageVariant
-			  AND q.difficulty IN (:difficulties)
-			  AND (q.ai_generated = false OR (q.ai_generated = true AND owner_user_id = :userId))
-			  AND sh.question_id IS NULL
-			""", nativeQuery = true)
-			long countUnlearnedQuestions(
-				    @Param("userId") Long userId,
-				    @Param("languageVariant") String languageVariant,
-				    @Param("difficulties") String difficulties					
-					);
+	        SELECT COUNT(*)
+	        FROM question q
+	        LEFT JOIN study_history sh
+	          ON q.question_id = sh.question_id
+	         AND sh.user_id = :userId
+	        WHERE language_variant = :languageVariant
+	          AND q.difficulty IN (:difficulties)
+	          AND (
+	              q.owner_user_id IS NULL
+	              OR q.owner_user_id = :userId
+	          )
+	          AND sh.question_id IS NULL
+	        """, nativeQuery = true)
+	long countUnlearnedQuestions(
+	        @Param("userId") Long userId,
+	        @Param("languageVariant") String languageVariant,
+	        @Param("difficulties") String difficulties
+	);
 	
+	// 未学習問題を取得
 	@Query(value = """
-			SELECT q.*
-			FROM question q
-			LEFT JOIN study_history sh
-			  ON q.question_id = sh.question_id
-			 AND sh.user_id = :userId
-			WHERE language_variant = :languageVariant
-			  AND q.difficulty IN (:difficulties)
-			  AND (q.ai_generated = false OR (q.ai_generated = true AND owner_user_id = :userId))
-			  AND sh.question_id IS NULL
-			""", nativeQuery = true)
-			List<Question> findUnlearnedQuestionsByUserIdAndDifficulty(
-				    @Param("userId") Long userId,
-				    @Param("languageVariant") String languageVariant,
-				    @Param("difficulties") List<String> difficulties					
-					);
+	        SELECT q.*
+	        FROM question q
+	        LEFT JOIN study_history sh
+	          ON q.question_id = sh.question_id
+	         AND sh.user_id = :userId
+	        WHERE language_variant = :languageVariant
+	          AND q.difficulty IN (:difficulties)
+	          AND (
+	              q.owner_user_id IS NULL
+	              OR q.owner_user_id = :userId
+	          )
+	          AND sh.question_id IS NULL
+	        """, nativeQuery = true)
+	List<Question> findUnlearnedQuestionsByUserIdAndDifficulty(
+	        @Param("userId") Long userId,
+	        @Param("languageVariant") String languageVariant,
+	        @Param("difficulties") List<String> difficulties
+	);
 	
 	@Query(value = """
 
@@ -242,16 +263,25 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			    (:sourceCondition = 'ALL'
 			        AND (
 			            (q.ai_generated = true AND q.owner_user_id = :userId)
-			            OR q.ai_generated = false
+			            OR (
+			                q.ai_generated = false
+			                AND (q.owner_user_id IS NULL OR q.owner_user_id = :userId)
+			            )
 			        )
 			    )
-			    OR (:sourceCondition = 'ORIGINAL_ONLY'
+			    OR (
+			        :sourceCondition = 'ORIGINAL_ONLY'
 			        AND q.ai_generated = false
+			        AND (q.owner_user_id IS NULL OR q.owner_user_id = :userId)
 			    )
-			    OR (:sourceCondition = 'GENERATED_ONLY'
-			        AND (q.ai_generated = true AND q.owner_user_id = :userId)
+			    OR (
+			        :sourceCondition = 'GENERATED_ONLY'
+			        AND (
+			            q.ai_generated = true
+			            AND q.owner_user_id = :userId
+			        )
 			    )
-			)    
+			)
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
 	        AND (
@@ -327,14 +357,23 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 			    (:sourceCondition = 'ALL'
 			        AND (
 			            (q.ai_generated = true AND q.owner_user_id = :userId)
-			            OR q.ai_generated = false
+			            OR (
+			                q.ai_generated = false
+			                AND (q.owner_user_id IS NULL OR q.owner_user_id = :userId)
+			            )
 			        )
 			    )
-			    OR (:sourceCondition = 'ORIGINAL_ONLY'
+			    OR (
+			        :sourceCondition = 'ORIGINAL_ONLY'
 			        AND q.ai_generated = false
+			        AND (q.owner_user_id IS NULL OR q.owner_user_id = :userId)
 			    )
-			    OR (:sourceCondition = 'GENERATED_ONLY'
-			        AND (q.ai_generated = true AND q.owner_user_id = :userId)
+			    OR (
+			        :sourceCondition = 'GENERATED_ONLY'
+			        AND (
+			            q.ai_generated = true
+			            AND q.owner_user_id = :userId
+			        )
 			    )
 			)
 	        AND q.structure_id IN (:structureIds)
