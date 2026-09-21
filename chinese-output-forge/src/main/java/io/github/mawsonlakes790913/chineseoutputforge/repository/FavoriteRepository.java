@@ -26,7 +26,7 @@ extends JpaRepository<Favorite, FavoriteKey> {
 	    DELETE FROM favorite
 	    WHERE user_id = :userId
 	    """, nativeQuery = true)
-	void deleteByFavoriteKeyUserId(
+	void deleteByUserId(
 	    @Param("userId") Long userId);
 
 }

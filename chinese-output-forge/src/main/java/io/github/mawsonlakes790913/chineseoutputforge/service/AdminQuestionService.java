@@ -85,7 +85,7 @@ public class AdminQuestionService {
 		    sortCondition = AdminQuestionSortCondition.UPDATED_DESC;
 		}
 
-	    return questionRepository.findFilteredAdminQuestionList(
+	    return questionRepository.findUserQuestionList(
 	    		searchConditionConverter.convertDifficulty(difficulties),
 	    		sourceCondition.name(),
 	    		structureIds,

@@ -45,7 +45,7 @@ public class PracticeService {
 	    if (userId == null) {
 
 	        extractedQuestions =
-	                questionRepository.findQuestionsByLanguageVariantAndDifficulty(
+	                questionRepository.findAnonymousPracticeQuestions(
 	                        languageVariant.name(),
 	                        difficulty.name(),
 	                        offset);
@@ -58,7 +58,7 @@ public class PracticeService {
 	        }
 
 	        extractedQuestions =
-	                questionRepository.findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
+	                questionRepository.findPracticeQuestions(
 	                        userId,
 	                        languageVariant.name(),
 	                        difficulty.name(),
@@ -171,7 +171,7 @@ public class PracticeService {
 			List<Difficulty> difficulty) {
 		
 		   return questionRepository
-		            .findUnlearnedQuestionsByUserIdAndDifficulty(
+		            .findUnlearnedQuestions(
 		                    userId,
 		                    languageVariant.name(),
 		                    searchConditionConverter.convertDifficulty(difficulty));
@@ -185,7 +185,7 @@ public class PracticeService {
 
 	    // 非ログイン
 	    if (userId == null) {
-	        return questionRepository.countByLanguageVariantAndDifficulty(
+	        return questionRepository.countAnonymousPracticeQuestions(
 	                languageVariant.name(),
 	                difficulty.name()
 	        );

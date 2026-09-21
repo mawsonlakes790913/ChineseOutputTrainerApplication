@@ -256,13 +256,13 @@ public class UserAccountService {
 	    Long userId = user.getId();
 
 	    // ① ユーザーのお気に入りを削除
-	    favoriteRepository.deleteByFavoriteKeyUserId(userId);
+	    favoriteRepository.deleteByUserId(userId);
 
 	    // ② ユーザーのAI生成履歴を削除
 	    aiGenerationHistoryRepository.deleteByUserId(userId);
 
 	    // ③ ユーザーの学習履歴を削除
-	    studyHistoryRepository.deleteByStudyHistoryKeyUserId(userId);
+	    studyHistoryRepository.deleteByUserId(userId);
 
 	    // ④ ユーザー所有のAI生成由来問題を削除
 	    questionRepository.deleteByOwnerId(userId);

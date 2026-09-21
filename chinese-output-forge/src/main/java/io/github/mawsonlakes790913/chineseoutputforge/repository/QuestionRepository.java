@@ -62,7 +62,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        AND ai_generated = false
 	        AND owner_user_id IS NULL
 	        """, nativeQuery = true)
-	long countByLanguageVariantAndDifficulty(
+	long countAnonymousPracticeQuestions(
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulty") String difficulty
 	);
@@ -106,7 +106,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        ORDER BY question_id
 	        LIMIT 50 OFFSET :offset
 	        """, nativeQuery = true)
-	List<Question> findQuestionsByLanguageVariantAndDifficulty(
+	List<Question> findAnonymousPracticeQuestions(
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulty") String difficulty,
 	        @Param("offset") int offset
@@ -144,7 +144,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        ORDER BY question_id
 	        LIMIT 50 OFFSET :offset
 	        """, nativeQuery = true)
-	List<Question> findAvailableQuestionsByUserIdAndLanguageVariantAndDifficulty(
+	List<Question> findPracticeQuestions(
 	        @Param("userId") Long userId,
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulty") String difficulty,
@@ -193,7 +193,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	          )
 	          AND sh.question_id IS NULL
 	        """, nativeQuery = true)
-	List<Question> findUnlearnedQuestionsByUserIdAndDifficulty(
+	List<Question> findUnlearnedQuestions(
 	        @Param("userId") Long userId,
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulties") List<String> difficulties
@@ -414,7 +414,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	        """,
 	        nativeQuery = true)
-	Page<UserQuestionListDto> findFilteredUserQuestionList(
+	Page<UserQuestionListDto> findUserQuestionList(
 
 	        @Param("userId")
 	        long userId,
@@ -542,7 +542,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        """,
 	        nativeQuery = true
 	)
-	Page<AdminQuestionListDto> findFilteredAdminQuestionList(
+	Page<AdminQuestionListDto> findUserQuestionList(
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds,

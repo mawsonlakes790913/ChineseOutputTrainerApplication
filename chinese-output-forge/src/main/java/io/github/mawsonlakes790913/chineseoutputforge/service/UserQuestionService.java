@@ -73,7 +73,7 @@ public class UserQuestionService {
 	    sourceCondition = QuestionSourceCondition.ALL;
 	}
 	
-	return questionRepository.findFilteredUserQuestionList(
+	return questionRepository.findUserQuestionList(
 	userId,
 	convertedDifficulties,
 	convertedEvaluations,

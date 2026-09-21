@@ -145,7 +145,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        DELETE FROM study_history
 	        WHERE user_id = :userId
 	        """, nativeQuery = true)
-	void deleteByStudyHistoryKeyUserId(
+	void deleteByUserId(
 	        @Param("userId") Long userId);
 
 	
