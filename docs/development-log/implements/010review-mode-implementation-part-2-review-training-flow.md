@@ -845,3 +845,385 @@ http://localhost:8080/review/question
 問題文の上部に、現在出題されている問題の難易度が表示されることを確認した。
 
 ![](../../images/0010-02.png)
+
+---
+
+# 追加修正 9月21日
+
+```text
+git commit -m "feat: add review question limit option"
+```
+
+## 復習問題の最大出題数を設定する
+
+これまでの復習処理では、検索条件に一致する問題をすべて取得していた。
+
+問題数が増えると一度の復習で大量の問題が出題される可能性があるため、復習メニューから以下の出題数を選択できるようにする。
+
+- 検索条件に一致する問題からランダムに最大50問出題
+- 検索条件に一致する問題をすべて出題
+
+通常は最大50問を出題し、必要な場合のみ対象問題をすべて復習できる構成とする。
+
+### StudyHistoryRepository
+
+既存の`findReviewQuestions()`を、検索条件に一致する問題からランダムに最大50問取得する処理へ変更する。
+
+クエリの最後に以下を追加する。
+
+```sql
+ORDER BY RANDOM()
+LIMIT 50
+```
+
+```java
+// 復習条件に一致する問題をランダムに最大50件取得
+@Query(value = """
+        SELECT q.*
+        FROM study_history sh
+        JOIN question q
+          ON sh.question_id = q.question_id
+        LEFT JOIN favorite f
+          ON sh.user_id = f.user_id
+         AND sh.question_id = f.question_id
+        WHERE sh.user_id = :userId
+          AND q.language_variant IN (:languageVariants)
+          AND sh.evaluation IN (:evaluations)
+          AND q.difficulty IN (:difficulties)
+          AND (
+              :favoriteCondition = 'ALL'
+              OR (
+                  :favoriteCondition = 'FAVORITED'
+                  AND f.question_id IS NOT NULL
+              )
+              OR (
+                  :favoriteCondition = 'NOT_FAVORITED'
+                  AND f.question_id IS NULL
+              )
+          )
+          AND (
+              (:sourceCondition = 'ALL'
+                  AND (
+                      q.owner_user_id IS NULL
+                      OR q.owner_user_id = :userId
+                  )
+              )
+              OR (
+                  :sourceCondition = 'ORIGINAL_ONLY'
+                  AND q.ai_generated = false
+                  AND (
+                      q.owner_user_id IS NULL
+                      OR q.owner_user_id = :userId
+                  )
+              )
+              OR (
+                  :sourceCondition = 'GENERATED_ONLY'
+                  AND q.ai_generated = true
+                  AND q.owner_user_id = :userId
+              )
+          )
+          AND q.structure_id IN (:structureIds)
+        ORDER BY RANDOM()
+        LIMIT 50
+        """, nativeQuery = true)
+List<Question> findReviewQuestions(
+        @Param("userId") Long userId,
+        @Param("languageVariants") List<String> languageVariants,
+        @Param("evaluations") List<String> evaluations,
+        @Param("difficulties") List<String> difficulties,
+        @Param("favoriteCondition") String favoriteCondition,
+        @Param("sourceCondition") String sourceCondition,
+        @Param("structureIds") List<Long> structureIds
+);
+```
+
+また、検索条件に一致する問題をすべて取得するため、`findAllReviewQuestions()`を追加する。
+
+クエリの検索条件は`findReviewQuestions()`と同じだが、`ORDER BY RANDOM()`と`LIMIT 50`は設定しない。
+
+```java
+// 復習条件に一致する問題をすべて取得
+@Query(value = """
+        SELECT q.*
+        FROM study_history sh
+        JOIN question q
+          ON sh.question_id = q.question_id
+        LEFT JOIN favorite f
+          ON sh.user_id = f.user_id
+         AND sh.question_id = f.question_id
+        WHERE sh.user_id = :userId
+          AND q.language_variant IN (:languageVariants)
+          AND sh.evaluation IN (:evaluations)
+          AND q.difficulty IN (:difficulties)
+          AND (
+              :favoriteCondition = 'ALL'
+              OR (
+                  :favoriteCondition = 'FAVORITED'
+                  AND f.question_id IS NOT NULL
+              )
+              OR (
+                  :favoriteCondition = 'NOT_FAVORITED'
+                  AND f.question_id IS NULL
+              )
+          )
+          AND (
+              (:sourceCondition = 'ALL'
+                  AND (
+                      q.owner_user_id IS NULL
+                      OR q.owner_user_id = :userId
+                  )
+              )
+              OR (
+                  :sourceCondition = 'ORIGINAL_ONLY'
+                  AND q.ai_generated = false
+                  AND (
+                      q.owner_user_id IS NULL
+                      OR q.owner_user_id = :userId
+                  )
+              )
+              OR (
+                  :sourceCondition = 'GENERATED_ONLY'
+                  AND q.ai_generated = true
+                  AND q.owner_user_id = :userId
+              )
+          )
+          AND q.structure_id IN (:structureIds)
+        """, nativeQuery = true)
+List<Question> findAllReviewQuestions(
+        @Param("userId") Long userId,
+        @Param("languageVariants") List<String> languageVariants,
+        @Param("evaluations") List<String> evaluations,
+        @Param("difficulties") List<String> difficulties,
+        @Param("favoriteCondition") String favoriteCondition,
+        @Param("sourceCondition") String sourceCondition,
+        @Param("structureIds") List<Long> structureIds
+);
+```
+
+これにより、Repositoryでは以下のように役割を分ける。
+
+```text
+findReviewQuestions()
+    → 条件に一致する問題からランダムに最大50問取得
+
+findAllReviewQuestions()
+    → 条件に一致する問題をすべて取得
+```
+
+### ReviewQuestionLimit
+
+復習時の出題数を管理するEnumを追加する。
+
+```java
+package io.github.mawsonlakes790913.chineseoutputforge.constant;
+
+public enum ReviewQuestionLimit {
+
+    LIMIT_50,
+    ALL
+}
+```
+
+- `LIMIT_50`：最大50問
+- `ALL`：対象問題をすべて出題
+
+### ReviewService
+
+`getQuestion()`に`ReviewQuestionLimit`を追加し、選択された出題数によってRepositoryの取得処理を切り替える。
+
+```java
+public List<Question> getQuestion(
+        Long userId,
+        List<LanguageVariant> languageVariants,
+        List<Evaluation> evaluations,
+        List<Difficulty> difficulties,
+        FavoriteCondition favoriteCondition,
+        QuestionSourceCondition sourceCondition,
+        List<Long> structureIds,
+        ReviewQuestionLimit questionLimit,
+        boolean random) {
+
+    // 文法・構造が未指定の場合はすべて
+    if (structureIds == null || structureIds.isEmpty()) {
+        structureIds = structureRepository.findAllStructureIds();
+    }
+
+    // 出題元が未指定の場合はすべて
+    if (sourceCondition == null) {
+        sourceCondition = QuestionSourceCondition.ALL;
+    }
+
+    // 出題数が未指定の場合は最大50問
+    if (questionLimit == null) {
+        questionLimit = ReviewQuestionLimit.LIMIT_50;
+    }
+
+    List<String> convertedLanguageVariants =
+            searchConditionConverter.convertLanguageVariant(languageVariants);
+
+    List<String> convertedEvaluations =
+            searchConditionConverter.convertEvaluation(evaluations);
+
+    List<String> convertedDifficulties =
+            searchConditionConverter.convertDifficulty(difficulties);
+
+    String convertedFavoriteCondition =
+            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
+
+    List<Question> extractedQuestions;
+
+    // 出題数によって取得方法を切り替える
+    if (questionLimit == ReviewQuestionLimit.ALL) {
+
+        extractedQuestions =
+                studyHistoryRepository.findAllReviewQuestions(
+                        userId,
+                        convertedLanguageVariants,
+                        convertedEvaluations,
+                        convertedDifficulties,
+                        convertedFavoriteCondition,
+                        sourceCondition.name(),
+                        structureIds);
+
+    } else {
+
+        extractedQuestions =
+                studyHistoryRepository.findReviewQuestions(
+                        userId,
+                        convertedLanguageVariants,
+                        convertedEvaluations,
+                        convertedDifficulties,
+                        convertedFavoriteCondition,
+                        sourceCondition.name(),
+                        structureIds);
+    }
+
+    // 必要に応じて取得した問題をシャッフル
+    if (random) {
+        Collections.shuffle(extractedQuestions);
+    }
+
+    return extractedQuestions;
+}
+```
+
+`questionLimit`が未指定の場合は`LIMIT_50`とし、最大50問をデフォルトにする。
+
+### ReviewController
+
+`/review/start`で`questionLimit`を受け取り、`ReviewService`へ渡す。
+
+```java
+@RequestParam(name = "questionLimit", required = false)
+        ReviewQuestionLimit questionLimit,
+```
+
+`getQuestion()`の呼び出しにも`questionLimit`を追加する。
+
+```java
+List<Question> questions = reviewService.getQuestion(
+        userId,
+        languageVariants,
+        evaluations,
+        difficulties,
+        favoriteCondition,
+        sourceCondition,
+        structureIds,
+        questionLimit,
+        random);
+```
+
+これにより、復習メニューから送信された、
+
+```text
+questionLimit=LIMIT_50
+```
+
+または、
+
+```text
+questionLimit=ALL
+```
+
+によって出題数を切り替えられる。
+
+### review/menu.html
+
+復習メニューに最大出題数の選択欄を追加する。
+
+```html
+<!-- ============================= -->
+<!-- 最大出題数 -->
+<!-- ============================= -->
+<div class="col-md-3 mb-4">
+    <div class="card h-100">
+        <div class="card-header"
+             th:text="#{review.menu.questionLimit.title}">
+            最大出題数
+        </div>
+
+        <div class="card-body">
+
+            <!-- 最大50問 -->
+            <label class="form-check mb-2">
+                <input class="form-check-input"
+                       type="radio"
+                       name="questionLimit"
+                       value="LIMIT_50"
+                       checked>
+
+                <span class="form-check-label"
+                      th:text="#{review.menu.questionLimit.limit50}">
+                    最大50問
+                </span>
+            </label>
+
+            <!-- すべて -->
+            <label class="form-check">
+                <input class="form-check-input"
+                       type="radio"
+                       name="questionLimit"
+                       value="ALL">
+
+                <span class="form-check-label"
+                      th:text="#{review.menu.questionLimit.all}">
+                    対象の問題をすべて出題
+                </span>
+            </label>
+
+        </div>
+    </div>
+</div>
+```
+
+デフォルトでは`LIMIT_50`を選択状態とする。
+
+### messages.properties
+
+最大出題数の表示に使用するメッセージを追加する。
+
+```properties
+review.menu.questionLimit.title=最大出題数
+review.menu.questionLimit.limit50=最大50問
+review.menu.questionLimit.all=対象の問題をすべて出題
+```
+
+### 実行
+
+`http://localhost:8080/review/menu`にアクセスすると、最大出題数を選択できるようになっている。
+
+![](../../images/0010-03.png)
+
+「最大50問」を選択して復習を開始する。
+
+![](../../images/0010-04.png)
+
+問題セットが50問になっていることを確認できる。
+
+![](../../images/0010-05.png)
+
+「対象の問題をすべて出題」を選択した場合は、復習対象となる124問すべてが問題セットとして出題される。
+
+![](../../images/0010-06.png)
+
+これにより、通常の復習では問題数を最大50問に抑えつつ、必要に応じて検索条件に一致する問題をすべて復習できるようになった。
