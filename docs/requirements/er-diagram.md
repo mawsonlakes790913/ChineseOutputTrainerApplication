@@ -12,8 +12,11 @@ Chinese Output Forge で使用する主要エンティティと、そのリレ�
 - Favorite
 - StudyHistory
 - AiGenerationHistory
+- PasswordResetToken
 
-Userは、認証・権限に関する情報だけでなく、ユーザーごとの設定として以下の情報を保持する。
+Userは、認証・権限に関する情報に加えて、パスワードリセットなどに使用するメールアドレスを保持する。
+
+また、ユーザーごとの設定として以下の情報を保持する。
 
 - 学習対象言語
 - 表示する発音表記
@@ -86,6 +89,8 @@ erDiagram
 
     USER ||--o{ AI_GENERATION_HISTORY : has
     QUESTION ||--o{ AI_GENERATION_HISTORY : source
+
+    USER ||--o| PASSWORD_RESET_TOKEN : has
 
     STRUCTURE ||--o{ QUESTION : classifies
 
@@ -168,6 +173,13 @@ erDiagram
         text chinese_text
         datetime created_at
     }
+
+    PASSWORD_RESET_TOKEN {
+        bigint id PK
+        bigint user_id FK
+        string token
+        datetime expiry_date
+    }
 ```
 
 ---
@@ -193,19 +205,23 @@ USER
   │              │
   │              └── STRUCTURE
   │
+  ├── AI_GENERATION_HISTORY
+  │       │
+  │       └── QUESTION
+  │              │
+  │              └── STRUCTURE
+  │           （生成元）
   │
-  └── AI_GENERATION_HISTORY
-          │
-          └── QUESTION
-                 │
-                 └── STRUCTURE
-              （生成元）
+  └── PASSWORD_RESET_TOKEN
 ```
 
-USER自身は、ユーザーごとのアカウント状態および設定として以下の属性を保持する。
+USER自身は、ユーザーごとのアカウント情報、アカウント状態および設定として以下の属性を保持する。
 
 ```text
 USER
+│
+├── email
+│   └── 登録メールアドレス
 │
 ├── account_locked
 │   ├── false：通常
@@ -291,6 +307,26 @@ AI_GENERATION_HISTORY自身には `language_variant` および `structure_id` �
 ---
 
 ## 4. Userとユーザー設定
+
+### メールアドレス
+
+USERは、ユーザーごとの登録メールアドレスとして、
+
+```text
+email
+```
+
+を保持する。
+
+メールアドレスは必須とし、ユーザー間で重複しないものとする。
+
+```text
+USER
+│
+└── email
+```
+
+登録されたメールアドレスは、ユーザー自身によるメールアドレスの変更および、パスワードを忘れた場合のパスワードリセットに使用する。
 
 ### 学習対象言語
 
@@ -1110,6 +1146,15 @@ QUESTION
 * 管理者はUSERの凍結および凍結解除を行えるものとする。
 * 管理者はUSERを削除できるものとする。
 * USERを削除する場合は、関連するデータとの整合性を維持できるようにする。
+* USERは登録メールアドレスを `email` として保持する。
+* USERの `email` は必須とし、ユーザー間で重複を許可しない。
+* USERの `email` はメールアドレスの変更およびパスワードリセットに利用する。
+* PASSWORD_RESET_TOKENはパスワードリセットに使用する一時的なデータとして管理する。
+* PASSWORD_RESET_TOKENには必ずパスワードリセット対象のUSERを設定する。
+* 1つのUSERが同時に保持できるPASSWORD_RESET_TOKENは最大1件とする。
+* PASSWORD_RESET_TOKENにはトークンおよび有効期限を保持する。
+* 有効期限を過ぎたPASSWORD_RESET_TOKENはパスワードリセットに使用できないものとする。
+* パスワードの再設定が完了した場合はPASSWORD_RESET_TOKENを削除する。
 * 大陸普通話と台湾華語は異なる問題データとして扱う。
 * QUESTIONは大陸普通話・台湾華語で分離しない。
 * QUESTIONに `language_variant` を持たせる。
@@ -2113,3 +2158,97 @@ QUESTION
 ```
 
 これにより、問題そのものはQUESTIONへ統合しながら、`ai_generated` と `owner_user_id` によって通常の問題とユーザー専用のAI生成由来問題を区別して管理する。
+
+---
+
+### 14.10 メールアドレスの追加
+
+**設計変更日：2026年9月21日**
+
+ユーザー登録およびアカウント管理機能の拡張に伴い、USERに登録メールアドレスを保持する `email` を追加する。
+
+変更前：
+
+```text
+USER
+├── id
+├── login_id
+├── password
+├── role
+├── account_locked
+├── language_variant
+└── pronunciation_type
+```
+
+変更後：
+
+```text
+USER
+├── id
+├── login_id
+├── email
+├── password
+├── role
+├── account_locked
+├── language_variant
+└── pronunciation_type
+```
+
+`email` は必須とし、ユーザー間で重複しないものとする。
+
+登録されたメールアドレスは、ユーザー自身によるメールアドレスの変更およびパスワードリセットに利用する。
+
+今回の変更はUSERが保持する属性の追加であり、新しいリレーションは発生しない。
+
+---
+
+### 14.11 パスワードリセットトークンの追加
+
+**設計変更日：2026年9月21日**
+
+メールを利用したパスワードリセット機能の追加に伴い、新たにPASSWORD_RESET_TOKENを追加する。
+
+PASSWORD_RESET_TOKENは以下の情報を保持する。
+
+```text
+PASSWORD_RESET_TOKEN
+│
+├── id
+├── user_id
+├── token
+└── expiry_date
+```
+
+`id` はPASSWORD_RESET_TOKENを一意に識別する主キーとする。
+
+`user_id` はパスワードリセット対象となるUSERを参照する外部キーとする。
+
+`token` はパスワード再設定URLからパスワードリセット要求を識別するための一時的なトークンを保持する。
+
+`expiry_date` はトークンの有効期限を保持する。
+
+USERとPASSWORD_RESET_TOKENは以下の関係とする。
+
+```text
+USER
+  │
+  │ 1:0..1
+  ▼
+PASSWORD_RESET_TOKEN
+```
+
+1人のUSERが同時に保持できるPASSWORD_RESET_TOKENは最大1件とする。
+
+同一USERが新たにパスワードリセットを要求した場合は、以前のPASSWORD_RESET_TOKENを削除し、新しいPASSWORD_RESET_TOKENを作成する。
+
+有効期限を過ぎたPASSWORD_RESET_TOKENはパスワードの再設定には使用しない。
+
+また、パスワードの再設定が完了した場合はPASSWORD_RESET_TOKENを削除する。
+
+今回の変更により、以下のリレーションをER図へ追加する。
+
+```text
+USER 1 : 0..1 PASSWORD_RESET_TOKEN
+```
+
+PASSWORD_RESET_TOKENはパスワードリセット専用の一時的なデータとして扱い、QUESTION、FAVORITE、STUDY_HISTORYなどの学習データとは分離して管理する。

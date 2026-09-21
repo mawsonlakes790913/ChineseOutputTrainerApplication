@@ -14,6 +14,7 @@ Chinese Output Forgeで使用するデータベーステーブルを定義する
 - FAVORITE
 - STUDY_HISTORY
 - AI_GENERATION_HISTORY
+- PASSWORD_RESET_TOKEN
 
 について、大陸普通話用と台湾華語用で別テーブルを持つのではなく、共通テーブルで管理する。
 
@@ -43,7 +44,7 @@ pronunciation_type
 
 ## 概要
 
-ユーザー情報、認証情報、権限、アカウント状態、およびユーザーごとの学習・表示設定を管理するテーブル。
+ユーザー情報、認証情報、権限、アカウント状態、メールアドレス、およびユーザーごとの学習・表示設定を管理するテーブル。
 
 ユーザーを内部的に識別するための `id` を主キーとし、ユーザーがログイン時に使用するIDは `login_id` として別途管理する。
 
@@ -58,11 +59,29 @@ pronunciation_type
 |---|---|---|---|---|---|---|---|
 | id | 内部ユーザーID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
 | login_id | ログインID | - | - | VARCHAR(20) | ○ | ○ | ユーザーがログイン時に使用 |
+| email | メールアドレス | - | - | VARCHAR(255) | ○ | ○ | ユーザー登録およびパスワードリセットに使用 |
 | password | パスワード | - | - | VARCHAR(255) | ○ | - | ハッシュ化して保存 |
 | role | 権限 | - | - | VARCHAR(20) | ○ | - | USER / ADMIN |
 | account_locked | アカウント凍結状態 | - | - | BOOLEAN | ○ | - | false：通常 / true：凍結 |
 | language_variant | 学習対象言語 | - | - | VARCHAR(20) | ○ | - | MAINLAND / TAIWAN |
 | pronunciation_type | 発音表記 | - | - | VARCHAR(20) | ○ | - | PINYIN / ZHUYIN / NONE |
+
+## `email`
+
+ユーザーに登録されているメールアドレスを表す。
+
+メールアドレスはユーザー登録時に必須とし、ユーザー間での重複を許可しない。
+
+```text
+NOT NULL
+UNIQUE
+```
+
+とする。
+
+登録されたメールアドレスは、ユーザー自身によるメールアドレス変更、およびパスワードを忘れた場合のパスワードリセットに使用する。
+
+メールアドレスを変更しても、内部ユーザーIDである `id` およびログインIDである `login_id` は変更しない。
 
 ## `account_locked`
 
@@ -134,6 +153,10 @@ PINYIN
 - `login_id` は重複を許可しない。
 - ユーザーが `login_id` を変更しても内部IDである `id` は変更しない。
 - 他テーブルからUSERを参照する場合は `login_id` ではなく `id` を外部キーとして使用する。
+- `email` はユーザーごとに一意とし、重複を許可しない。
+- `email` はユーザー登録時に必須とする。
+- `email` はパスワードリセット時のユーザー特定およびメール送信に使用する。
+- ユーザーが `email` を変更しても内部IDである `id` は変更しない。
 - パスワードは平文では保存しない。
 - `role = ADMIN` のユーザーのみ管理者用機能へアクセスできる。
 - `account_locked` はユーザーのアカウント凍結状態を表す。
@@ -722,7 +745,83 @@ AI_GENERATION_HISTORY
 
 ---
 
-# 8. 外部キー一覧
+# 8. PASSWORD_RESET_TOKEN
+
+## 概要
+
+メールを利用したパスワードリセットに使用する一時的なトークンを管理するテーブル。
+
+パスワードリセットを要求したユーザーとUSERを関連付け、有効期限付きのトークンを保持する。
+
+| カラム名 | 意味 | PK | FK | データ型 | NOT NULL | UNIQUE | 備考 |
+|---|---|---|---|---|---|---|---|
+| token_id | パスワードリセットトークンID | ○ | - | BIGINT | ○ | ○ | 自動採番 |
+| user_id | 内部ユーザーID | - | ○ | BIGINT | ○ | ○ | USER.id参照 |
+| token | パスワードリセットトークン | - | - | VARCHAR(255) | ○ | ○ | UUIDによって生成 |
+| expires_at | 有効期限 | - | - | TIMESTAMP | ○ | - | トークンの有効期限 |
+
+## USERとの関係
+
+`user_id` は、
+
+```text
+USER.id
+```
+
+を参照する外部キーとする。
+
+```text
+USER
+  │
+  │ 1:0..1
+  ↓
+PASSWORD_RESET_TOKEN
+```
+
+1人のユーザーが同時に保持できるPASSWORD_RESET_TOKENは最大1件とする。
+
+そのため、`user_id` はUNIQUEとする。
+
+## トークン
+
+`token` にはパスワード再設定URLで使用するトークンを保存する。
+
+トークンはUUIDによって生成し、重複を許可しない。
+
+## 有効期限
+
+`expires_at` にはトークンの有効期限を保存する。
+
+トークンの有効期限は発行から1時間とする。
+
+有効期限を過ぎたトークンはパスワード再設定に使用できない。
+
+## 再発行
+
+同一ユーザーが新たにパスワードリセットを要求した場合は、既存のPASSWORD_RESET_TOKENを削除してから新しいトークンを登録する。
+
+これにより、同一ユーザーについて複数の有効なパスワードリセットトークンを保持しない。
+
+## パスワード再設定完了時
+
+パスワード再設定が正常に完了した場合は、使用したPASSWORD_RESET_TOKENを削除する。
+
+## 補足
+
+- PASSWORD_RESET_TOKENはパスワードリセットにのみ使用する。
+- `user_id` はUSERの内部IDである `USER.id` を参照する。
+- `user_id` はUNIQUEとする。
+- `token` はUNIQUEとする。
+- トークンの有効期限は発行から1時間とする。
+- 有効期限を過ぎたトークンは使用できない。
+- パスワード再設定完了後は使用したトークンを削除する。
+- QUESTION、FAVORITE、STUDY_HISTORYなどの学習データとは関連付けない。
+
+---
+
+---
+
+# 9. 外部キー一覧
 
 | テーブル | カラム | 参照先 |
 |---|---|---|
@@ -734,10 +833,11 @@ AI_GENERATION_HISTORY
 | QUESTION | owner_user_id | USER.id |
 | AI_GENERATION_HISTORY | user_id | USER.id |
 | AI_GENERATION_HISTORY | question_id | QUESTION.question_id |
+| PASSWORD_RESET_TOKEN | user_id | USER.id |
 
 ---
 
-# 9. 主キー一覧
+# 10. 主キー一覧
 
 | テーブル | 主キー |
 |---|---|
@@ -747,10 +847,11 @@ AI_GENERATION_HISTORY
 | FAVORITE | user_id + question_id |
 | STUDY_HISTORY | user_id + question_id |
 | AI_GENERATION_HISTORY | id |
+| PASSWORD_RESET_TOKEN | token_id |
 
 ---
 
-# 10. ユーザーIDの管理方針
+# 11. ユーザーIDの管理方針
 
 USERでは、内部管理用IDとログインIDを分離する。
 
@@ -790,13 +891,13 @@ naoki
 naoki2026
 ```
 
-のように変更した場合でも、Favorite、StudyHistory、ユーザーが所有するAI生成由来のQuestion、AiGenerationHistoryなどの関連データを変更する必要がない。
+のように変更した場合でも、Favorite、StudyHistory、ユーザーが所有するAI生成由来のQuestion、AiGenerationHistory、PasswordResetTokenなどの関連データを変更する必要がない。
 
 内部的なユーザー識別は常に `USER.id` によって行う。
 
 ---
 
-# 11. ユーザー設定の管理方針
+# 12. ユーザー設定の管理方針
 
 ユーザーが継続的に使用する、
 
@@ -896,7 +997,7 @@ TAIWAN / ZHUYIN を継続
 
 ---
 
-# 12. AI生成問題の保存方針
+# 13. AI生成問題の保存方針
 
 AI生成問題については、生成されたすべての問題をDBへ保存しない。
 
@@ -923,7 +1024,7 @@ QUESTIONへINSERT
 
 ---
 
-# 13. 大陸普通話・台湾華語の管理方針
+# 14. 大陸普通話・台湾華語の管理方針
 
 大陸普通話と台湾華語は、単純な文字変換による同一問題として扱わない。
 
@@ -1019,7 +1120,7 @@ Favorite、StudyHistory、AiGenerationHistoryについては、QUESTIONとの関
 
 ---
 
-# 14. 学習対象言語によるデータ取得方針
+# 15. 学習対象言語によるデータ取得方針
 
 通常学習、復習、AI生成学習、ユーザー用問題一覧などでは、ログインユーザーの場合、
 
@@ -1095,7 +1196,7 @@ language_variant = TAIWAN
 
 ---
 
-# 15. 発音表記による表示方針
+# 16. 発音表記による表示方針
 
 QUESTIONは、通常問題・AI生成由来の問題のいずれについても、ユーザーの現在の設定にかかわらず、
 
@@ -1171,7 +1272,7 @@ TAIWAN + NONE
 
 ---
 
-# 16. サイト表記言語との関係
+# 17. サイト表記言語との関係
 
 学習対象言語、発音表記、サイト表記言語はそれぞれ異なる設定として扱う。
 
@@ -1249,7 +1350,7 @@ English
 
 ---
 
-# 17. 設計上の補足
+# 18. 設計上の補足
 
 - USERは大陸普通話・台湾華語で共通とする。
 - USERは内部管理用の `id` を主キーとして持つ。
@@ -1272,6 +1373,9 @@ English
 - `pronunciation_type` は `PINYIN / ZHUYIN / NONE` とする。
 - 新規ユーザーの `language_variant` のデフォルト値は `MAINLAND` とする。
 - 新規ユーザーの `pronunciation_type` のデフォルト値は `PINYIN` とする。
+- USERには `email` を保持する。
+- `email` はNOT NULLかつUNIQUEとする。
+- `email` はユーザー登録およびパスワードリセットに使用する。
 - 学習対象言語および発音表記はDBへ永続化する。
 - ログアウト後も学習対象言語および発音表記を維持する。
 - 大陸普通話と台湾華語は異なる問題データとして扱う。
@@ -1347,12 +1451,19 @@ English
 - AI_GENERATION_HISTORY自身には `language_variant` を保持しない。
 - AI_GENERATION_HISTORY自身には `structure_id` を保持しない。
 - AI_GENERATION_HISTORYの学習対象言語および文法・構造は生成元QUESTIONから判定する。
+- PASSWORD_RESET_TOKENはパスワードリセット用の一時的なトークンを管理する。
+- PASSWORD_RESET_TOKENの `user_id` は `USER.id` を参照する。
+- PASSWORD_RESET_TOKENの `user_id` はUNIQUEとし、1ユーザーにつき最大1件のトークンを保持する。
+- PASSWORD_RESET_TOKENの `token` はUNIQUEとする。
+- パスワードリセットトークンの有効期限は発行から1時間とする。
+- 同一ユーザーがトークンを再発行した場合は、既存のトークンを削除して新しいトークンを登録する。
+- パスワード再設定完了後は使用したトークンを削除する。
 
 ---
 
-# 18. 開発途中で追加・変更したテーブル設計
+# 19. 開発途中で追加・変更したテーブル設計
 
-## 18.1 拼音・注音への対応
+## 19.1 拼音・注音への対応
 
 **追加日：2026年8月15日**
 
@@ -1404,7 +1515,7 @@ NONE
 
 ---
 
-## 18.2 別解の拼音・注音への対応
+## 19.2 別解の拼音・注音への対応
 
 **追加日：2026年8月16日**
 
@@ -1463,7 +1574,7 @@ NONE
 
 ---
 
-## 18.3 問題の文法・構造の追加
+## 19.3 問題の文法・構造の追加
 
 **追加日：2026年8月23日**
 
@@ -1509,7 +1620,7 @@ condition     = 「着」を使う
 
 ---
 
-## 18.4 STRUCTUREのマスタテーブル化
+## 19.4 STRUCTUREのマスタテーブル化
 
 **変更日：2026年8月24日**
 
@@ -1578,7 +1689,7 @@ STRUCTURE
 
 ---
 
-## 18.5 ユーザー設定の永続化
+## 19.5 ユーザー設定の永続化
 
 **変更日：2026年8月27日**
 
@@ -1729,7 +1840,7 @@ Sessionはアプリケーション利用中の一時的な現在値として使�
 
 ---
 
-## 18.6 AI生成履歴テーブルの追加
+## 19.6 AI生成履歴テーブルの追加
 
 **追加日：2026年9月4日**
 
@@ -1824,7 +1935,7 @@ AI_GENERATION_HISTORY
 
 ---
 
-## 18.7 AI生成制御属性の廃止
+## 19.7 AI生成制御属性の廃止
 
 **変更日：2026年9月4日**
 
@@ -1930,7 +2041,7 @@ template
 
 ---
 
-## 18.8 QUESTIONへの作成日時・更新日時の追加
+## 19.8 QUESTIONへの作成日時・更新日時の追加
 
 **追加日：2026年9月11日**
 
@@ -1961,7 +2072,7 @@ QUESTIONを新規作成した場合は、
 
 ---
 
-## 18.9 AI生成由来問題のQUESTIONへの統合
+## 19.9 AI生成由来問題のQUESTIONへの統合
 
 **変更日：2026年9月11日**
 
@@ -2013,112 +2124,7 @@ AIによって問題が生成された時点ではQUESTIONへ保存せず、生�
 
 ---
 
-# 19. 現在の主要テーブル構成
-
-最終的な主要テーブルの関係は以下とする。
-
-```text
-USER
-│
-├── language_variant
-├── pronunciation_type
-│
-├── 1:N FAVORITE
-├── 1:N STUDY_HISTORY
-├── 1:N QUESTION
-│       └── AI生成由来の場合のみowner_user_id
-│
-└── 1:N AI_GENERATION_HISTORY
-
-
-STRUCTURE
-    │
-    │ 1:N
-    ↓
-QUESTION
-    │
-    ├── ai_generated
-    ├── owner_user_id
-    │
-    ├── 1:N FAVORITE
-    ├── 1:N STUDY_HISTORY
-    │
-    └── 1:N AI_GENERATION_HISTORY
-            └── question_id
-```
-
-USERは、
-
-```text
-誰が利用しているか
-+
-そのユーザーがどの設定を使用しているか
-```
-
-を管理する。
-
-QUESTIONは、
-
-```text
-どの学習対象言語の問題であるか
-+
-通常問題かAI生成由来の問題か
-+
-AI生成由来の場合は誰が所有しているか
-```
-
-を管理する。
-
-STRUCTUREは、
-
-```text
-QUESTIONがどの文法・構造に属するか
-```
-
-を管理する。
-
-FAVORITEおよびSTUDY_HISTORYは、
-
-```text
-USER
-+
-QUESTION
-```
-
-の関係を管理する。
-
-AI_GENERATION_HISTORYは、
-
-```text
-USER
-+
-生成元QUESTION
-+
-過去にAIによって生成された中国語文
-```
-
-を管理する。
-
-AI_GENERATION_HISTORYは、同一USER・同一生成元QUESTIONについて直近5件まで保持する。
-
-保持された生成履歴は、次回のAI問題生成時に参照し、同じ語句や内容が短期間に繰り返し生成されることを抑制するために使用する。
-
-これにより、
-
-```text
-ユーザー設定
-問題データ
-文法・構造
-学習履歴
-お気に入り
-AI生成履歴
-```
-
-をそれぞれ役割の異なるデータとして管理する。
-
----
-
-## 18.8 AI生成用`_reusable`プレースホルダの廃止
+## 19.10 AI生成用`_reusable`プレースホルダの廃止
 
 **変更日：2026年9月4日**
 
@@ -2206,7 +2212,7 @@ AI_GENERATION_HISTORYおよび`generationHistory`は、プレースホルダ単�
 
 ---
 
-## 18.9 ユーザー管理に伴うアカウント凍結状態の追加
+## 19.11 ユーザー管理に伴うアカウント凍結状態の追加
 
 **追加日：2026年9月11日**
 
@@ -2304,3 +2310,167 @@ account_locked = false
 USERを削除する場合は、USERを参照している関連データとの整合性を維持できるようにする。
 
 関連データの具体的な削除方法については、各テーブルとの外部キー関係および実装仕様を考慮して決定する。
+
+---
+
+## 19.12 メールアドレスの追加
+
+**追加日：2026年9月21日**
+
+ユーザー登録時にメールアドレスを登録し、パスワードリセットにも利用できるようにするため、USERへ `email` を追加した。
+
+`email` は必須項目とし、ユーザー間での重複を防ぐためUNIQUEとする。
+
+また、ユーザー自身によるメールアドレス変更に対応する。
+
+---
+
+## 19.13 パスワードリセットトークンテーブルの追加
+
+**追加日：2026年9月21日**
+
+登録済みメールアドレスを利用したパスワードリセットに対応するため、PASSWORD_RESET_TOKENを追加した。
+
+PASSWORD_RESET_TOKENでは、
+
+- 対象ユーザー
+- パスワードリセットトークン
+- 有効期限
+
+を管理する。
+
+1人のユーザーが同時に保持できるトークンは最大1件とし、`user_id` をUNIQUEとする。
+
+トークンはUUIDによって生成し、発行から1時間を有効期限とする。
+
+同一ユーザーが再発行を要求した場合は既存のトークンを削除して新しいトークンを登録し、パスワード再設定が完了した場合は使用済みトークンを削除する。
+
+---
+
+# 20. 現在の主要テーブル構成
+
+最終的な主要テーブルの関係は以下とする。
+
+```text
+USER
+│
+├── email
+├── language_variant
+├── pronunciation_type
+│
+├── 1:N FAVORITE
+├── 1:N STUDY_HISTORY
+├── 1:N QUESTION
+│       └── AI生成由来の場合のみowner_user_id
+│
+├── 1:N AI_GENERATION_HISTORY
+│
+└── 1:0..1 PASSWORD_RESET_TOKEN
+
+
+STRUCTURE
+    │
+    │ 1:N
+    ↓
+QUESTION
+    │
+    ├── ai_generated
+    ├── owner_user_id
+    │
+    ├── 1:N FAVORITE
+    ├── 1:N STUDY_HISTORY
+    │
+    └── 1:N AI_GENERATION_HISTORY
+            └── question_id
+```
+
+USERは、
+
+```text
+誰が利用しているか
++
+そのユーザーのメールアドレス
++
+そのユーザーがどの設定を使用しているか
+```
+
+を管理する。
+
+QUESTIONは、
+
+```text
+どの学習対象言語の問題であるか
++
+通常問題かAI生成由来の問題か
++
+AI生成由来の場合は誰が所有しているか
+```
+
+を管理する。
+
+STRUCTUREは、
+
+```text
+QUESTIONがどの文法・構造に属するか
+```
+
+を管理する。
+
+FAVORITEおよびSTUDY_HISTORYは、
+
+```text
+USER
++
+QUESTION
+```
+
+の関係を管理する。
+
+AI_GENERATION_HISTORYは、
+
+```text
+USER
++
+生成元QUESTION
++
+過去にAIによって生成された中国語文
+```
+
+を管理する。
+
+AI_GENERATION_HISTORYは、同一USER・同一生成元QUESTIONについて直近5件まで保持する。
+
+保持された生成履歴は、次回のAI問題生成時に参照し、同じ語句や内容が短期間に繰り返し生成されることを抑制するために使用する。
+
+PASSWORD_RESET_TOKENは、
+
+```text
+USER
++
+パスワードリセットトークン
++
+トークンの有効期限
+```
+
+を管理する。
+
+USERとPASSWORD_RESET_TOKENは1対0または1の関係とし、1人のユーザーが同時に保持できるパスワードリセットトークンは最大1件とする。
+
+PASSWORD_RESET_TOKENはパスワードリセット時に一時的に使用し、パスワード再設定完了後は削除する。
+
+これにより、
+
+```text
+ユーザー情報・設定
+問題データ
+文法・構造
+学習履歴
+お気に入り
+AI生成履歴
+パスワードリセット情報
+```
+
+をそれぞれ役割の異なるデータとして管理する。
+
+---
+
