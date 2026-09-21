@@ -22,10 +22,10 @@ public interface AiGenerationHistoryRepository
 	
 	// 指定したユーザーのAI生成履歴をすべて削除
 	@Modifying
-	@Query("""
-	        DELETE FROM AiGenerationHistory a
-	        WHERE a.user.id = :userId
-	        """)
+	@Query(value = """
+	        DELETE FROM ai_generation_history
+	        WHERE user_id = :userId
+	        """, nativeQuery = true)
 	void deleteByUserId(@Param("userId") Long userId);
 
 }

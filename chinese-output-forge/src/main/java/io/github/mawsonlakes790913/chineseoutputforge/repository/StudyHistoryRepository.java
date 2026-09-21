@@ -15,20 +15,14 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistoryKey;
 public interface StudyHistoryRepository extends JpaRepository<StudyHistory, StudyHistoryKey> {
 	
 	// 指定した学習履歴情報を取得
-	Optional<StudyHistory> findByStudyHistoryKey(StudyHistoryKey studyHistoryKey);
-		
-	// 指定したユーザーの学習履歴をすべて削除
-	@Modifying
-	@Query("""
-	        DELETE FROM StudyHistory sh
-	        WHERE sh.studyHistoryKey.userId = :userId
-	        """)
-	void deleteByStudyHistoryKeyUserId(
-	        @Param("userId") Long userId);
-	
+	Optional<StudyHistory> findByStudyHistoryKey(
+	        StudyHistoryKey studyHistoryKey);
+
 	// 指定した問題の学習履歴をすべて削除
-	void deleteByStudyHistoryKeyQuestionId(Long questionId);
-	
+	void deleteByStudyHistoryKeyQuestionId(
+	        Long questionId);
+
+
 	// 復習条件に一致する問題数を取得
 	@Query(value = """
 	        SELECT COUNT(*)
@@ -53,27 +47,27 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	                AND f.question_id IS NULL
 	            )
 	        )
-			AND (
-			    (:sourceCondition = 'ALL'
-			        AND (
-			            q.owner_user_id IS NULL
-			            OR q.owner_user_id = :userId
-			        )
-			    )
-			    OR (
-			        :sourceCondition = 'ORIGINAL_ONLY'
-			        AND q.ai_generated = false
-			        AND (
-			            q.owner_user_id IS NULL
-			            OR q.owner_user_id = :userId
-			        )
-			    )
-			    OR (
-			        :sourceCondition = 'GENERATED_ONLY'
-			        AND q.ai_generated = true
-			        AND q.owner_user_id = :userId
-			    )
-			)
+	        AND (
+	            (:sourceCondition = 'ALL'
+	                AND (
+	                    q.owner_user_id IS NULL
+	                    OR q.owner_user_id = :userId
+	                )
+	            )
+	            OR (
+	                :sourceCondition = 'ORIGINAL_ONLY'
+	                AND q.ai_generated = false
+	                AND (
+	                    q.owner_user_id IS NULL
+	                    OR q.owner_user_id = :userId
+	                )
+	            )
+	            OR (
+	                :sourceCondition = 'GENERATED_ONLY'
+	                AND q.ai_generated = true
+	                AND q.owner_user_id = :userId
+	            )
+	        )
 	        AND q.structure_id IN (:structureIds)
 	        """, nativeQuery = true)
 	long countReviewQuestions(
@@ -85,7 +79,8 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds
 	);
-	
+
+
 	// 復習条件に一致する問題を取得
 	@Query(value = """
 	        SELECT q.*
@@ -110,27 +105,27 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	                  AND f.question_id IS NULL
 	              )
 	          )
-			AND (
-			    (:sourceCondition = 'ALL'
-			        AND (
-			            q.owner_user_id IS NULL
-			            OR q.owner_user_id = :userId
-			        )
-			    )
-			    OR (
-			        :sourceCondition = 'ORIGINAL_ONLY'
-			        AND q.ai_generated = false
-			        AND (
-			            q.owner_user_id IS NULL
-			            OR q.owner_user_id = :userId
-			        )
-			    )
-			    OR (
-			        :sourceCondition = 'GENERATED_ONLY'
-			        AND q.ai_generated = true
-			        AND q.owner_user_id = :userId
-			    )
-			)         
+	        AND (
+	            (:sourceCondition = 'ALL'
+	                AND (
+	                    q.owner_user_id IS NULL
+	                    OR q.owner_user_id = :userId
+	                )
+	            )
+	            OR (
+	                :sourceCondition = 'ORIGINAL_ONLY'
+	                AND q.ai_generated = false
+	                AND (
+	                    q.owner_user_id IS NULL
+	                    OR q.owner_user_id = :userId
+	                )
+	            )
+	            OR (
+	                :sourceCondition = 'GENERATED_ONLY'
+	                AND q.ai_generated = true
+	                AND q.owner_user_id = :userId
+	            )
+	        )
 	          AND q.structure_id IN (:structureIds)
 	        """, nativeQuery = true)
 	List<Question> findReviewQuestions(
@@ -142,6 +137,16 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds
 	);
+
+
+	// 指定したユーザーの学習履歴をすべて削除
+	@Modifying
+	@Query(value = """
+	        DELETE FROM study_history
+	        WHERE user_id = :userId
+	        """, nativeQuery = true)
+	void deleteByStudyHistoryKeyUserId(
+	        @Param("userId") Long userId);
 
 	
 }	

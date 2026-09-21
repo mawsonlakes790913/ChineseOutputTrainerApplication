@@ -28,33 +28,58 @@ public interface UserRepository extends JpaRepository<Users, Long> {
 	Optional<Users> findByEmail(String email);
 	
 	// 検索条件に一致するユーザーを指定した並び順でページング取得
-	@Query("""
-	        SELECT u
-	        FROM Users u
-	        WHERE
-	            (:loginId IS NULL
-	                OR :loginId = ''
-	                OR u.loginId LIKE CONCAT('%', :loginId, '%'))
-	        AND
-	            (:accountStatus = 'ALL'
-	                OR (:accountStatus = 'ACTIVE' AND u.accountLocked = false)
-	                OR (:accountStatus = 'LOCKED' AND u.accountLocked = true))
-			AND (
-			    :email IS NULL
-			    OR :email = ''
-			    OR LOWER(u.email)
-			        LIKE LOWER(CONCAT('%', :email, '%'))
-			)
-			ORDER BY
-				CASE
-				    WHEN :sortCondition = 'LOGIN_ID_ASC'
-				    THEN u.loginId
-				END ASC,
-			    CASE
-			        WHEN :sortCondition = 'EMAIL_ASC'
-			        THEN u.email
-			    END ASC
-	        """)
+	@Query(
+	        value = """
+	                SELECT *
+	                FROM users
+	                WHERE (
+	                    :loginId IS NULL
+	                    OR :loginId = ''
+	                    OR login_id LIKE CONCAT('%', :loginId, '%')
+	                )
+	                AND (
+	                    :accountStatus = 'ALL'
+	                    OR (:accountStatus = 'ACTIVE' AND account_locked = false)
+	                    OR (:accountStatus = 'LOCKED' AND account_locked = true)
+	                )
+	                AND (
+	                    :email IS NULL
+	                    OR :email = ''
+	                    OR LOWER(email)
+	                        LIKE LOWER(CONCAT('%', :email, '%'))
+	                )
+	                ORDER BY
+	                    CASE
+	                        WHEN :sortCondition = 'LOGIN_ID_ASC'
+	                        THEN login_id
+	                    END ASC,
+	                    CASE
+	                        WHEN :sortCondition = 'EMAIL_ASC'
+	                        THEN email
+	                    END ASC
+	                """,
+	        countQuery = """
+	                SELECT COUNT(*)
+	                FROM users
+	                WHERE (
+	                    :loginId IS NULL
+	                    OR :loginId = ''
+	                    OR login_id LIKE CONCAT('%', :loginId, '%')
+	                )
+	                AND (
+	                    :accountStatus = 'ALL'
+	                    OR (:accountStatus = 'ACTIVE' AND account_locked = false)
+	                    OR (:accountStatus = 'LOCKED' AND account_locked = true)
+	                )
+	                AND (
+	                    :email IS NULL
+	                    OR :email = ''
+	                    OR LOWER(email)
+	                        LIKE LOWER(CONCAT('%', :email, '%'))
+	                )
+	                """,
+	        nativeQuery = true
+	)
 	Page<Users> findUsers(
 	        @Param("loginId") String loginId,
 	        @Param("accountStatus") String accountStatus,

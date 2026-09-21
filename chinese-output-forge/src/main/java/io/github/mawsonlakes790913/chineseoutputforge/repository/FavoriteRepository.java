@@ -11,21 +11,22 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Favorite;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.FavoriteKey;
 
 
-public interface FavoriteRepository extends JpaRepository<Favorite, FavoriteKey> {
-	
+public interface FavoriteRepository
+extends JpaRepository<Favorite, FavoriteKey> {
+
 	// 指定したお気に入り情報を取得
 	Optional<Favorite> findByFavoriteKey(FavoriteKey favoritesKey);
-	
-	// 指定したユーザーのお気に入りをすべて削除
-	@Modifying
-	@Query("""
-	        DELETE FROM Favorite f
-	        WHERE f.favoriteKey.userId = :userId
-	        """)
-	void deleteByFavoriteKeyUserId(
-	        @Param("userId") Long userId);
 	
 	// 指定した問題のお気に入りをすべて削除
 	void deleteByQuestionQuestionId(Long questionId);
 	
+	// 指定したユーザーのお気に入りをすべて削除
+	@Modifying
+	@Query(value = """
+	    DELETE FROM favorite
+	    WHERE user_id = :userId
+	    """, nativeQuery = true)
+	void deleteByFavoriteKeyUserId(
+	    @Param("userId") Long userId);
+
 }
