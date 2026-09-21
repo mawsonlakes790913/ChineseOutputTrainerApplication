@@ -12,16 +12,22 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 
 public interface UserRepository extends JpaRepository<Users, Long> {
 	
+	// 指定したログインIDのユーザーを取得
 	Optional<Users> findByLoginId(String loginId);
 	
+	// 指定したログインIDが既に存在するか確認
 	boolean existsByLoginId(String loginId);
 	
+	// 指定したメールアドレスが既に存在するか確認
 	boolean existsByEmail(String email);
 
+	// 指定したログインIDのユーザーを削除
 	void deleteByLoginId(String loginId);
 	
+	// 指定したメールアドレスのユーザーを取得
 	Optional<Users> findByEmail(String email);
 	
+	// 検索条件に一致するユーザーを指定した並び順でページング取得
 	@Query("""
 	        SELECT u
 	        FROM Users u

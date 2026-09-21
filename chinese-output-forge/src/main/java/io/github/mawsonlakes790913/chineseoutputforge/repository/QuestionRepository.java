@@ -141,9 +141,10 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("offset") int offset
 	);
 	
-	
+	// 指定した中国語本文と同じ問題が存在するか確認
 	boolean existsByChineseText(String chineseText);
 	
+	// 指定したユーザーが所有する問題を中国語本文から取得
 	Optional<Question> findByOwnerIdAndChineseText(
 	        Long userId,
 	        String chineseText);	
@@ -190,8 +191,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("difficulties") List<String> difficulties
 	);
 	
+	// 検索条件に一致するユーザー用問題一覧を取得
 	@Query(value = """
-
 	        SELECT
 	            q.question_id         AS questionId,
 	            q.japanese_text       AS japaneseText,
@@ -430,6 +431,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        Pageable pageable
 	);
 	
+	// 検索条件に一致するAdmin用問題一覧を取得
 	@Query(
 			value = """
 		    SELECT
@@ -524,6 +526,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 		        Pageable pageable
 		);
 	
+	// AI生成元として利用可能な問題数を取得
 	@Query(value = """
 
 	        SELECT COUNT (*)
@@ -579,6 +582,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	);
 	
+	// AI生成元として利用可能な問題をランダムに最大50件取得
 	@Query(value = """
 
 	        SELECT q.*
@@ -636,6 +640,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	);
 	
+	// 指定した構文を使用する問題の構文を別の構文へ一括置換
 	@Modifying
 	@Query("""
 	        UPDATE Question q

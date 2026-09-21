@@ -14,11 +14,13 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.AiGenerationHistory
 public interface AiGenerationHistoryRepository
         extends JpaRepository<AiGenerationHistory, Long> {
 
+	// 指定したユーザー・問題のAI生成履歴を新しい順に最大10件取得
 	List<AiGenerationHistory>
     findTop10ByUserIdAndQuestionQuestionIdOrderByCreatedAtDesc(
             Long userId,
             Long questionId);
 	
+	// 指定したユーザーのAI生成履歴をすべて削除
 	@Modifying
 	@Query("""
 	        DELETE FROM AiGenerationHistory a

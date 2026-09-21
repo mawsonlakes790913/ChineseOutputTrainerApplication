@@ -12,6 +12,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 public interface StructureRepository
         extends JpaRepository<Structure, Long> {
 
+	// 登録されているすべての構文IDを昇順で取得
 	@Query(value = """
 		    SELECT DISTINCT structure_id
 		    FROM structure
@@ -20,6 +21,7 @@ public interface StructureRepository
 		    nativeQuery = true)
 		List<Long> findAllStructureIds();
 	
+	// 構文を構文IDの昇順でページング取得
 	@Query("""
 	        SELECT s
 	        FROM Structure s
@@ -27,8 +29,10 @@ public interface StructureRepository
 	        """)
 	Page<Structure> findStructures(Pageable pageable);
 	
+	// 指定した構文名が既に存在するか確認
 	boolean existsByName(String name);
 	
+	// 指定した構文ID以外に同じ構文名が存在するか確認
     boolean existsByNameAndStructureIdNot(
             String name,
             Long structureId);

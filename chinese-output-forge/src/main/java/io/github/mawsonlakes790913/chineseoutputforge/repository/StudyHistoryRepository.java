@@ -14,8 +14,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistoryKey;
 
 public interface StudyHistoryRepository extends JpaRepository<StudyHistory, StudyHistoryKey> {
 	
+	// 指定した学習履歴情報を取得
 	Optional<StudyHistory> findByStudyHistoryKey(StudyHistoryKey studyHistoryKey);
 		
+	// 指定したユーザーの学習履歴をすべて削除
 	@Modifying
 	@Query("""
 	        DELETE FROM StudyHistory sh
@@ -24,8 +26,10 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	void deleteByStudyHistoryKeyUserId(
 	        @Param("userId") Long userId);
 	
+	// 指定した問題の学習履歴をすべて削除
 	void deleteByStudyHistoryKeyQuestionId(Long questionId);
 	
+	// 復習条件に一致する問題数を取得
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM study_history sh
@@ -82,6 +86,7 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("structureIds") List<Long> structureIds
 	);
 	
+	// 復習条件に一致する問題を取得
 	@Query(value = """
 	        SELECT q.*
 	        FROM study_history sh
