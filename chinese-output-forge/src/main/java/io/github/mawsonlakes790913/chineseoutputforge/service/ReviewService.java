@@ -10,6 +10,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.ReviewQuestionLimit;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StructureRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.StudyHistoryRepository;
@@ -68,6 +69,7 @@ public class ReviewService {
 									  FavoriteCondition favoriteCondition,
 									  QuestionSourceCondition sourceCondition,
 									  List<Long> structureIds,
+									  ReviewQuestionLimit questionLimit,
 									  boolean random){
 		
 		// 文法・構造が未指定の場合はすべて
@@ -80,20 +82,57 @@ public class ReviewService {
 		    sourceCondition = QuestionSourceCondition.ALL;
 		}
 		
-		List<Question> extractedQuestions = studyHistoryRepository.findReviewQuestions(userId,
-				searchConditionConverter.convertLanguageVariant(languageVariants),
-				searchConditionConverter.convertEvaluation(evaluations),
-				searchConditionConverter.convertDifficulty(difficulties),
-				searchConditionConverter.convertFavoriteCondition(favoriteCondition),
-				sourceCondition.name(),
-				structureIds);
+	    // 出題数が未指定の場合は最大50問
+	    if (questionLimit == null) {
+	        questionLimit = ReviewQuestionLimit.LIMIT_50;
+	    }
+	    
+	    List<String> convertedLanguageVariants =
+	            searchConditionConverter.convertLanguageVariant(languageVariants);
+
+	    List<String> convertedEvaluations =
+	            searchConditionConverter.convertEvaluation(evaluations);
+
+	    List<String> convertedDifficulties =
+	            searchConditionConverter.convertDifficulty(difficulties);
+
+	    String convertedFavoriteCondition =
+	            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
+	    
+	    List<Question> extractedQuestions;
 		
-		// シャッフルする
-		if (random) {
-			Collections.shuffle(extractedQuestions);
-		} 
+	    // 出題数によって取得方法を切り替える
+	    if (questionLimit == ReviewQuestionLimit.ALL) {
+
+	        extractedQuestions =
+	                studyHistoryRepository.findAllReviewQuestions(
+	                        userId,
+	                        convertedLanguageVariants,
+	                        convertedEvaluations,
+	                        convertedDifficulties,
+	                        convertedFavoriteCondition,
+	                        sourceCondition.name(),
+	                        structureIds);
+
+	    } else {
+
+	        extractedQuestions =
+	                studyHistoryRepository.findReviewQuestions(
+	                        userId,
+	                        convertedLanguageVariants,
+	                        convertedEvaluations,
+	                        convertedDifficulties,
+	                        convertedFavoriteCondition,
+	                        sourceCondition.name(),
+	                        structureIds);
+	    }
 		
-		return extractedQuestions;
+	    // 必要に応じて取得した問題をシャッフル
+	    if (random) {
+	        Collections.shuffle(extractedQuestions);
+	    }
+
+	    return extractedQuestions;
 	}
 
 }

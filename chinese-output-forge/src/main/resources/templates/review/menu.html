@@ -195,6 +195,49 @@
 			
 			</div>
 			
+			<!-- ============================= -->
+			<!-- 最大出題数 -->
+			<!-- ============================= -->
+			<div class="col-md-3 mb-4">
+			    <div class="card h-100">
+			        <div class="card-header"
+			             th:text="#{review.menu.questionLimit.title}">
+			            最大出題数
+			        </div>
+			
+			        <div class="card-body">
+			
+			            <!-- 最大50問 -->
+			            <label class="form-check mb-2">
+			                <input class="form-check-input"
+			                       type="radio"
+			                       name="questionLimit"
+			                       value="LIMIT_50"
+			                       checked>
+			
+			                <span class="form-check-label"
+			                      th:text="#{review.menu.questionLimit.limit50}">
+			                    最大50問
+			                </span>
+			            </label>
+			
+			            <!-- すべて -->
+			            <label class="form-check">
+			                <input class="form-check-input"
+			                       type="radio"
+			                       name="questionLimit"
+			                       value="ALL">
+			
+			                <span class="form-check-label"
+			                      th:text="#{review.menu.questionLimit.all}">
+			                    対象の問題をすべて出題
+			                </span>
+			            </label>
+			
+			        </div>
+			    </div>
+			</div>			
+			
 			
 			<!-- ============================= -->
 			<!-- 問題難易度 -->

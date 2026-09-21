@@ -17,6 +17,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCondition;
+import io.github.mawsonlakes790913.chineseoutputforge.constant.ReviewQuestionLimit;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
@@ -135,6 +136,8 @@ public class ReviewController {
 									QuestionSourceCondition sourceCondition,									
 							 @RequestParam(name = "structureIds", required = false)
 							 		List<Long> structureIds,
+							 @RequestParam(name = "questionLimit", required = false)
+					                ReviewQuestionLimit questionLimit,		
 							 @RequestParam(name = "random", required = false)
 									boolean random
 							 ) {
@@ -154,6 +157,7 @@ public class ReviewController {
 	    		favoriteCondition, 
 	    		sourceCondition,
 	    		structureIds, 
+	    		questionLimit,
 	    		random);
 
 	    // 問題が1件もない場合は開始しない
