@@ -2,6 +2,8 @@ package io.github.mawsonlakes790913.chineseoutputforge.entity;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -29,6 +31,7 @@ public class QuestionListItem {
 	@JoinColumn(name = "question_id", nullable = false)
 	private Question question;
 	
-	@Column(name = "added_at", nullable = false)
+	@CreationTimestamp
+	@Column(name = "added_at", nullable = false, updatable = false)
 	private LocalDateTime addedAt;
 }
