@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>問題リスト</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+    <script th:src="@{/js/user/question-list/list.js}"></script>      
+</head>
+
+<body>
+
+<div class="container py-4">
+
+    <h1 class="mb-4">問題リスト</h1>
+
+    <!-- 成功メッセージ -->
+    <div th:if="${successMessage}"
+         class="alert alert-success"
+         th:text="${successMessage}">
+    </div>
+    
+    <!-- エラーメッセージ -->
+	<div th:if="${errorMessage}"
+	     class="alert alert-danger"
+	     th:text="${errorMessage}">
+	</div>
+
+    <!-- 新規リスト作成ボタン -->
+    <div class="mb-3">
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#createListModal">
+            新しいリストを作成
+        </button>
+    </div>
+
+    <!-- リストが存在しない場合 -->
+    <div th:if="${#lists.isEmpty(questionLists)}"
+         class="alert alert-secondary">
+        作成されたリストはありません。
+    </div>
+
+    <!-- リスト一覧 -->
+    <div th:unless="${#lists.isEmpty(questionLists)}">
+
+        <table class="table table-hover align-middle">
+
+            <thead>
+            <tr>
+                <th>リスト名</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+
+            <tbody>
+
+            <th:block th:each="questionList : ${questionLists}">
+
+                <tr>
+                    <td th:text="${questionList.listName}">
+                        リスト名
+                    </td>
+
+                    <td>
+                        <!-- 詳細 -->
+						<button type="button"
+						        class="btn btn-sm btn-outline-primary question-list-detail-button"
+						        th:data-list-id="${questionList.listId}">
+						    詳細
+						</button>
+
+                        <!-- 編集 -->
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal"
+                                th:data-bs-target="'#editListModal-' + ${questionList.listId}">
+                            編集
+                        </button>
+
+                        <!-- 削除 -->
+						<form th:action="@{/user/question-list/delete}"
+						      method="post"
+						      class="d-inline">
+						
+						    <input type="hidden"
+						           name="listId"
+						           th:value="${questionList.listId}">
+						
+						    <button type="submit"
+						            class="btn btn-sm btn-outline-danger"
+						            th:onclick="|return confirm('#{questionList.delete.confirm}');|"
+						            th:text="#{questionList.delete}">
+						            削除
+						    </button>
+						
+						</form>
+                    </td>
+                </tr>
+
+                <!-- 詳細表示領域 -->
+				<tr class="d-none"
+				    th:id="'list-detail-' + ${questionList.listId}">
+				    <td colspan="2"
+				        th:id="'list-detail-content-' + ${questionList.listId}">
+				    </td>
+				</tr>
+
+                <!-- リスト名編集モーダル -->
+                <div class="modal fade"
+                     th:id="'editListModal-' + ${questionList.listId}"
+                     tabindex="-1">
+
+                    <div class="modal-dialog">
+
+                        <div class="modal-content">
+
+                            <form th:action="@{/user/question-list/edit}"
+                                  method="post">
+
+                                <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        リスト名を変更
+                                    </h5>
+
+                                    <button type="button"
+                                            class="btn-close"
+                                            data-bs-dismiss="modal">
+                                    </button>
+                                </div>
+
+                                <div class="modal-body">
+
+                                    <input type="hidden"
+                                           name="listId"
+                                           th:value="${questionList.listId}">
+
+                                    <label class="form-label">
+                                        リスト名
+                                    </label>
+
+                                    <input type="text"
+                                           name="listName"
+                                           class="form-control"
+                                           th:value="${questionList.listName}"
+                                           required>
+
+                                </div>
+
+                                <div class="modal-footer">
+
+                                    <button type="button"
+                                            class="btn btn-secondary"
+                                            data-bs-dismiss="modal">
+                                        キャンセル
+                                    </button>
+
+                                    <button type="submit"
+                                            class="btn btn-primary">
+                                        変更
+                                    </button>
+
+                                </div>
+
+                            </form>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </th:block>
+
+            </tbody>
+
+        </table>
+
+    </div>
+    
+    <!-- ========================= -->
+    <!-- 戻る -->
+    <!-- ========================= -->
+
+    <div class="text-center mt-3 mb-3">
+
+        <a th:href="@{/user/menu}"
+           class="btn btn-secondary"
+           th:text="#{user.question.list.backToMenu}">
+            ユーザーメニューに戻る
+        </a>
+
+    </div>
+
+</div>
+
+<!-- 新規リスト作成モーダル -->    
+
+</div>
+
+
+<!-- 新規リスト作成モーダル -->
+<div class="modal fade"
+     id="createListModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <form th:action="@{/user/question-list/create}"
+                  method="post">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        新しいリストを作成
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <label class="form-label">
+                        リスト名
+                    </label>
+
+                    <input type="text"
+                           name="listName"
+                           class="form-control"
+                           maxlength="100"
+                           required>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        キャンセル
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        作成
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+</script>
+
+</body>
+</html>

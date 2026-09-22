@@ -28,6 +28,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	Optional<Question> findByOwnerIdAndChineseText(
 	        Long userId,
 	        String chineseText);
+	
+	// 指定したIDから取得
+	Optional<Question> findByQuestionId(Long QuestionId);
 
 
 	// ==================================================
