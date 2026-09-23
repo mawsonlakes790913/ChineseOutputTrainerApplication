@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListItemDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListItemService;
@@ -91,10 +91,10 @@ public class QuestionListController {
 	    return "redirect:/user/question-list/list";
 	}
 	
-	// リストの詳細を取得（動作確認用の途中段階）
+	// リストの詳細を取得
 	@GetMapping("/user/question-list/detail")
 	@ResponseBody
-	public List<Question> getUserQuestionListDetail(
+	public List<QuestionListItemDto> getUserQuestionListDetail(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long listId,
 	        Locale locale) {
@@ -103,7 +103,7 @@ public class QuestionListController {
 	    Users user = getLoginUser(loginUser);
 
 	    // 指定したリストに登録されている問題をすべて取得
-	    List<Question> listItems =
+	    List<QuestionListItemDto> listItems =
 	            questionListItemService.getQuestionListItems(
 	                    user,
 	                    listId,

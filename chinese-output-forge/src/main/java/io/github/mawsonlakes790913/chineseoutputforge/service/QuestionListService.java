@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
-import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionListItemRepository;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +21,6 @@ public class QuestionListService {
 	
 	private final QuestionListRepository questionListRepository;
 	private final MessageSource messageSource;
-	private final QuestionListItemRepository questionListItemRepository;
 	
 	// リスト新規追加
 	public void createQuestionList(

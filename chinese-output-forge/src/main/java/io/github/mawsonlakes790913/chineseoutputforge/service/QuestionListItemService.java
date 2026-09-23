@@ -1,12 +1,13 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListItemDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionListItem;
@@ -101,6 +102,7 @@ public class QuestionListItemService {
 		
 	}
 	
+	@Transactional
 	public void deleteQuestionFromList(
 			Users user,
 			Long listId,
@@ -131,7 +133,7 @@ public class QuestionListItemService {
 		
 	}
 	
-	public List<Question> getQuestionListItems(
+	public List<QuestionListItemDto> getQuestionListItems(
 	        Users user,
 	        Long listId,
 	        Locale locale) {
@@ -145,64 +147,13 @@ public class QuestionListItemService {
 	                            null,
 	                            locale)));
 
-	    // リストに登録されている項目を取得
-	    List<QuestionListItem> questionListItems =
-	            questionListItemRepository
-	                    .findByQuestionListItemKeyListId(listId);
-
-	    // Questionだけを格納するリストを作成
-	    List<Question> questions = new ArrayList<>();
-
-	    // QuestionListItemからQuestionを取り出す
-	    for (QuestionListItem questionListItem : questionListItems) {
-
-	        Question question = questionListItem.getQuestion();
-
-	        questions.add(question);
-	    }
-
-	    return questions;
-	}
-	
-	public Question getQuestionListItem(
-	        Users user,
-	        Long listId,
-	        Long questionId,
-	        Locale locale) {
-
-	    // ユーザーが所有するリストか確認
-	    questionListRepository
-	            .findByListIdAndUserId(listId, user.getId())
-	            .orElseThrow(() -> new IllegalArgumentException(
-	                    messageSource.getMessage(
-	                            "questionList.error.notFound",
-	                            null,
-	                            locale)));
-
-	    // 指定した問題がリストに登録されているか確認
-	    if (!questionListItemRepository
-	            .existsByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
+	    // リストに登録されている問題をDTOで取得
+	    List<QuestionListItemDto> questionListItems =
+	            questionListItemRepository.findQuestionListItems(
 	                    listId,
-	                    questionId)) {
+	                    user.getId());
 
-	        throw new IllegalArgumentException(
-	                messageSource.getMessage(
-	                        "questionListItem.error.notFound",
-	                        null,
-	                        locale));
-	    }
-
-	    // 指定したIDの問題を取得
-	    Question question =
-	            questionRepository
-	                    .findByQuestionId(questionId)
-	                    .orElseThrow(() -> new IllegalArgumentException(
-	                            messageSource.getMessage(
-	                                    "question.error.notFound",
-	                                    null,
-	                                    locale)));
-
-	    return question;
+	    return questionListItems;
 	}
 
 }

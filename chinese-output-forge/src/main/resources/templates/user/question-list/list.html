@@ -1,209 +1,346 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>問題リスト</title>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title th:text="#{questionList.title}">
+        問題リスト
+    </title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet">
-    <script th:src="@{/js/user/question-list/list.js}"></script>      
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <meta name="_csrf"
+          th:content="${_csrf.token}">
+
+    <meta name="_csrf_header"
+          th:content="${_csrf.headerName}">
+
+    <script th:src="@{/js/user/question-list/list.js}"></script>
+
 </head>
 
 <body>
 
-<div class="container py-4">
-
-    <h1 class="mb-4">問題リスト</h1>
-
-    <!-- 成功メッセージ -->
-    <div th:if="${successMessage}"
-         class="alert alert-success"
-         th:text="${successMessage}">
-    </div>
-    
-    <!-- エラーメッセージ -->
-	<div th:if="${errorMessage}"
-	     class="alert alert-danger"
-	     th:text="${errorMessage}">
+<div layout:fragment="content"
+     class="w-100">
+     
+	<!-- 成功メッセージ -->
+	<div id="questionListSuccessMessage"
+	     class="alert alert-success d-none"
+	     role="alert">
 	</div>
+	
+	<!-- エラーメッセージ -->
+	<div id="questionListErrorMessage"
+	     class="alert alert-danger d-none"
+	     role="alert">
+	</div>     
 
-    <!-- 新規リスト作成ボタン -->
-    <div class="mb-3">
-        <button type="button"
-                class="btn btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#createListModal">
-            新しいリストを作成
-        </button>
+    <!-- ========================= -->
+    <!-- JavaScript用メッセージ -->
+    <!-- ========================= -->
+
+    <div id="questionListMessages"
+         class="d-none"
+
+         th:data-empty="#{questionList.detail.empty}"
+         th:data-load-error="#{questionList.detail.loadError}"
+
+         th:data-chinese="#{questionList.detail.chinese}"
+         th:data-japanese="#{questionList.detail.japanese}"
+         th:data-difficulty="#{questionList.detail.difficulty}"
+         th:data-evaluation="#{questionList.detail.evaluation}"
+         th:data-favorite="#{questionList.detail.favorite}"
+         th:data-source="#{questionList.detail.source}"
+         th:data-detail="#{questionList.detail}"
+         th:data-delete="#{questionListItem.delete}"
+
+         th:data-beginner="#{questionList.detail.difficulty.beginner}"
+         th:data-intermediate="#{questionList.detail.difficulty.intermediate}"
+         th:data-advanced="#{questionList.detail.difficulty.advanced}"
+
+         th:data-unlearned="#{questionList.detail.evaluation.unlearned}"
+         th:data-hard="#{questionList.detail.evaluation.hard}"
+         th:data-good="#{questionList.detail.evaluation.good}"
+         th:data-easy="#{questionList.detail.evaluation.easy}"
+
+         th:data-normal="#{questionList.detail.normal}"
+         th:data-ai="#{questionList.detail.ai}"
+
+		th:data-evaluation-update-error="#{questionList.detail.evaluation.updateError}"
+		
+		th:data-delete-confirm="#{questionListItem.delete.confirm}"
+		
+		th:data-delete-success="#{questionListItem.delete.success}"
+		
+		th:data-delete-error="#{questionListItem.delete.error}">
     </div>
 
-    <!-- リストが存在しない場合 -->
-    <div th:if="${#lists.isEmpty(questionLists)}"
-         class="alert alert-secondary">
-        作成されたリストはありません。
-    </div>
 
-    <!-- リスト一覧 -->
-    <div th:unless="${#lists.isEmpty(questionLists)}">
+    <div class="container py-4">
 
-        <table class="table table-hover align-middle">
+        <h1 class="mb-4"
+            th:text="#{questionList.title}">
+            問題リスト
+        </h1>
 
-            <thead>
-            <tr>
-                <th>リスト名</th>
-                <th>操作</th>
-            </tr>
-            </thead>
 
-            <tbody>
+        <!-- ========================= -->
+        <!-- 成功メッセージ -->
+        <!-- ========================= -->
 
-            <th:block th:each="questionList : ${questionLists}">
+        <div th:if="${successMessage}"
+             class="alert alert-success"
+             th:text="${successMessage}">
+        </div>
 
-                <tr>
-                    <td th:text="${questionList.listName}">
-                        リスト名
-                    </td>
 
-                    <td>
-                        <!-- 詳細 -->
-						<button type="button"
-						        class="btn btn-sm btn-outline-primary question-list-detail-button"
-						        th:data-list-id="${questionList.listId}">
-						    詳細
-						</button>
+        <!-- ========================= -->
+        <!-- エラーメッセージ -->
+        <!-- ========================= -->
 
-                        <!-- 編集 -->
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary"
-                                data-bs-toggle="modal"
-                                th:data-bs-target="'#editListModal-' + ${questionList.listId}">
-                            編集
-                        </button>
+        <div th:if="${errorMessage}"
+             class="alert alert-danger"
+             th:text="${errorMessage}">
+        </div>
 
-                        <!-- 削除 -->
-						<form th:action="@{/user/question-list/delete}"
-						      method="post"
-						      class="d-inline">
-						
-						    <input type="hidden"
-						           name="listId"
-						           th:value="${questionList.listId}">
-						
-						    <button type="submit"
-						            class="btn btn-sm btn-outline-danger"
-						            th:onclick="|return confirm('#{questionList.delete.confirm}');|"
-						            th:text="#{questionList.delete}">
-						            削除
-						    </button>
-						
-						</form>
-                    </td>
-                </tr>
 
-                <!-- 詳細表示領域 -->
-				<tr class="d-none"
-				    th:id="'list-detail-' + ${questionList.listId}">
-				    <td colspan="2"
-				        th:id="'list-detail-content-' + ${questionList.listId}">
-				    </td>
-				</tr>
+        <!-- ========================= -->
+        <!-- 新規リスト作成 -->
+        <!-- ========================= -->
 
-                <!-- リスト名編集モーダル -->
-                <div class="modal fade"
-                     th:id="'editListModal-' + ${questionList.listId}"
-                     tabindex="-1">
+        <div class="mb-3">
 
-                    <div class="modal-dialog">
+            <button type="button"
+                    class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createListModal"
+                    th:text="#{questionList.create}">
+                新しいリストを作成
+            </button>
 
-                        <div class="modal-content">
+        </div>
 
-                            <form th:action="@{/user/question-list/edit}"
-                                  method="post">
 
-                                <div class="modal-header">
-                                    <h5 class="modal-title">
-                                        リスト名を変更
-                                    </h5>
+        <!-- ========================= -->
+        <!-- リストが存在しない場合 -->
+        <!-- ========================= -->
 
-                                    <button type="button"
-                                            class="btn-close"
-                                            data-bs-dismiss="modal">
-                                    </button>
-                                </div>
+        <div th:if="${#lists.isEmpty(questionLists)}"
+             class="alert alert-secondary"
+             th:text="#{questionList.empty}">
+            作成されたリストはありません。
+        </div>
 
-                                <div class="modal-body">
 
-                                    <input type="hidden"
-                                           name="listId"
-                                           th:value="${questionList.listId}">
+        <!-- ========================= -->
+        <!-- リスト一覧 -->
+        <!-- ========================= -->
 
-                                    <label class="form-label">
-                                        リスト名
-                                    </label>
+        <div th:unless="${#lists.isEmpty(questionLists)}">
 
-                                    <input type="text"
-                                           name="listName"
-                                           class="form-control"
-                                           th:value="${questionList.listName}"
-                                           required>
+            <table class="table table-hover align-middle">
 
-                                </div>
+                <thead>
 
-                                <div class="modal-footer">
+                    <tr>
 
-                                    <button type="button"
-                                            class="btn btn-secondary"
-                                            data-bs-dismiss="modal">
-                                        キャンセル
-                                    </button>
+                        <th th:text="#{questionList.listName}">
+                            リスト名
+                        </th>
 
-                                    <button type="submit"
-                                            class="btn btn-primary">
-                                        変更
-                                    </button>
+                        <th th:text="#{questionList.action}">
+                            操作
+                        </th>
 
-                                </div>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                <th:block th:each="questionList : ${questionLists}">
+
+                    <tr>
+
+                        <td th:text="${questionList.listName}">
+                            リスト名
+                        </td>
+
+                        <td>
+
+                            <!-- 詳細 -->
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary question-list-detail-button"
+                                    th:data-list-id="${questionList.listId}"
+                                    th:text="#{questionList.detail}">
+                                詳細
+                            </button>
+
+
+                            <!-- 編集 -->
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal"
+                                    th:data-bs-target="'#editListModal-' + ${questionList.listId}"
+                                    th:text="#{questionList.edit}">
+                                編集
+                            </button>
+
+
+                            <!-- 削除 -->
+                            <form th:action="@{/user/question-list/delete}"
+                                  method="post"
+                                  class="d-inline">
+
+                                <input type="hidden"
+                                       name="listId"
+                                       th:value="${questionList.listId}">
+
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-danger"
+                                        th:onclick="|return confirm('#{questionList.delete.confirm}');|"
+                                        th:text="#{questionList.delete}">
+                                    削除
+                                </button>
 
                             </form>
+
+                        </td>
+
+                    </tr>
+
+
+                    <!-- ========================= -->
+                    <!-- 詳細表示領域 -->
+                    <!-- ========================= -->
+
+                    <tr class="d-none"
+                        th:id="'list-detail-' + ${questionList.listId}">
+
+                        <td colspan="2"
+                            th:id="'list-detail-content-' + ${questionList.listId}">
+                        </td>
+
+                    </tr>
+
+
+                    <!-- ========================= -->
+                    <!-- リスト名編集モーダル -->
+                    <!-- ========================= -->
+
+                    <div class="modal fade"
+                         th:id="'editListModal-' + ${questionList.listId}"
+                         tabindex="-1">
+
+                        <div class="modal-dialog">
+
+                            <div class="modal-content">
+
+                                <form th:action="@{/user/question-list/edit}"
+                                      method="post">
+
+                                    <div class="modal-header">
+
+                                        <h5 class="modal-title"
+                                            th:text="#{questionList.edit.title}">
+                                            リスト名を変更
+                                        </h5>
+
+                                        <button type="button"
+                                                class="btn-close"
+                                                data-bs-dismiss="modal">
+                                        </button>
+
+                                    </div>
+
+                                    <div class="modal-body">
+
+                                        <input type="hidden"
+                                               name="listId"
+                                               th:value="${questionList.listId}">
+
+                                        <label class="form-label"
+                                               th:text="#{questionList.edit.listName}">
+                                            リスト名
+                                        </label>
+
+                                        <input type="text"
+                                               name="listName"
+                                               class="form-control"
+                                               th:value="${questionList.listName}"
+                                               maxlength="100"
+                                               required>
+
+                                    </div>
+
+                                    <div class="modal-footer">
+
+                                        <button type="button"
+                                                class="btn btn-secondary"
+                                                data-bs-dismiss="modal"
+                                                th:text="#{common.cancel}">
+                                            キャンセル
+                                        </button>
+
+                                        <button type="submit"
+                                                class="btn btn-primary"
+                                                th:text="#{questionList.edit.submit}">
+                                            変更
+                                        </button>
+
+                                    </div>
+
+                                </form>
+
+                            </div>
 
                         </div>
 
                     </div>
 
-                </div>
+                </th:block>
 
-            </th:block>
+                </tbody>
 
-            </tbody>
+            </table>
 
-        </table>
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- 戻る -->
+        <!-- ========================= -->
+
+        <div class="text-center mt-3 mb-3">
+
+            <a th:href="@{/user/menu}"
+               class="btn btn-secondary"
+               th:text="#{questionList.backToMenu}">
+                ユーザーメニューに戻る
+            </a>
+
+        </div>
 
     </div>
-    
-    <!-- ========================= -->
-    <!-- 戻る -->
-    <!-- ========================= -->
-
-    <div class="text-center mt-3 mb-3">
-
-        <a th:href="@{/user/menu}"
-           class="btn btn-secondary"
-           th:text="#{user.question.list.backToMenu}">
-            ユーザーメニューに戻る
-        </a>
-
-    </div>
-
-</div>
-
-<!-- 新規リスト作成モーダル -->    
-
-</div>
 
 
+<!-- ========================= -->
 <!-- 新規リスト作成モーダル -->
+<!-- ========================= -->
+
 <div class="modal fade"
      id="createListModal"
      tabindex="-1">
@@ -217,7 +354,8 @@
 
                 <div class="modal-header">
 
-                    <h5 class="modal-title">
+                    <h5 class="modal-title"
+                        th:text="#{questionList.create.title}">
                         新しいリストを作成
                     </h5>
 
@@ -230,7 +368,8 @@
 
                 <div class="modal-body">
 
-                    <label class="form-label">
+                    <label class="form-label"
+                           th:text="#{questionList.create.listName}">
                         リスト名
                     </label>
 
@@ -246,12 +385,14 @@
 
                     <button type="button"
                             class="btn btn-secondary"
-                            data-bs-dismiss="modal">
+                            data-bs-dismiss="modal"
+                            th:text="#{common.cancel}">
                         キャンセル
                     </button>
 
                     <button type="submit"
-                            class="btn btn-primary">
+                            class="btn btn-primary"
+                            th:text="#{questionList.create.submit}">
                         作成
                     </button>
 
@@ -266,8 +407,234 @@
 </div>
 
 
+<!-- ========================= -->
+<!-- 問題詳細モーダル -->
+<!-- ========================= -->
+
+<div class="modal fade"
+     id="questionDetailModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title"
+                    th:text="#{questionList.detail.question.title}">
+                    問題詳細
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+
+                <!-- 中国語 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.chinese}">
+                        中国語
+                    </label>
+
+                    <div id="questionDetailChineseText">
+                    </div>
+
+                </div>
+
+
+                <!-- 日本語 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.japanese}">
+                        日本語
+                    </label>
+
+                    <div id="questionDetailJapaneseText">
+                    </div>
+
+                </div>
+
+
+                <!-- ピンイン -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.pinyin}">
+                        ピンイン
+                    </label>
+
+                    <div id="questionDetailPinyin">
+                    </div>
+
+                </div>
+
+
+                <!-- 注音 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.zhuyin}">
+                        注音
+                    </label>
+
+                    <div id="questionDetailZhuyin">
+                    </div>
+
+                </div>
+
+
+                <!-- 別解 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.alternativeAnswer}">
+                        別解
+                    </label>
+
+                    <div id="questionDetailAlternativeAnswer">
+                    </div>
+
+                </div>
+
+
+                <!-- 別解ピンイン -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.alternativeAnswerPinyin}">
+                        別解ピンイン
+                    </label>
+
+                    <div id="questionDetailAlternativeAnswerPinyin">
+                    </div>
+
+                </div>
+
+
+                <!-- 別解注音 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.alternativeAnswerZhuyin}">
+                        別解注音
+                    </label>
+
+                    <div id="questionDetailAlternativeAnswerZhuyin">
+                    </div>
+
+                </div>
+
+
+                <!-- 構文 -->
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold"
+                           th:text="#{questionList.detail.question.structure}">
+                        構文
+                    </label>
+
+                    <div id="questionDetailStructureName">
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                        th:text="#{questionList.detail.question.close}">
+                    閉じる
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- 理解度変更モーダル -->
+<!-- ========================= -->
+
+<div class="modal fade"
+     id="evaluationModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-sm">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title"
+                    th:text="#{questionList.detail.evaluation.change}">
+                    理解度を変更
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="d-grid gap-2">
+
+                    <button type="button"
+                            class="btn btn-danger evaluationSelect"
+                            data-evaluation="HARD"
+                            th:text="#{questionList.detail.evaluation.hard}">
+                        Hard
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-primary evaluationSelect"
+                            data-evaluation="GOOD"
+                            th:text="#{questionList.detail.evaluation.good}">
+                        Good
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-success evaluationSelect"
+                            data-evaluation="EASY"
+                            th:text="#{questionList.detail.evaluation.easy}">
+                        Easy
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
 </script>
 
 </body>
+
 </html>
