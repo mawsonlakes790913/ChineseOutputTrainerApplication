@@ -23,9 +23,9 @@ extends JpaRepository<QuestionList, Long> {
 
 	// リストIDとユーザーIDからリストを取得
 	Optional<QuestionList> findByListIdAndUserId(Long listId, Long userId);
-
-	// 指定したユーザーが所有するリストをすべて取得
-	List<QuestionList> findByUserId(Long userId);
+	
+	// 指定したユーザーが所有するリストを更新日時の降順で取得
+	List<QuestionList> findByUserIdOrderByUpdatedAtDesc(Long userId);
 	
 	// ユーザーが所有するリストと指定した問題の登録状態を取得
 	@Query(value = """

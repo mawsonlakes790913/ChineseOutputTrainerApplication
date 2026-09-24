@@ -131,7 +131,7 @@ public class QuestionListService {
 	public List<QuestionList> getQuestionLists(Users user) {
 
 	    List<QuestionList> questionLists =
-	            questionListRepository.findByUserId(user.getId());
+	            questionListRepository.findByUserIdOrderByUpdatedAtDesc(user.getId());
 
 	    return questionLists;
 	}
