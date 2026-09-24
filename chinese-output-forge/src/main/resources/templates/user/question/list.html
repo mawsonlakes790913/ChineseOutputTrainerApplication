@@ -640,6 +640,12 @@
                     お気に入り
                 </th>
                 
+				<!-- リスト -->
+				<th class="text-nowrap"
+				    th:text="#{user.question.list.questionList}">
+				    リスト
+				</th>                
+                
 				<th class="text-nowrap"
 				    th:text="#{user.question.list.delete}">
 				    削除
@@ -800,6 +806,21 @@
                     </button>
 
                 </td>
+                
+				<!-- リスト -->
+				<td class="text-center">
+				
+				    <button type="button"
+				            class="btn p-0 border-0 bg-transparent questionListButton"
+				            th:data-question-id="${question.questionId}"
+				            data-bs-toggle="modal"
+				            data-bs-target="#questionListModal">
+				
+				        <i class="bi bi-folder-plus fs-5 text-secondary"></i>
+				
+				    </button>
+				
+				</td>              
                 
 				<!-- 削除 -->
 				<td class="text-center">
@@ -1159,6 +1180,91 @@
         </div>
 
     </div>
+    
+	<!-- 問題リスト選択モーダル -->
+	<div sec:authorize="isAuthenticated()"
+	     class="modal fade"
+	     id="questionListModal"
+	     tabindex="-1"
+	     aria-hidden="true">
+	
+	    <div class="modal-dialog">
+	        <div class="modal-content">
+	
+	            <!-- ヘッダー -->
+	            <div class="modal-header">
+	
+	                <h5 class="modal-title"
+	                    th:text="#{questionList.modal.title}">
+	                    リスト
+	                </h5>
+	
+	                <button type="button"
+	                        class="btn-close"
+	                        data-bs-dismiss="modal">
+	                </button>
+	
+	            </div>
+	
+	            <div class="modal-body">
+	
+	                <!-- 新規リスト作成 -->
+	                <div class="mb-4">
+	
+	                    <label for="newQuestionListName"
+	                           class="form-label"
+	                           th:text="#{questionList.modal.newList}">
+	                        新しいリスト
+	                    </label>
+	
+	                    <div class="input-group">
+	
+	                        <input type="text"
+	                               id="newQuestionListName"
+	                               class="form-control"
+	                               th:placeholder="#{questionList.modal.listName}">
+	
+	                        <button type="button"
+	                                id="questionListCreateButton"
+	                                class="btn btn-outline-primary"
+	                                th:text="#{questionList.modal.create}">
+	                            作成
+	                        </button>
+	
+	                    </div>
+	
+	                </div>
+	
+	                <hr>
+	
+	                <!-- リスト一覧 -->
+	                <div id="questionListSelectionArea">
+	                </div>
+	
+	            </div>
+	
+	            <!-- 操作ボタン -->
+	            <div class="modal-footer">
+	
+	                <button type="button"
+	                        class="btn btn-secondary"
+	                        data-bs-dismiss="modal"
+	                        th:text="#{questionList.modal.cancel}">
+	                    キャンセル
+	                </button>
+	
+	                <button type="button"
+	                        id="questionListSaveButton"
+	                        class="btn btn-primary"
+	                        th:text="#{questionList.modal.save}">
+	                    保存
+	                </button>
+	
+	            </div>
+	
+	        </div>
+	    </div>
+	</div>  
 
 </div>
 

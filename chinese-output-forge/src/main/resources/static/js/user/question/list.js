@@ -330,114 +330,303 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
     });
+    
+    // ======================
+
+    // 問題リスト
+
+    // ======================
+
+    let questionListQuestionId = null;
+
+    const questionListButtons =
+        document.querySelectorAll(".questionListButton");
+
+    const questionListSelectionArea =
+        document.getElementById("questionListSelectionArea");
 
 
     // ======================
-    // 検索条件制御
+
+    // リスト登録状態を取得
+
     // ======================
 
-    const studyCondition =
-        document.getElementById("studyCondition");
+    function loadQuestionListSelection() {
 
-    const evaluations =
-        document.querySelectorAll(
-            "input[name='evaluations']"
-        );
+        fetch(
+            "/user/question-list/selection?questionId=" +
+            encodeURIComponent(questionListQuestionId)
+        )
 
-    if (studyCondition) {
+        .then(function (response) {
 
-function updateEvaluationState() {
+            if (!response.ok) {
 
-    const learned =
-        studyCondition.value ===
-        "LEARNED_ONLY";
+                throw new Error(
+                    "リスト情報の取得に失敗しました"
+                );
 
-    const evaluationWarning =
-        document.getElementById("evaluationWarning");
+            }
 
-    evaluations.forEach(function (cb) {
+            return response.json();
 
-        if (learned) {
+        })
 
-            cb.disabled = false;
+        .then(function (questionLists) {
 
-        } else {
+            // リスト一覧を初期化
+            questionListSelectionArea.innerHTML = "";
 
-            cb.checked = false;
-            cb.disabled = true;
+            questionLists.forEach(function (questionList) {
 
-        }
+                const label =
+                    document.createElement("label");
+
+                label.className =
+                    "form-check mb-2";
+
+                const checkbox =
+                    document.createElement("input");
+
+                checkbox.type = "checkbox";
+
+                checkbox.className =
+                    "form-check-input";
+
+                checkbox.name =
+                    "selectedListIds";
+
+                checkbox.value =
+                    questionList.listId;
+
+                checkbox.checked =
+                    questionList.registered;
+
+                const span =
+                    document.createElement("span");
+
+                span.className =
+                    "form-check-label ms-2";
+
+                span.textContent =
+                    questionList.listName;
+
+                label.appendChild(checkbox);
+
+                label.appendChild(span);
+
+                questionListSelectionArea.appendChild(label);
+
+            });
+
+        })
+
+        .catch(function (error) {
+
+            console.error(error);
+
+        });
+
+    }
+
+
+    // ======================
+
+    // リスト選択モーダルを表示
+
+    // ======================
+
+    questionListButtons.forEach(function (button) {
+
+        button.addEventListener("click", function () {
+
+            // 対象の問題IDを取得
+            questionListQuestionId =
+                button.dataset.questionId;
+
+            // リスト登録状態を取得
+            loadQuestionListSelection();
+
+        });
 
     });
 
-    evaluationWarning.style.display =
-        learned ? "none" : "";
 
-}
+    // ======================
 
-        studyCondition.addEventListener(
-            "change",
-            updateEvaluationState
+    // リスト登録状態を保存
+
+    // ======================
+
+    const questionListSaveButton =
+        document.getElementById("questionListSaveButton");
+
+    questionListSaveButton.addEventListener("click", function () {
+
+        // 問題IDを取得できない場合
+        if (questionListQuestionId === null) {
+
+            console.error(
+                "問題IDを取得できませんでした"
+            );
+
+            return;
+
+        }
+
+        // チェックされているリストIDを取得
+        const selectedListIds =
+            Array.from(
+                questionListSelectionArea.querySelectorAll(
+                    "input[name='selectedListIds']:checked"
+                )
+            ).map(function (checkbox) {
+
+                return checkbox.value;
+
+            });
+
+        // 送信用データを作成
+        const params =
+            new URLSearchParams();
+
+        params.append(
+            "questionId",
+            questionListQuestionId
         );
 
-        updateEvaluationState();
+        selectedListIds.forEach(function (listId) {
 
-    }
+            params.append(
+                "selectedListIds",
+                listId
+            );
+
+        });
+
+        // リスト登録状態を更新
+        fetch("/user/question-list/item/update", {
+
+            method: "POST",
+
+            headers: {
+
+                "Content-Type":
+                    "application/x-www-form-urlencoded",
+
+                [csrfHeader]:
+                    csrfToken
+
+            },
+
+            body:
+                params.toString()
+
+        })
+
+        .then(function (response) {
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "リストの更新に失敗しました"
+                );
+
+            }
+
+			// 画面を再読み込み
+			location.reload();
+            // モーダルを閉じる
+
+        })
+
+        .catch(function (error) {
+
+            console.error(error);
+
+        });
+
+    });
+
+
+    // ======================
+
+    // 新しいリストを作成
+
+    // ======================
+
+    const questionListCreateButton =
+        document.getElementById("questionListCreateButton");
+
+    const newQuestionListName =
+        document.getElementById("newQuestionListName");
+
+    questionListCreateButton.addEventListener("click", function () {
+
+        const listName =
+            newQuestionListName.value.trim();
+
+        // リスト名が空の場合
+        if (listName === "") {
+
+            return;
+
+        }
+
+        // 送信用データを作成
+        const params =
+            new URLSearchParams();
+
+        params.append(
+            "listName",
+            listName
+        );
+
+        // 新しいリストを作成
+        fetch("/user/question-list/create-modal", {
+
+            method: "POST",
+
+            headers: {
+
+                "Content-Type":
+                    "application/x-www-form-urlencoded",
+
+                [csrfHeader]:
+                    csrfToken
+
+            },
+
+            body:
+                params.toString()
+
+        })
+
+        .then(function (response) {
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "リストの作成に失敗しました"
+                );
+
+            }
+
+            // 入力欄を空にする
+            newQuestionListName.value = "";
+
+            // リスト一覧を再取得
+            loadQuestionListSelection();
+
+        })
+
+        .catch(function (error) {
+
+            console.error(error);
+
+        });
+
+    });
     
-	// =========================
-	// 文法・構造の一括選択
-	// =========================
-	
-	const selectAllStructuresButton =
-	    document.getElementById("selectAllStructures");
-	
-	const clearAllStructuresButton =
-	    document.getElementById("clearAllStructures");
-	
-	const structureCheckboxes =
-	    document.querySelectorAll("input[name='structureIds']");
-	
-	
-	// すべて選択
-	selectAllStructuresButton.addEventListener("click", () => {
-	
-	    structureCheckboxes.forEach(checkbox => {
-	        checkbox.checked = true;
-	    });
-	
-	});
-	
-	
-	// すべて解除
-	clearAllStructuresButton.addEventListener("click", () => {
-	
-	    structureCheckboxes.forEach(checkbox => {
-	        checkbox.checked = false;
-	    });
-	
-	});
-	
-	
-	// =========================
-	// 文法・構造欄表示
-	// =========================
-	
-	const structureList =
-	    document.getElementById("structureList");
-	
-	const toggleStructuresButton =
-	    document.getElementById("toggleStructures");
-	
-	toggleStructuresButton.addEventListener("click", () => {
-	
-	    const expanded =
-	        structureList.classList.toggle("expanded");
-	
-	    toggleStructuresButton.textContent =
-	        expanded
-	            ? toggleStructuresButton.dataset.hideText
-	            : toggleStructuresButton.dataset.showText;
-	
-	});  
-
 });
