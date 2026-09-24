@@ -620,8 +620,9 @@
                     難易度
                 </th>
                 
-				<th class="text-nowrap"
-				    th:text="#{user.question.list.source}">
+				<th data-bs-toggle="tooltip"
+				    data-bs-placement="top"
+				    th:title="#{user.question.list.source.tooltip}">
 				    生成元
 				</th>
 
@@ -646,10 +647,11 @@
 				    リスト
 				</th>                
                 
-				<th class="text-nowrap"
-				    th:text="#{user.question.list.delete}">
+				<th data-bs-toggle="tooltip"
+				    data-bs-placement="top"
+				    th:title="#{user.question.delete.tooltip}">
 				    削除
-				</th>                
+				</th>             
 
             </tr>
 
@@ -724,12 +726,22 @@
                 </td>
                 
 				<!-- 生成元 -->
-				<td>
+				<td class="text-center"
+				    data-bs-toggle="tooltip"
+				    data-bs-placement="top"
+				    th:title="#{user.question.list.source.item.tooltip}">
+				
 				    <span class="badge bg-black"
 				          th:if="${question.aiGenerated}">
 				        AI
 				    </span>
-				</td>                
+				
+				    <span class="badge bg-white text-dark border border-dark"
+				          th:unless="${question.aiGenerated}">
+				        APP
+				    </span>
+				
+				</td>      
 
                 <!-- 詳細 -->
 
@@ -823,27 +835,34 @@
 				</td>              
                 
 				<!-- 削除 -->
-				<td class="text-center">
-				    <form th:if="${question.aiGenerated}"
-				          th:action="@{/user/question/delete}"
+				<td class="text-center"
+				    data-bs-toggle="tooltip"
+				    data-bs-placement="top"
+				    th:title="#{user.question.delete.tooltip}">
+				
+				    <form th:action="@{/user/question/delete}"
 				          method="post">
 				
 				        <input type="hidden"
 				               name="questionId"
 				               th:value="${question.questionId}">
-				               
-						<input type="hidden"
-						       name="returnUrl"
-						       th:value="${currentUrl}">			               
+				
+				        <input type="hidden"
+				               name="returnUrl"
+				               th:value="${currentUrl}">
 				
 				        <button type="submit"
 				                class="btn btn-dark btn-sm"
+				                th:disabled="${!question.aiGenerated}"
 				                th:onclick="|return confirm('#{user.question.delete.confirm}')|">
+				
 				            <i class="bi bi-trash"></i>
+				
 				        </button>
 				
 				    </form>
-				</td>                
+				
+				</td>             
 
             </tr>
 
