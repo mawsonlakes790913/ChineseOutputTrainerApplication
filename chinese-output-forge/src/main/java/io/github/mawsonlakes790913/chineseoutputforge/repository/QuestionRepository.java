@@ -201,7 +201,47 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("languageVariant") String languageVariant,
 	        @Param("difficulties") List<String> difficulties
 	);
-
+	
+	// ==================================================
+	// リストの問題
+	// ==================================================
+	
+	// 指定したリストに登録されている問題数を取得
+	@Query(value = """
+	        SELECT COUNT(*)
+	        FROM question q
+	        JOIN question_list_item qli
+	          ON q.question_id = qli.question_id
+	        JOIN question_list ql
+	          ON qli.list_id = ql.list_id
+	        WHERE qli.list_id = :listId
+	          AND ql.user_id = :userId
+	          AND q.language_variant = :languageVariant
+	        """, nativeQuery = true)
+	long countPracticeQuestionsByList(
+	        @Param("userId") Long userId,
+	        @Param("listId") Long listId,
+	        @Param("languageVariant") String languageVariant
+	);
+	
+	// 指定したリストに登録されている問題を取得
+	@Query(value = """
+	        SELECT q.*
+	        FROM question q
+	        JOIN question_list_item qli
+	          ON q.question_id = qli.question_id
+	        JOIN question_list ql
+	          ON qli.list_id = ql.list_id
+	        WHERE qli.list_id = :listId
+	          AND ql.user_id = :userId
+	          AND q.language_variant = :languageVariant
+	        ORDER BY q.question_id
+	        """, nativeQuery = true)
+	List<Question> findPracticeQuestionsByList(
+	        @Param("userId") Long userId,
+	        @Param("listId") Long listId,
+	        @Param("languageVariant") String languageVariant
+	);
 
 	// ==================================================
 	// ユーザー用問題一覧

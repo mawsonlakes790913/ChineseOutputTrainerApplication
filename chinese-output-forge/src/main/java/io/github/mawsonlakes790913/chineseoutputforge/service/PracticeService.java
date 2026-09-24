@@ -177,6 +177,30 @@ public class PracticeService {
 		                    searchConditionConverter.convertDifficulty(difficulty));
 		}
 	
+	// 指定したリストに登録されている問題数を取得
+	public long countPracticeQuestionsByList(
+	        Long userId,
+	        Long listId,
+	        LanguageVariant languageVariant) {
+
+	    return questionRepository.countPracticeQuestionsByList(
+	            userId,
+	            listId,
+	            languageVariant.name());
+	}
+	
+	// 指定したリストに登録されている問題を取得
+	public List<Question> getPracticeQuestionsByList(
+	        Long userId,
+	        Long listId,
+	        LanguageVariant languageVariant) {
+
+	    return questionRepository.findPracticeQuestionsByList(
+	            userId,
+	            listId,
+	            languageVariant.name());
+	}
+	
 	private long countQuestions(
 	        Long userId,
 	        LanguageVariant languageVariant,

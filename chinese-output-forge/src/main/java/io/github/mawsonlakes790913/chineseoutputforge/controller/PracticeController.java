@@ -24,10 +24,12 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.QuestionSourceCon
 import io.github.mawsonlakes790913.chineseoutputforge.dto.NewPracticeCountDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.PracticeMenuDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PracticeService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
 import jakarta.servlet.http.HttpSession;
@@ -43,6 +45,7 @@ public class PracticeController {
 	private final EvaluationService evaluationService;
 	private final FavoriteService favoriteService;
 	private final MessageSource messageSource;
+	private final QuestionListService questionListService;
 	
 	@GetMapping("/practice/menu")
 	public String getPracticeMenu(
@@ -63,6 +66,15 @@ public class PracticeController {
 	    if (loginUser != null) {
 	        Users user = getLoginUser(loginUser);
 	        userId = user.getId();
+	        
+	     // ユーザーが所有するリストを取得
+	        List<QuestionList> questionLists =
+	                questionListService.getQuestionLists(user);
+
+	        model.addAttribute(
+	                "questionLists",
+	                questionLists);	        
+	        
 	    }
 	    
 	    // メソッド呼び出しのためにPracticesourceConditionを宣言
@@ -129,6 +141,28 @@ public class PracticeController {
 	            userId,
 	            languageVariant,
 	            sourceCondition);
+	}
+	
+	// 指定したリストの問題数を取得
+	@GetMapping("/practice/menu/count/by-list")
+	@ResponseBody
+	public long getPracticeCountByList(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        HttpSession session,
+	        @RequestParam Long listId) {
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // 学習対象言語を取得
+	    LanguageVariant languageVariant =
+	            getLanguageVariant(session);
+
+	    // 指定したリストの問題数を取得
+	    return practiceService.countPracticeQuestionsByList(
+	            user.getId(),
+	            listId,
+	            languageVariant);
 	}
 	
 	@GetMapping("/practice/start")
@@ -219,6 +253,7 @@ public class PracticeController {
 	    return "redirect:/practice/question?page=0";	    
 	}	
 	
+	// 指定したリストの問題数を取得
 	@PreAuthorize("isAuthenticated()")
 	@GetMapping("/practice/new/start")
 	public String getPracticeNewStart(
@@ -254,6 +289,43 @@ public class PracticeController {
 	    session.setAttribute("practiceCurrentPage", 0);
 	    
 	    return "redirect:/practice/question?page=0";	    
+	}
+	
+	// 指定したリストの問題を取得する
+	@PreAuthorize("isAuthenticated()")
+	@GetMapping("/practice/list/start")
+	public String getPracticeListStart(
+	        HttpSession session,
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long listId) {
+
+	    // 既存の学習状態を破棄
+	    clearPracticeSession(session);
+
+	    // 言語情報を取得
+	    LanguageVariant languageVariant =
+	            getLanguageVariant(session);
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // 問題セットを取得
+	    List<Question> questions =
+	            practiceService.getPracticeQuestionsByList(
+	                    user.getId(),
+	                    listId,
+	                    languageVariant);
+
+	    // 問題が存在しない場合
+	    if (questions.isEmpty()) {
+	        return "redirect:/practice/menu";
+	    }
+
+	    // 学習状態をセッションに保存
+	    session.setAttribute("practiceQuestions", questions);
+	    session.setAttribute("practiceCurrentPage", 0);
+
+	    return "redirect:/practice/question?page=0";
 	}
 	
 	@GetMapping("/practice/question")

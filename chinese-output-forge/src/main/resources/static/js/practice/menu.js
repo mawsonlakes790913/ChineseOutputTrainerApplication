@@ -94,3 +94,51 @@ function updateRanges(selectId, ranges) {
     // 選択状態を初期化
     select.selectedIndex = 0;
 }
+
+// =========================
+// リスト選択による問題数更新
+// =========================
+
+// リスト選択
+const practiceQuestionList =
+    document.getElementById("practiceQuestionList");
+
+// 対象問題数
+const practiceListQuestionCount =
+    document.getElementById("practiceListQuestionCount");
+
+// リスト変更時
+if (practiceQuestionList) {
+
+    practiceQuestionList.addEventListener(
+        "change",
+        async () => {
+
+            // 選択されたリストID
+            const listId =
+                practiceQuestionList.value;
+
+            // 未選択の場合
+            if (!listId) {
+
+                practiceListQuestionCount
+                    .textContent = "-";
+
+                return;
+            }
+
+            // 指定したリストの問題数を取得
+            const response =
+                await fetch(
+                    `/practice/menu/count/by-list?listId=${listId}`
+                );
+
+            const count =
+                await response.json();
+
+            // 問題数を更新
+            practiceListQuestionCount
+                .textContent = count;
+        }
+    );
+}
