@@ -1,0 +1,4 @@
+/* リスト選択モーダルのチェックボックス */
+#questionListSelectionArea .form-check-input {
+    border: 2px solid #777;
+}
