@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Role;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListSelectionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionListRepository;
@@ -133,6 +134,18 @@ public class QuestionListService {
 	            questionListRepository.findByUserId(user.getId());
 
 	    return questionLists;
+	}
+	
+	// ユーザーが所有するリストと指定した問題の登録状態を取得
+	public List<QuestionListSelectionDto> getQuestionListSelection(
+	        Users user,
+	        Long questionId) {
+		
+		return questionListRepository
+		        .findQuestionListsWithRegistration(
+		                user.getId(),
+		                questionId);
+		
 	}
 
 }

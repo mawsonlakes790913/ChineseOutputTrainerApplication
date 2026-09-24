@@ -70,7 +70,7 @@ extends JpaRepository<QuestionListItem, QuestionListItemKey> {
 
 	        WHERE qli.list_id = :listId
 
-	        ORDER BY qli.added_at ASC
+	        ORDER BY qli.added_at DESC
 	        """,
 	        nativeQuery = true)
 	List<QuestionListItemDto> findQuestionListItems(

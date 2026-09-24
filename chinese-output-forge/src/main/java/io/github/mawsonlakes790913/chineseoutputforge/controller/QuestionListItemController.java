@@ -1,5 +1,6 @@
 package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
+import java.util.List;
 import java.util.Locale;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -7,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListItemService;
@@ -62,6 +64,32 @@ public class QuestionListItemController {
 
 	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
+	}
+	
+	// チェック状態に合わせて問題のリスト登録状態を更新
+	@PostMapping("/user/question-list/item/update")
+	@ResponseBody
+	public void postUserQuestionListUpdate(
+			@AuthenticationPrincipal UserDetails loginUser,
+			@RequestParam(required = false) List<Long> selectedListIds,
+		    @RequestParam Long questionId,
+	        Locale locale
+			) {
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+	    
+	    // 全チェック解除の場合は空リストとして扱う
+	    if (selectedListIds == null) {
+	        selectedListIds = List.of();
+	    }
+	    
+	    // チェック状態に合わせてリストへの追加・削除を行う
+	    questionListItemService.updateQuestionLists(
+	    		user,
+	    		questionId,
+	    		selectedListIds,
+	    		locale
+	    		);
 	}
 	
 	

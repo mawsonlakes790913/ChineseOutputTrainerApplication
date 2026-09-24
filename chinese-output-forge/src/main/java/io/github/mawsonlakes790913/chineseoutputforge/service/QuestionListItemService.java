@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListItemDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListSelectionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionListItem;
@@ -28,6 +29,7 @@ public class QuestionListItemService {
 	private final QuestionListItemRepository questionListItemRepository;
 	private final QuestionRepository questionRepository;
 	private final MessageSource messageSource;
+	private final QuestionListService questionListService;
 	
 	
 	
@@ -155,5 +157,43 @@ public class QuestionListItemService {
 
 	    return questionListItems;
 	}
+	
+	@Transactional
+	public void updateQuestionLists(
+	        Users user,
+	        Long questionId,
+	        List<Long> selectedListIds,
+	        Locale locale) {
 
+	    // 現在のリスト登録状態を取得
+	    List<QuestionListSelectionDto> questionListSelections =
+	            questionListService.getQuestionListSelection(
+	                    user,
+	                    questionId);
+
+	    for (QuestionListSelectionDto questionListSelection : questionListSelections) {
+
+	        // 未登録からチェックありになった場合は追加
+	        if (!questionListSelection.getRegistered()
+	                && selectedListIds.contains(questionListSelection.getListId())) {
+
+	            addQuestionToList(
+	                    user,
+	                    questionListSelection.getListId(),
+	                    questionId,
+	                    locale);
+	        }
+
+	        // 登録済みからチェックなしになった場合は削除
+	        if (questionListSelection.getRegistered()
+	                && !selectedListIds.contains(questionListSelection.getListId())) {
+
+	            deleteQuestionFromList(
+	                    user,
+	                    questionListSelection.getListId(),
+	                    questionId,
+	                    locale);
+	        }
+	    }
+	}
 }

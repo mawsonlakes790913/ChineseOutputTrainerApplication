@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListItemDto;
+import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListSelectionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListItemService;
@@ -89,6 +90,24 @@ public class QuestionListController {
 
 	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
+	}
+	
+	// question画面のモーダルからリストを新規作成
+	@PostMapping("/user/question-list/create-modal")
+	@ResponseBody
+	public void postUserQuestionListCreateModal(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam String listName,
+	        Locale locale) {
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // リストを新規作成
+	    questionListService.createQuestionList(
+	            user,
+	            listName,
+	            locale);
 	}
 	
 	// リストの詳細を取得
@@ -191,6 +210,22 @@ public class QuestionListController {
 
 	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
+	}
+	
+	// ユーザーが所有するリストと指定した問題の登録状態を取得
+	@GetMapping("/user/question-list/selection")
+	@ResponseBody
+	public List<QuestionListSelectionDto> getQuestionListSelection(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long questionId
+			) {
+		
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+		
+	    // ユーザーが所有するリストと指定した問題の登録状態を取得
+		return questionListService.getQuestionListSelection(user, questionId);
+		
 	}
 	
 	private Users getLoginUser(UserDetails loginUser) {

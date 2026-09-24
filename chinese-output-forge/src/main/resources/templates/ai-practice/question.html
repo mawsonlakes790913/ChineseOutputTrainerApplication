@@ -14,8 +14,7 @@
 
     <link rel="stylesheet"
           th:href="@{/webjars/bootstrap/css/bootstrap.min.css}">
-
-    <script th:src="@{/js/practice.js}" defer></script>
+          
     <script th:src="@{/js/ai-practice/question.js}" defer></script>
     
     <meta name="_csrf"
@@ -66,13 +65,15 @@
 		        th:text="${question.japaneseText}">
 		        日本語問題
 		    </h2>
-		
-		    <!-- お気に入りボタン -->
-		    <!-- Question保存後に表示 -->
+
+			<!-- お気に入り・リスト -->
+			<!-- Question保存後に表示 -->
 			<div id="favoriteArea"
+			     class="d-flex align-items-center gap-2"
 			     th:classappend="${savedQuestionId == null} ? 'd-none'"
 			     sec:authorize="isAuthenticated()">
 			
+			    <!-- お気に入りボタン -->
 			    <button id="favoriteButton"
 			            type="button"
 			            class="btn p-0 border-0 bg-transparent"
@@ -84,6 +85,18 @@
 			               ? 'bi-heart-fill text-danger'
 			               : 'bi-heart text-secondary'">
 			        </i>
+			
+			    </button>
+			
+			    <!-- リストボタン -->
+			    <button id="questionListButton"
+			            type="button"
+			            class="btn p-0 border-0 bg-transparent"
+			            th:data-question-id="${savedQuestionId}"
+			            data-bs-toggle="modal"
+			            data-bs-target="#questionListModal">
+			
+			        <i class="bi bi-folder-plus fs-2 text-secondary"></i>
 			
 			    </button>
 			
@@ -261,6 +274,92 @@
 	    </div>
 	
 	</div>    
+	
+	<!-- ============================= -->
+	<!-- 問題リスト選択モーダル -->
+	<!-- ============================= -->
+	
+	<div sec:authorize="isAuthenticated()"
+	     class="modal fade"
+	     id="questionListModal"
+	     tabindex="-1"
+	     aria-hidden="true">
+	
+	    <div class="modal-dialog">
+	
+	        <div class="modal-content">
+	
+	            <!-- ヘッダー -->
+	            <div class="modal-header">
+	
+	                <h5 class="modal-title">
+	                    リスト
+	                </h5>
+	
+	                <button type="button"
+	                        class="btn-close"
+	                        data-bs-dismiss="modal">
+	                </button>
+	
+	            </div>
+	
+	            <div class="modal-body">
+	
+	                <!-- 新規リスト作成 -->
+	                <div class="mb-4">
+	
+	                    <label for="newQuestionListName"
+	                           class="form-label">
+	                        新しいリスト
+	                    </label>
+	
+	                    <div class="input-group">
+	
+	                        <input type="text"
+	                               id="newQuestionListName"
+	                               class="form-control"
+	                               placeholder="リスト名">
+	
+	                        <button type="button"
+	                                id="questionListCreateButton"
+	                                class="btn btn-outline-primary">
+	                            作成
+	                        </button>
+	
+	                    </div>
+	
+	                </div>
+	
+	                <hr>
+	
+	                <!-- リスト一覧 -->
+	                <div id="questionListSelectionArea">
+	                </div>
+	
+	            </div>
+	
+	            <!-- 操作ボタン -->
+	            <div class="modal-footer">
+	
+	                <button type="button"
+	                        class="btn btn-secondary"
+	                        data-bs-dismiss="modal">
+	                    キャンセル
+	                </button>
+	
+	                <button type="button"
+	                        id="questionListSaveButton"
+	                        class="btn btn-primary">
+	                    保存
+	                </button>
+	
+	            </div>
+	
+	        </div>
+	
+	    </div>
+	
+	</div>
 
     <!-- ============================= -->
     <!-- 前へ・次へ -->
