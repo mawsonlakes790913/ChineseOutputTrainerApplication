@@ -40,7 +40,7 @@ extends JpaRepository<QuestionList, Long> {
 			    ON ql.list_id = qli.list_id
 			    AND qli.question_id = :questionId
 			WHERE ql.user_id = :userId
-			ORDER BY ql.created_at DESC;
+			ORDER BY ql.updated_at DESC;
 			""", nativeQuery = true)
 	List<QuestionListSelectionDto> findQuestionListsWithRegistration(
 	        Long userId,
