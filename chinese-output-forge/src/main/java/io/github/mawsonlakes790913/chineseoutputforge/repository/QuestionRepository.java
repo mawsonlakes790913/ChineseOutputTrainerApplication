@@ -600,7 +600,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// ==================================================
 	// AI生成
 	// ==================================================
-
+	
 	// AI生成元として利用可能な問題数を取得
 	@Query(value = """
 	        SELECT COUNT (*)
@@ -653,7 +653,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("languageVariant")
 	        String languageVariant
 	);
-
+	
 	// AI生成元として利用可能な問題をランダムに最大50件取得
 	@Query(value = """
 	        SELECT q.*
@@ -707,6 +707,66 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	        @Param("languageVariant")
 	        String languageVariant
+	);
+
+	// 指定したリストのAI生成元として利用可能な問題数を取得
+	@Query(value = """
+	        SELECT COUNT(*)
+	        FROM question q
+	        JOIN question_list_item qli
+	          ON q.question_id = qli.question_id
+	        JOIN question_list ql
+	          ON qli.list_id = ql.list_id
+	        WHERE qli.list_id = :listId
+	          AND ql.user_id = :userId
+	          AND q.language_variant = :languageVariant
+	          AND q.allow_ai_variation = true
+	        """, nativeQuery = true)
+	long countAiGenerationSourceQuestionsByList(
+	        @Param("userId") Long userId,
+	        @Param("listId") Long listId,
+	        @Param("languageVariant") String languageVariant
+	);
+
+	// 指定したリストからAI生成元として利用可能な問題を全件取得
+	@Query(value = """
+	        SELECT q.*
+	        FROM question q
+	        JOIN question_list_item qli
+	          ON q.question_id = qli.question_id
+	        JOIN question_list ql
+	          ON qli.list_id = ql.list_id
+	        WHERE qli.list_id = :listId
+	          AND ql.user_id = :userId
+	          AND q.language_variant = :languageVariant
+	          AND q.allow_ai_variation = true
+	        ORDER BY q.question_id
+	        """, nativeQuery = true)
+	List<Question> findAiGenerationSourceQuestionsByList(
+	        @Param("userId") Long userId,
+	        @Param("listId") Long listId,
+	        @Param("languageVariant") String languageVariant
+	);
+
+	// 指定したリストからAI生成元として利用可能な問題をランダムに最大50件取得
+	@Query(value = """
+	        SELECT q.*
+	        FROM question q
+	        JOIN question_list_item qli
+	          ON q.question_id = qli.question_id
+	        JOIN question_list ql
+	          ON qli.list_id = ql.list_id
+	        WHERE qli.list_id = :listId
+	          AND ql.user_id = :userId
+	          AND q.language_variant = :languageVariant
+	          AND q.allow_ai_variation = true
+	        ORDER BY RANDOM()
+	        LIMIT 50
+	        """, nativeQuery = true)
+	List<Question> findAiGenerationSourceQuestionsByListLimit50(
+	        @Param("userId") Long userId,
+	        @Param("listId") Long listId,
+	        @Param("languageVariant") String languageVariant
 	);
 
 

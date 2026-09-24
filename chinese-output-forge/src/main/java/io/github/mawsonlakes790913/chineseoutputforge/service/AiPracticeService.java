@@ -59,6 +59,7 @@ public class AiPracticeService {
 	private static final AiProvider AI_PROVIDER =
 	        AiProvider.GEMINI;
 	
+	// 検索条件からAI生成元として利用可能な問題数を取得
 	public Long countAiGenerationSourceQuestions(
 	        long userId,
 	        List<Difficulty> difficulties,
@@ -81,7 +82,8 @@ public class AiPracticeService {
 	            languageVariant.name());
 	}
 
-	public List<Question> getQuestion(
+	// 検索条件からAI生成元として利用可能な問題を取得
+	public List<Question> getAiGenerationSourceQuestions(
 	        Long userId,
 	        List<Difficulty> difficulties,
 	        List<Evaluation> evaluations,
@@ -100,6 +102,42 @@ public class AiPracticeService {
 	            searchConditionConverter.convertEvaluation(evaluations),
 	            searchConditionConverter.convertFavoriteCondition(favoriteCondition),
 	            structureIds,
+	            languageVariant.name());
+	}
+	
+	// 指定したリストのAI生成元として利用可能な問題数を取得
+	public long countAiGenerationSourceQuestionsByList(
+	        Long userId,
+	        Long listId,
+	        LanguageVariant languageVariant) {
+
+	    return questionRepository.countAiGenerationSourceQuestionsByList(
+	            userId,
+	            listId,
+	            languageVariant.name());
+	}
+
+	// 指定したリストからAI生成元として利用可能な問題を全件取得
+	public List<Question> getAiGenerationSourceQuestionsByList(
+	        Long userId,
+	        Long listId,
+	        LanguageVariant languageVariant) {
+
+	    return questionRepository.findAiGenerationSourceQuestionsByList(
+	            userId,
+	            listId,
+	            languageVariant.name());
+	}
+
+	// 指定したリストからAI生成元として利用可能な問題をランダムに最大50件取得
+	public List<Question> getAiGenerationSourceQuestionsByListLimit50(
+	        Long userId,
+	        Long listId,
+	        LanguageVariant languageVariant) {
+
+	    return questionRepository.findAiGenerationSourceQuestionsByListLimit50(
+	            userId,
+	            listId,
 	            languageVariant.name());
 	}
 

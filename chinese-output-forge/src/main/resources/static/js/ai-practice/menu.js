@@ -91,6 +91,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 初回表示時にもAI生成対象問題数を取得
     updateCount();
+    
+	// =========================
+	// リスト選択によるAI生成対象問題数更新
+	// =========================
+	
+	// リスト選択
+	const aiPracticeQuestionList =
+	    document.getElementById("aiPracticeQuestionList");
+	
+	// AI生成対象問題数
+	const aiPracticeListQuestionCount =
+	    document.getElementById("aiPracticeListQuestionCount");
+	
+	// リスト変更時
+	if (aiPracticeQuestionList) {
+	
+	    aiPracticeQuestionList.addEventListener(
+	        "change",
+	        async () => {
+	
+	            // 選択されたリストID
+	            const listId =
+	                aiPracticeQuestionList.value;
+	
+	            // 未選択の場合
+	            if (!listId) {
+	
+	                aiPracticeListQuestionCount
+	                    .textContent = "-";
+	
+	                return;
+	            }
+	
+	            // 指定したリストのAI生成対象問題数を取得
+	            const response =
+	                await fetch(
+	                    `/ai-practice/count/by-list?listId=${listId}`
+	                );
+	
+	            const count =
+	                await response.text();
+	
+	            // 問題数を更新
+	            aiPracticeListQuestionCount
+	                .textContent = count;
+	        }
+	    );
+	}    
 
 
     // =========================

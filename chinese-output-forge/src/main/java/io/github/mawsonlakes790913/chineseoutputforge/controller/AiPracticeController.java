@@ -18,10 +18,12 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.FavoriteCondition
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiGeneratedQuestionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
+import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.AiPracticeService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.FavoriteService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.util.QuestionModelUtil;
@@ -38,11 +40,13 @@ public class AiPracticeController {
 	private final EvaluationService evaluationService;
 	private final FavoriteService favoriteService;
 	private final StructureService structureService;
+	private final QuestionListService questionListService;
 	
 	@GetMapping("/ai-practice/menu")
 	public String getAiPracticeMenu(
 			HttpSession session,
-			Model model) {
+			Model model,
+			@AuthenticationPrincipal UserDetails loginUser) {
 		
 		// 言語切替後の戻り先
 		model.addAttribute("languageVariantRedirect", "/ai-practice/menu");
@@ -69,6 +73,18 @@ public class AiPracticeController {
 	    model.addAttribute(
 	            "structures",
 	            structureService.findStructures());
+	    
+	    // ログインユーザーを取得
+	    Users user =
+	            getLoginUser(loginUser);
+	    
+	    // ユーザーが所有するリストを取得
+	    List<QuestionList> questionLists =
+	            questionListService.getQuestionLists(user);
+
+	    model.addAttribute(
+	            "questionLists",
+	            questionLists);
 		
 		return "/ai-practice/menu";
 	}
@@ -107,6 +123,28 @@ public class AiPracticeController {
 	            );
 	}
 	
+	// 指定したリストのAI生成元として利用可能な問題数を取得
+	@GetMapping("/ai-practice/count/by-list")
+	@ResponseBody
+	public long getAiPracticeCountByList(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long listId,
+	        HttpSession session) {
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // 学習対象言語を取得
+	    LanguageVariant languageVariant =
+	            getLanguageVariant(session);
+
+	    // 指定したリストのAI生成元として利用可能な問題数を取得
+	    return aiPracticeService.countAiGenerationSourceQuestionsByList(
+	            user.getId(),
+	            listId,
+	            languageVariant);
+	}
+	
 	@GetMapping("/ai-practice/start")
 	public String getAiPracticeStart(
 			 HttpSession session,
@@ -136,7 +174,7 @@ public class AiPracticeController {
 	    
 	    // 新しい問題セットを作成
 	    List<Question> sourceQuestions =
-	            aiPracticeService.getQuestion(
+	            aiPracticeService.getAiGenerationSourceQuestions(
 	                    userId,
 	                    difficulties,
 	                    evaluations,
@@ -162,6 +200,72 @@ public class AiPracticeController {
 	    
 	    return "redirect:/ai-practice/question?page=0";
 
+	}
+	
+	// 指定したリストの問題からAI生成学習を開始
+	@GetMapping("/ai-practice/list/start")
+	public String getAiPracticeListStart(
+	        HttpSession session,
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long listId,
+	        @RequestParam boolean limit50,
+	        Locale locale) {
+
+	    // 既存の学習状態を破棄
+	    clearAiPracticeSession(session);
+
+	    // 学習対象言語を取得
+	    LanguageVariant languageVariant =
+	            getLanguageVariant(session);
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // AI生成元となる問題を取得
+	    List<Question> sourceQuestions;
+
+	    // 最大50件取得
+	    if (limit50) {
+	        sourceQuestions =
+	                aiPracticeService
+	                        .getAiGenerationSourceQuestionsByListLimit50(
+	                                user.getId(),
+	                                listId,
+	                                languageVariant);
+
+	    // 全件取得
+	    } else {
+	        sourceQuestions =
+	                aiPracticeService
+	                        .getAiGenerationSourceQuestionsByList(
+	                                user.getId(),
+	                                listId,
+	                                languageVariant);
+	    }
+
+	    // 問題が1件もない場合は開始しない
+	    if (sourceQuestions.isEmpty()) {
+	        return "redirect:/ai-practice/menu";
+	    }
+
+	    // AIで問題を生成
+	    List<AiGeneratedQuestionDto> aiPracticeQuestions =
+	            aiPracticeService.generateQuestions(
+	                    user,
+	                    sourceQuestions,
+	                    languageVariant,
+	                    locale);
+
+	    // 学習状態をセッションに保存
+	    session.setAttribute(
+	            "aiPracticeQuestions",
+	            aiPracticeQuestions);
+
+	    session.setAttribute(
+	            "aiPracticeQuestionsCurrentPage",
+	            0);
+
+	    return "redirect:/ai-practice/question?page=0";
 	}
 	
 	@GetMapping("/ai-practice/question")
