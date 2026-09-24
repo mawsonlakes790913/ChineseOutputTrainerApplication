@@ -292,7 +292,8 @@
 	            <!-- ヘッダー -->
 	            <div class="modal-header">
 	
-	                <h5 class="modal-title">
+	                <h5 class="modal-title"
+	                    th:text="#{questionList.modal.title}">
 	                    リスト
 	                </h5>
 	
@@ -309,7 +310,8 @@
 	                <div class="mb-4">
 	
 	                    <label for="newQuestionListName"
-	                           class="form-label">
+	                           class="form-label"
+	                           th:text="#{questionList.modal.newList}">
 	                        新しいリスト
 	                    </label>
 	
@@ -318,11 +320,12 @@
 	                        <input type="text"
 	                               id="newQuestionListName"
 	                               class="form-control"
-	                               placeholder="リスト名">
+	                               th:placeholder="#{questionList.modal.listName}">
 	
 	                        <button type="button"
 	                                id="questionListCreateButton"
-	                                class="btn btn-outline-primary">
+	                                class="btn btn-outline-primary"
+	                                th:text="#{questionList.modal.create}">
 	                            作成
 	                        </button>
 	
@@ -343,13 +346,15 @@
 	
 	                <button type="button"
 	                        class="btn btn-secondary"
-	                        data-bs-dismiss="modal">
+	                        data-bs-dismiss="modal"
+	                        th:text="#{questionList.modal.cancel}">
 	                    キャンセル
 	                </button>
 	
 	                <button type="button"
 	                        id="questionListSaveButton"
-	                        class="btn btn-primary">
+	                        class="btn btn-primary"
+	                        th:text="#{questionList.modal.save}">
 	                    保存
 	                </button>
 	
