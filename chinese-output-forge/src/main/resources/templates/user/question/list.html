@@ -587,73 +587,71 @@
 
             <thead class="table-dark">
 
-            <tr>
-
-                <th class="text-nowrap"
-                    style="width:5%;"
-                    th:text="#{user.question.list.questionId}">
-                    問題番号
-                </th>
-
-                <th style="width:22%;"
-                    th:text="#{user.question.list.japanese}">
-                    日本語
-                </th>
-
-                <th style="width:22%;"
-                    th:text="#{user.question.list.chinese}">
-                    中国語
-                </th>
-
-                <th style="width:14%;"
-                    th:text="#{user.question.list.alternativeAnswer}">
-                    別解
-                </th>
-
-                <th style="width:10%;"
-                    th:text="#{user.question.list.structure}">
-                    文法・構造
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.difficulty}">
-                    難易度
-                </th>
-                
-				<th data-bs-toggle="tooltip"
-				    data-bs-placement="top"
-				    th:title="#{user.question.list.source.tooltip}">
-				    生成元
-				</th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.detail}">
-                    詳細
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.evaluation}">
-                    理解度
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.favorite}">
-                    お気に入り
-                </th>
-                
-				<!-- リスト -->
-				<th class="text-nowrap"
-				    th:text="#{user.question.list.questionList}">
-				    リスト
-				</th>                
-                
-				<th data-bs-toggle="tooltip"
-				    data-bs-placement="top"
-				    th:title="#{user.question.delete.tooltip}">
-				    削除
-				</th>             
-
-            </tr>
+			<tr>
+			
+			    <th class="text-nowrap"
+			        style="width:5%;"
+			        th:text="#{user.question.list.questionId}">
+			        問題番号
+			    </th>
+			
+			    <th style="width:27%;"
+			        th:text="#{user.question.list.japanese}">
+			        日本語
+			    </th>
+			
+			    <th style="width:27%;"
+			        th:text="#{user.question.list.chinese}">
+			        中国語
+			    </th>
+			
+			    <th style="width:10%;"
+			        th:text="#{user.question.list.structure}">
+			        文法・構造
+			    </th>
+			
+			    <th class="text-nowrap"
+			        th:text="#{user.question.list.difficulty}">
+			        難易度
+			    </th>
+			
+			    <th class="text-nowrap text-center"
+			        style="width:6%;"
+			        data-bs-toggle="tooltip"
+			        data-bs-placement="top"
+			        th:title="#{user.question.list.source.tooltip}">
+			        生成元
+			    </th>
+			
+			    <th class="text-nowrap"
+			        th:text="#{user.question.list.detail}">
+			        詳細
+			    </th>
+			
+			    <th class="text-nowrap"
+			        th:text="#{user.question.list.evaluation}">
+			        理解度
+			    </th>
+			
+			    <th class="text-nowrap"
+			        th:text="#{user.question.list.favorite}">
+			        お気に入り
+			    </th>
+			
+			    <!-- リスト -->
+			    <th class="text-nowrap"
+			        th:text="#{user.question.list.questionList}">
+			        リスト
+			    </th>
+			
+			    <th class="text-nowrap"
+			        data-bs-toggle="tooltip"
+			        data-bs-placement="top"
+			        th:title="#{user.question.delete.tooltip}">
+			        削除
+			    </th>
+			
+			</tr>
 
             </thead>
 
@@ -674,15 +672,6 @@
                 <!-- 中国語 -->
 
                 <td th:text="${question.chineseText}">
-                </td>
-
-                <!-- 別解 -->
-
-                <td th:text="${question.alternativeAnswer != null
-                    ? (#strings.length(question.alternativeAnswer) > 20
-                        ? #strings.substring(question.alternativeAnswer, 0, 20) + '…'
-                        : question.alternativeAnswer)
-                    : ''}">
                 </td>
 
                 <!-- 文法・構造 -->
