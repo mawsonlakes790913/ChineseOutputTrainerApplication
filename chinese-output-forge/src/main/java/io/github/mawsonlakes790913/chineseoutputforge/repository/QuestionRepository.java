@@ -268,55 +268,43 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            q.zhuyin                    AS zhuyin,
 	            q.alternative_answer_pinyin AS alternativeAnswerPinyin,
 	            q.alternative_answer_zhuyin AS alternativeAnswerZhuyin
-
 	        FROM question q
-
 	        JOIN structure s
 	        ON q.structure_id = s.structure_id
-
 	        LEFT JOIN study_history sh
 	        ON (
 	            q.question_id = sh.question_id
 	            AND sh.user_id = :userId
 	        )
-
 	        LEFT JOIN favorite f
 	        ON (
 	            q.question_id = f.question_id
 	            AND f.user_id = :userId
 	        )
-
 	        WHERE q.difficulty IN (:difficulties)
-
 	        AND (
 	            :studyCondition = 'ALL'
-
 	            OR (
 	                :studyCondition = 'LEARNED_ONLY'
 	                AND sh.question_id IS NOT NULL
 	                AND sh.evaluation IN (:evaluations)
 	            )
-
 	            OR (
 	                :studyCondition = 'UNLEARNED_ONLY'
 	                AND sh.question_id IS NULL
 	            )
 	        )
-
 	        AND (
 	            :favoriteCondition = 'ALL'
-
 	            OR (
 	                :favoriteCondition = 'FAVORITED'
 	                AND f.question_id IS NOT NULL
 	            )
-
 	            OR (
 	                :favoriteCondition = 'NOT_FAVORITED'
 	                AND f.question_id IS NULL
 	            )
 	        )
-
 	        AND (
 	            (:sourceCondition = 'ALL'
 	                AND (
@@ -340,16 +328,25 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	                )
 	            )
 	        )
-
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
-
+	        AND (
+	            :listId IS NULL
+	            OR EXISTS (
+	                SELECT 1
+	                FROM question_list_item qli
+	                JOIN question_list ql
+	                ON qli.list_id = ql.list_id
+	                WHERE qli.question_id = q.question_id
+	                AND qli.list_id = :listId
+	                AND ql.user_id = :userId
+	            )
+	        )
 	        AND (
 	            :japaneseKeyword = ''
 	            OR LOWER(q.japanese_text)
 	                LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
 	        )
-
 	        AND (
 	            :chineseKeyword = ''
 	            OR LOWER(q.chinese_text)
@@ -357,63 +354,47 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            OR LOWER(q.alternative_answer)
 	                LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
 	        )
-
 	        ORDER BY q.question_id ASC
-
 	        """,
-
 	        countQuery = """
-
 	        SELECT COUNT(*)
-
 	        FROM question q
-
 	        JOIN structure s
 	        ON q.structure_id = s.structure_id
-
 	        LEFT JOIN study_history sh
 	        ON (
 	            q.question_id = sh.question_id
 	            AND sh.user_id = :userId
 	        )
-
 	        LEFT JOIN favorite f
 	        ON (
 	            q.question_id = f.question_id
 	            AND f.user_id = :userId
 	        )
-
 	        WHERE q.difficulty IN (:difficulties)
-
 	        AND (
 	            :studyCondition = 'ALL'
-
 	            OR (
 	                :studyCondition = 'LEARNED_ONLY'
 	                AND sh.question_id IS NOT NULL
 	                AND sh.evaluation IN (:evaluations)
 	            )
-
 	            OR (
 	                :studyCondition = 'UNLEARNED_ONLY'
 	                AND sh.question_id IS NULL
 	            )
 	        )
-
 	        AND (
 	            :favoriteCondition = 'ALL'
-
 	            OR (
 	                :favoriteCondition = 'FAVORITED'
 	                AND f.question_id IS NOT NULL
 	            )
-
 	            OR (
 	                :favoriteCondition = 'NOT_FAVORITED'
 	                AND f.question_id IS NULL
 	            )
 	        )
-
 	        AND (
 	            (:sourceCondition = 'ALL'
 	                AND (
@@ -437,16 +418,25 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	                )
 	            )
 	        )
-
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
-
+	        AND (
+	            :listId IS NULL
+	            OR EXISTS (
+	                SELECT 1
+	                FROM question_list_item qli
+	                JOIN question_list ql
+	                ON qli.list_id = ql.list_id
+	                WHERE qli.question_id = q.question_id
+	                AND qli.list_id = :listId
+	                AND ql.user_id = :userId
+	            )
+	        )
 	        AND (
 	            :japaneseKeyword = ''
 	            OR LOWER(q.japanese_text)
 	                LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
 	        )
-
 	        AND (
 	            :chineseKeyword = ''
 	            OR LOWER(q.chinese_text)
@@ -454,44 +444,33 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            OR LOWER(q.alternative_answer)
 	                LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
 	        )
-
 	        """,
 	        nativeQuery = true)
 	Page<UserQuestionListDto> findUserQuestionList(
-
 	        @Param("userId")
 	        long userId,
-
 	        @Param("difficulties")
 	        List<String> difficulties,
-
 	        @Param("evaluations")
 	        List<String> evaluations,
-
 	        @Param("studyCondition")
 	        String studyCondition,
-
 	        @Param("favoriteCondition")
 	        String favoriteCondition,
-
 	        @Param("sourceCondition")
 	        String sourceCondition,
-
 	        @Param("structureIds")
 	        List<Long> structureIds,
-
 	        @Param("languageVariants")
 	        List<String> languageVariants,
-
+	        @Param("listId")
+	        Long listId,
 	        @Param("japaneseKeyword")
 	        String japaneseKeyword,
-
 	        @Param("chineseKeyword")
 	        String chineseKeyword,
-
 	        Pageable pageable
 	);
-
 
 	// ==================================================
 	// Admin用問題一覧

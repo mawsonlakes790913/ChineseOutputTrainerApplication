@@ -42,6 +42,7 @@ public class UserQuestionService {
 			 QuestionSourceCondition sourceCondition,
 			 List<Long> structureIds,
 			 List<LanguageVariant> languageVariants,
+			 Long listId,
 			 String japaneseKeyword,
 			 String chineseKeyword,
 			 Pageable pageable) {
@@ -82,6 +83,7 @@ public class UserQuestionService {
 	sourceCondition.name(),
 	structureIds,
 	convertedLanguageVariants,
+	listId,
 	japaneseKeyword,
 	chineseKeyword,
 	pageable);

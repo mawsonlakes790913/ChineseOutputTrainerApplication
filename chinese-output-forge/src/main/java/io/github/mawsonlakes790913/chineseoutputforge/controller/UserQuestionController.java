@@ -30,6 +30,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.EvaluationService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PaginationService;
+import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.StructureService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserQuestionService;
@@ -47,6 +48,7 @@ public class UserQuestionController {
 	private final MessageSource messageSource;
 	private final EvaluationService evaluationService;
 	private final StructureService structureService;
+	private final QuestionListService questionListService;
 
 	
 	@GetMapping("/user/question/list")
@@ -60,6 +62,7 @@ public class UserQuestionController {
 	        @RequestParam(required = false) QuestionSourceCondition sourceCondition,
 	        @RequestParam(required = false) List<Long> structureIds,
 	        @RequestParam(required = false) List<LanguageVariant> languageVariants,
+	        @RequestParam(required = false) Long listId,
 	        @RequestParam(required = false, defaultValue = "") String japaneseKeyword,
 	        @RequestParam(required = false, defaultValue = "") String chineseKeyword,
 	        HttpSession session,
@@ -113,6 +116,7 @@ public class UserQuestionController {
 	                    sourceCondition,
 	                    structureIds,
 	                    languageVariants,
+	                    listId,
 	                    japaneseKeyword,
 	                    chineseKeyword,
 	                    pageable);
@@ -159,6 +163,13 @@ public class UserQuestionController {
 	    model.addAttribute("selectedFavoriteCondition", favoriteCondition);
 	    model.addAttribute("selectedSourceCondition", sourceCondition);
 	    model.addAttribute("selectedStructureIds", structureIds);
+	    // リスト一覧を取得
+	    model.addAttribute(
+	            "questionLists",
+	            questionListService.getQuestionLists(user));
+
+	    // 選択したリストを画面へ戻す
+	    model.addAttribute("selectedListId", listId);
 	    model.addAttribute("japaneseKeyword", japaneseKeyword);
 	    model.addAttribute("chineseKeyword", chineseKeyword);
 
