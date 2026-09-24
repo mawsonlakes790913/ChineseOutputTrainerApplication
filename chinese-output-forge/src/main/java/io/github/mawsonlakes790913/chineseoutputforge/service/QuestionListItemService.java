@@ -1,5 +1,6 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
@@ -96,6 +97,10 @@ public class QuestionListItemService {
 		
 		// リストに問題を追加
 		questionListItemRepository.save(questionListItem);
+
+		// リストの更新日時を更新
+		questionList.setUpdatedAt(LocalDateTime.now());
+		questionListRepository.save(questionList);
 		
 		log.debug("問題をリストへ追加 listId={}, userId={}, questionId={}",
 				questionList.getListId(), 
@@ -112,13 +117,14 @@ public class QuestionListItemService {
 			Locale locale) {
 		
 	    // ユーザーが所有するリストか確認
-	    questionListRepository
-	            .findByListIdAndUserId(listId, user.getId())
-	            .orElseThrow(() -> new IllegalArgumentException(
-	                    messageSource.getMessage(
-	                            "questionList.error.notFound",
-	                            null,
-	                            locale)));
+		QuestionList questionList =
+		    questionListRepository
+		            .findByListIdAndUserId(listId, user.getId())
+		            .orElseThrow(() -> new IllegalArgumentException(
+		                    messageSource.getMessage(
+		                            "questionList.error.notFound",
+		                            null,
+		                            locale)));
 		
 		// リストIDと問題IDから複合主キーを作成
 		QuestionListItemKey key = new QuestionListItemKey();
@@ -127,6 +133,10 @@ public class QuestionListItemService {
 		
 		// リストから問題を削除
 		questionListItemRepository.deleteByQuestionListItemKey(key);
+		
+		// リストの更新日時を更新
+		questionList.setUpdatedAt(LocalDateTime.now());
+		questionListRepository.save(questionList);
 		
 	    log.debug("問題をリストから削除 listId={}, userId={}, questionId={}",
 	            listId,
