@@ -99,10 +99,18 @@
 
                 </h3>
 
-                <p class="mb-0 text-muted"
-                   th:text="#{aiPractice.menu.search.description}">
-                    学習履歴や問題条件を指定してAI問題を生成します。
-                </p>
+				<p class="mb-0 text-muted">
+				    <span th:text="#{aiPractice.menu.search.description}">
+				        学習履歴や問題条件を指定してAI問題を生成します。
+				    </span>
+				
+				    <br>
+				
+				    <small class="text-danger"
+				           th:text="#{aiPractice.menu.search.evaluationNote}">
+				        理解度ボタンを押していない問題はAI生成の対象になりません。
+				    </small>
+				</p>            
 
             </div>
 
