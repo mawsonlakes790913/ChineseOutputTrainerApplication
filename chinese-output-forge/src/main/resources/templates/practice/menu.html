@@ -493,22 +493,22 @@
 
                     </div>
 
-                    <!-- 対象問題数 -->
-                    <div class="mb-2">
-
-                        <span th:text="#{practice.menu.list.questionCount}">
-                            対象問題数：
-                        </span>
-
-                        <span id="practiceListQuestionCount">
-                            -
-                        </span>
-
-                        <span th:text="#{practice.menu.difficulty.countSuffix}">
-                            問
-                        </span>
-
-                    </div>
+					<!-- 対象問題数 -->
+					<div class="mb-2 fs-4">
+					
+					    <span th:text="#{practice.menu.list.questionCount}">
+					        対象問題数：
+					    </span>
+					
+					    <span id="practiceListQuestionCount">
+					        -
+					    </span>
+					
+					    <span th:text="#{practice.menu.difficulty.countSuffix}">
+					        問
+					    </span>
+					
+					</div>
 
                     <!-- 注意書き -->
                     <p class="text-muted small mb-3"
@@ -656,7 +656,7 @@
 			
 			    <form th:action="@{/practice/new/start}" method="get">
 					
-					<div class="d-flex gap-3 mb-3">
+					<div class="d-flex gap-3 mb-3 fs-5">
 					
 						<label class="bg-danger-subtle rounded px-3 py-2">
 						    <input class="form-check-input me-2"
