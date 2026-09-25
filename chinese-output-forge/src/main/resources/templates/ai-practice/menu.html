@@ -110,22 +110,22 @@
             <form th:action="@{/ai-practice/start}"
                   method="get">
 
-                <div class="row">
+                <div class="d-flex gap-2">
 
                     <!-- ============================= -->
                     <!-- 理解度 -->
                     <!-- ============================= -->
 
-                    <div class="col-md-6 mb-4">
+                    <div class="mb-4" style="flex: 5;">
 
-                        <div class="card">
+                        <div class="card h-100">
 
                             <div class="card-header"
                                  th:text="#{aiPractice.menu.evaluation.title}">
                                 理解度
                             </div>
 
-                            <div class="card-body">
+                            <div class="card-body d-flex align-items-center">
 
                                 <div class="row">
 
@@ -237,16 +237,16 @@
                     <!-- 問題難易度 -->
                     <!-- ============================= -->
 
-                    <div class="col-md-6 mb-4">
+                    <div class="mb-4" style="flex: 3.5;">
 
-                        <div class="card">
+                        <div class="card h-100">
 
                             <div class="card-header"
                                  th:text="#{aiPractice.menu.difficulty.title}">
                                 問題難易度
                             </div>
 
-                            <div class="card-body">
+                            <div class="card-body d-flex align-items-center">
 
                                 <div class="d-flex gap-3">
 
@@ -313,9 +313,9 @@
                     <!-- お気に入り -->
                     <!-- ============================= -->
 
-                    <div class="col-md-6 mb-4">
+                    <div class="mb-4" style="flex: 3.5;">
 
-                        <div class="card">
+                        <div class="card h-100">
 
                             <div class="card-header"
                                  th:text="#{aiPractice.menu.favorite.title}">
