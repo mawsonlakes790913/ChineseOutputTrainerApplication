@@ -15,6 +15,8 @@
 
     <link rel="stylesheet"
           th:href="@{/css/review/menu.css}">
+    <link rel="stylesheet"
+          th:href="@{/css/ai-practice/menu.css}">      
 
     <script th:src="@{/js/ai-practice/menu.js}" defer></script>
 
@@ -688,6 +690,19 @@
         </a>
 
     </div>
+    
+    <!-- ============================= -->
+    <!-- ローディング -->
+    <!-- ============================= -->    
+    
+	<div id="loadingOverlay" class="loading-overlay d-none">
+	    <div class="loading-box text-center">
+	        <div class="spinner-border"></div>
+	        <div class="mt-2">
+	            Loading...
+	        </div>
+	    </div>
+	</div>
 
 </div>
 

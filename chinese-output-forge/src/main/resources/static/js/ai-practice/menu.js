@@ -3,6 +3,10 @@
 // =========================
 
 document.addEventListener("DOMContentLoaded", () => {
+	
+	// ローディング画面
+    const loadingOverlay =
+        document.getElementById("loadingOverlay");
 
     // 検索条件
     const searchConditions = document.querySelectorAll(
@@ -139,6 +143,26 @@ document.addEventListener("DOMContentLoaded", () => {
 	        }
 	    );
 	}    
+	
+    // =========================
+    // AI問題生成時のローディング表示
+    // =========================
+
+    const aiPracticeForms =
+        document.querySelectorAll(
+            "form[action='/ai-practice/start'], " +
+            "form[action='/ai-practice/list/start']"
+        );
+
+    aiPracticeForms.forEach(form => {
+
+        form.addEventListener("submit", () => {
+
+            loadingOverlay.classList.remove("d-none");
+
+        });
+
+    });	
 
 
     // =========================

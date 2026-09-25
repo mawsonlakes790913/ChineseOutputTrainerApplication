@@ -1,0 +1,27 @@
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+
+    /* 背景を暗くする */
+    background: rgba(0, 0, 0, 0.5);
+
+    /* 最前面 */
+    z-index: 9999;
+
+    /* Loadingウインドウを中央配置 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Loadingウインドウ */
+.loading-box {
+    background: white;
+    padding: 30px 50px;
+    border-radius: 8px;
+}
+
+/* 非表示 */
+.loading-overlay.d-none {
+    display: none;
+}
