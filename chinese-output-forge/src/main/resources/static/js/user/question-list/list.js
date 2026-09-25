@@ -196,30 +196,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         thead.innerHTML = `
                             <tr>
-                                <th>
-                                    ${messages.chinese}
-                                </th>
-                                <th>
-                                    ${messages.japanese}
-                                </th>
-                                <th style="min-width: 70px;">
+								<th style="width: 44%;">
+								    ${messages.chinese}
+								</th>
+								<th style="width: 28%;">
+								    ${messages.japanese}
+								</th>
+                                <th style="width: 5%;">
                                     ${messages.difficulty}
                                 </th>
-                                <th style="min-width: 80px;">
+                                <th style="width: 5%;">
                                     ${messages.evaluation}
                                 </th>
-                                <th>
-                                    ${messages.favorite}
-                                </th>
-                                <th style="min-width: 70px;">
+						        <th style="width: 5%;"
+						            class="text-nowrap small">
+						            ${messages.favorite}
+						        </th>
+                                <th style="width: 5%;">
                                     ${messages.source}
                                 </th>
-                                <th class="text-nowrap">
-                                    ${messages.detail}
-                                </th>
-                                <th class="text-nowrap">
-                                    ${messages.delete}
-                                </th>
+								<th style="width: 4%;"
+								    class="text-nowrap">
+								    ${messages.detail}
+								</th>
+								<th style="width: 4%;"
+								    class="text-nowrap">
+								    ${messages.delete}
+								</th>
                             </tr>
                         `;
 
@@ -277,10 +280,13 @@ document.addEventListener("DOMContentLoaded", () => {
                                 // 難易度
                                 // ======================
 
-                                const difficultyTd =
-                                    document.createElement(
-                                        "td"
-                                    );
+								const difficultyTd =
+								    document.createElement(
+								        "td"
+								    );
+								
+								difficultyTd.className =
+								    "text-center";
 
                                 const difficultySpan =
                                     document.createElement(
@@ -338,10 +344,13 @@ document.addEventListener("DOMContentLoaded", () => {
                                 // 理解度
                                 // ======================
 
-                                const evaluationTd =
-                                    document.createElement(
-                                        "td"
-                                    );
+								const evaluationTd =
+								    document.createElement(
+								        "td"
+								    );
+								
+								evaluationTd.className =
+								    "text-center";
 
                                 if (
                                     question.evaluation ===
@@ -595,19 +604,43 @@ document.addEventListener("DOMContentLoaded", () => {
                                 );
 
 
-                                // ======================
-                                // 生成元
-                                // ======================
-
-                                const sourceTd =
-                                    document.createElement(
-                                        "td"
-                                    );
-
-                                sourceTd.textContent =
-                                    question.aiGenerated
-                                        ? messages.ai
-                                        : messages.normal;
+								// ======================
+								// 生成元
+								// ======================
+								
+								const sourceTd =
+								    document.createElement(
+								        "td"
+								    );
+								
+								sourceTd.className =
+								    "text-center";
+								
+								const sourceSpan =
+								    document.createElement(
+								        "span"
+								    );
+								
+								if (question.aiGenerated) {
+								
+								    sourceSpan.className =
+								        "badge bg-black";
+								
+								    sourceSpan.textContent =
+								        "AI";
+								
+								} else {
+								
+								    sourceSpan.className =
+								        "badge bg-white text-dark border border-dark";
+								
+								    sourceSpan.textContent =
+								        "APP";
+								}
+								
+								sourceTd.appendChild(
+								    sourceSpan
+								);
 
 
                                 // ======================
