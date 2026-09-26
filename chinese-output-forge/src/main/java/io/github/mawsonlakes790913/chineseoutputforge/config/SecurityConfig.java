@@ -124,7 +124,7 @@ public class SecurityConfig {
 	        // Remember Meの設定
 	        .rememberMe(remember -> remember
 	        	    .rememberMeParameter("remember-me")
-	        	    .tokenValiditySeconds(3600)
+	        	    .tokenValiditySeconds(7 * 24 * 60 * 60)
 	        )
 	        // アクセス拒否の設定
 	        .exceptionHandling(exception -> exception
