@@ -898,6 +898,21 @@ login.rememberMe=ログイン状態を保持
 
 Remember-Me Cookieの有効期限は1時間（3600秒）に設定する。
 
+#### 追加修正 9月26日
+
+```text
+git commit -m "fix: set remember-me cookie validity to 7 days"
+```
+
+Remember-Me Cookieの有効期限は1週間（7 * 24 * 60 * 60秒）に設定する。
+
+```java
+.rememberMe(remember -> remember
+        .rememberMeParameter("remember-me")
+        .tokenValiditySeconds(7 * 24 * 60 * 60)
+);
+```
+
 ### 実行
 
 ログイン画面でRemember-Meのチェックボックスにチェックを入れてログインする。
