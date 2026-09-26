@@ -27,35 +27,6 @@ public class QuestionListItemController {
 	private final QuestionListItemService questionListItemService;
 	
 	/**
-	 * 指定された問題を問題リストに追加する。
-	 *
-	 * @param loginUser ログインユーザー情報
-	 * @param listId 追加先のリストID
-	 * @param questionId 追加する問題のID
-	 * @param locale 現在の言語・地域情報
-	 * @return 問題リスト一覧画面へのリダイレクト先
-	 */
-	@PostMapping("/user/question-list/item/add")
-	public String postQuestionListItemAdd(
-	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam Long listId,
-	        @RequestParam Long questionId,
-	        Locale locale) {
-
-	    // ログインユーザーを取得
-	    Users user = getLoginUser(loginUser);
-
-	    // 指定した問題を問題リストに追加
-	    questionListItemService.addQuestionToList(
-	            user,
-	            listId,
-	            questionId,
-	            locale);
-
-	    return "redirect:/user/question-list/list";
-	}
-	
-	/**
 	 * 指定された問題を問題リストから削除する。
 	 *
 	 * @param loginUser ログインユーザー情報

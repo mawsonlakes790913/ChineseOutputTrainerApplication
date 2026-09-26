@@ -5,13 +5,14 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import io.github.mawsonlakes790913.chineseoutputforge.exception.MailSendException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 
 /**
  * メール送信に関する業務処理を行うService。
- * パスワード再設定用メールの作成・送信を行う。
+ * パスワード再設定用メールや会員登録完了メールの作成・送信を行う。
  */
 @Service
 @RequiredArgsConstructor
@@ -57,6 +58,49 @@ public class MailService {
 	        messageHelper.setSubject(subject);
 
 	        // パスワード再設定用メールを送信
+	        mailSender.send(message);
+
+	    } catch (MessagingException e) {
+	        // メール情報の設定に失敗した場合は例外をスロー
+	        throw new MailSendException(
+	                "メッセージの設定に失敗しました",
+	                e);
+	    }
+	}
+	
+	/**
+	 * 指定したメールアドレスへ会員登録完了メールを送信する。
+	 * ログイン画面のURLを作成し、メール本文に設定する。
+	 *
+	 * @param email 送信先メールアドレス
+	 * @param loginId 登録されたユーザーID
+	 */
+	public void sendSignupCompleteEmail(
+	        String email,
+	        String loginId) {
+
+	    // ログイン画面のURLを作成
+	    String url = baseUrl + "/login";
+
+	    // メールの件名と本文を作成
+	    String subject = "【Chinese Output Forge】会員登録完了のお知らせ";
+	    String text =
+	            "Chinese Output Forgeへの会員登録が完了しました。\n\n"
+	            + "ユーザーID：" + loginId + "\n\n"
+	            + "以下のURLからログインしてください。\n\n"
+	            + url;
+
+	    // 会員登録完了メールを作成
+	    MimeMessage message = mailSender.createMimeMessage();
+	    try {
+	        // 送信先や件名などのメール情報を設定
+	        MimeMessageHelper messageHelper = new MimeMessageHelper(message);
+	        messageHelper.setFrom("liuniao790913@gmail.com");
+	        messageHelper.setTo(email);
+	        messageHelper.setText(text);
+	        messageHelper.setSubject(subject);
+
+	        // 会員登録完了メールを送信
 	        mailSender.send(message);
 
 	    } catch (MessagingException e) {

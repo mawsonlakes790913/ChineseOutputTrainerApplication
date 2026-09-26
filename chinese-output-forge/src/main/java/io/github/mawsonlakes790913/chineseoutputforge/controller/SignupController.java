@@ -13,9 +13,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.exception.DuplicateSignupException;
+import io.github.mawsonlakes790913.chineseoutputforge.exception.MailSendException;
 import io.github.mawsonlakes790913.chineseoutputforge.form.SignupForm;
+import io.github.mawsonlakes790913.chineseoutputforge.service.MailService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.SignupService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * ユーザー新規登録に関するリクエストを処理するController。
@@ -23,10 +26,12 @@ import lombok.RequiredArgsConstructor;
  */
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class SignupController {
 	
 	private final SignupService signupService;
 	private final MessageSource messageSource;
+	private final MailService mailService;
 	
 	/**
 	 * ユーザー新規登録画面を表示する。
@@ -72,6 +77,20 @@ public class SignupController {
 	                e.getMessage());
 
 	        return getSignup(form);
+	    }
+	    
+	    // 会員登録完了メールを送信
+	    try {
+	        mailService.sendSignupCompleteEmail(
+	                form.getEmail(),
+	                form.getLoginId());
+
+	    } catch (MailSendException e) {
+	        // メール送信に失敗してもユーザー登録は成功扱いとする
+	        log.error(
+	                "会員登録完了メールの送信に失敗 loginId={}",
+	                form.getLoginId(),
+	                e);
 	    }
 
 	    // 登録完了メッセージを設定
