@@ -14,6 +14,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * ユーザー新規登録に関する業務処理を行うService。
+ * ログインID・メールアドレスの重複確認とユーザーの登録を行う。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,16 +27,22 @@ public class SignupService {
 	private final PasswordEncoder passwordEncoder;
 	private final MessageSource messageSource;
 	
-	// ユーザーを新規登録
+	/**
+	 * 入力されたユーザー情報をもとに新しいユーザーを登録する。
+	 * ログインIDとメールアドレスの重複を確認し、
+	 * パスワードをハッシュ化して一般ユーザーとして保存する。
+	 *
+	 * @param form ユーザー新規登録画面の入力内容
+	 * @param locale 現在の言語・地域情報
+	 */
 	public void signup(SignupForm form, Locale locale) {
 
-	    // ログインIDの重複確認
+	    // ログインIDの重複を確認
 	    boolean loginIdExists =
 	            userRepository.existsByLoginId(
 	                    form.getLoginId());
 
 	    if (loginIdExists) {
-
 	        throw new DuplicateSignupException(
 	                "loginId",
 	                messageSource.getMessage(
@@ -40,13 +50,13 @@ public class SignupService {
 	                        null,
 	                        locale));
 	    }
-	    
-	    // メールアドレスの重複確認
-	    boolean emailExists = userRepository.existsByEmail(
-                form.getEmail());
-	    
-	    if (emailExists) {
 
+	    // メールアドレスの重複を確認
+	    boolean emailExists =
+	            userRepository.existsByEmail(
+	                    form.getEmail());
+
+	    if (emailExists) {
 	        throw new DuplicateSignupException(
 	                "email",
 	                messageSource.getMessage(
@@ -54,28 +64,20 @@ public class SignupService {
 	                        null,
 	                        locale));
 	    }
-	    
-	    // ユーザー情報を作成
+
+	    // 新しいユーザーを作成して登録情報を設定
 	    Users user = new Users();
-	    
-	    // ログインIDを登録
 	    user.setLoginId(form.getLoginId());
-	    
-	    // メールアドレスを登録
 	    user.setEmail(form.getEmail());
-
-	    // 一般ユーザーとして登録
 	    user.setRole(Role.USER);
-
-	    // パスワードをハッシュ化
 	    user.setPassword(
 	            passwordEncoder.encode(
 	                    form.getPassword()));
 
-	    // 保存
-	    Users savedUser =
-	            userRepository.save(user);
+	    // ユーザー情報を保存
+	    Users savedUser = userRepository.save(user);
 
+	    // ユーザー登録完了をログに記録
 	    log.info(
 	            "ユーザー登録完了 userId={}, loginId={}",
 	            savedUser.getId(),

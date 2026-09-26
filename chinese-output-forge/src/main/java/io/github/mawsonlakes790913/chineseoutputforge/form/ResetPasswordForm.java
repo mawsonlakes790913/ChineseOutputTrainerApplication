@@ -7,6 +7,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+/**
+ * パスワード再設定画面の入力内容を保持するフォームクラス。
+ */
 @Data
 @PasswordMatch(
     passwordFieldName = "newPassword",

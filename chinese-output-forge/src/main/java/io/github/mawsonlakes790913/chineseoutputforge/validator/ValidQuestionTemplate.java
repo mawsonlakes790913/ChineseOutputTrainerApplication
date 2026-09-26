@@ -9,6 +9,10 @@ import java.lang.annotation.Target;
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
 
+/**
+ * AI生成を許可する問題にテンプレートが設定されていることを検証する
+ * カスタムバリデーションアノテーション。
+ */
 @Documented
 @Constraint(validatedBy = { ValidQuestionTemplateValidator.class })
 @Target(ElementType.TYPE)
@@ -16,10 +20,10 @@ import jakarta.validation.Payload;
 public @interface ValidQuestionTemplate {
 	String message() default "AI生成を許可する場合はテンプレートを入力してください。"; 
 	
-	/** グループ */
+	// グループ
     Class<?>[] groups() default {};
 
-    /** ペイロード */
+    // ペイロード
     Class<? extends Payload>[] payload() default {};
  
 } 

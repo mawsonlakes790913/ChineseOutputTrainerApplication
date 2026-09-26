@@ -14,25 +14,37 @@ import org.springframework.stereotype.Service;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Spring Securityの認証で使用するユーザー情報を取得するService。
+ * ログインIDからユーザーを取得し、UserDetailsへ変換する。
+ */
 @Service
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 	
 	private final UserAccountService userAccountService;
 	
+	/**
+	 * ログインIDから認証に使用するユーザー情報を取得する。
+	 * ユーザーのロールとアカウント凍結状態をUserDetailsへ設定する。
+	 *
+	 * @param loginId ログインID
+	 * @return Spring Securityの認証で使用するユーザー情報
+	 * @throws UsernameNotFoundException ユーザーが存在しない場合
+	 */
 	@Override
 	public UserDetails loadUserByUsername(String loginId)
 			throws UsernameNotFoundException {
 		
-		// ユーザー情報取得
+		// ログインIDからユーザーを取得
         Users loginUser = userAccountService.getUserOne(loginId);
         
-        // ユーザーが存在しない場合
+        // ユーザーが存在しない場合は認証エラー
         if (loginUser == null) {
             throw new UsernameNotFoundException("user not found"); 
         }
         
-        // ロールList作成
+        // ユーザーのロールから権限情報を作成
         GrantedAuthority authority =
                 new SimpleGrantedAuthority(
                         "ROLE_" + loginUser.getRole().name()
@@ -40,7 +52,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(authority);
         
-        // UserDetails生成 
+        // 認証に使用するUserDetailsを生成
         return new User(
                 loginUser.getLoginId(),
                 loginUser.getPassword(),

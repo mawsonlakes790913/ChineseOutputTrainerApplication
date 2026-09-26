@@ -15,6 +15,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * ユーザーが作成した問題リストの情報を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "question_list")
@@ -39,5 +42,4 @@ public class QuestionList {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
 }

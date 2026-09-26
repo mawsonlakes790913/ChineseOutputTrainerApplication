@@ -15,21 +15,40 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.UserQuestionListDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Structure;
 
+/**
+ * 中国語学習で使用する問題情報のDB操作を行うRepository。
+ */
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 
 	// ==================================================
 	// 単純検索
 	// ==================================================
 
-	// 指定した中国語本文と同じ問題が存在するか確認
+	/**
+	 * 指定した中国語本文と同じ問題が存在するか確認する。
+	 *
+	 * @param chineseText 中国語本文
+	 * @return 同じ中国語本文の問題が存在する場合はtrue
+	 */
 	boolean existsByChineseText(String chineseText);
 
-	// 指定したユーザーが所有する問題を中国語本文から取得
+	/**
+	 * 指定したユーザーが所有する問題を中国語本文から取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param chineseText 中国語本文
+	 * @return 条件に一致する問題
+	 */
 	Optional<Question> findByOwnerIdAndChineseText(
 	        Long userId,
 	        String chineseText);
 	
-	// 指定したIDから取得
+	/**
+	 * 指定した問題IDから問題を取得する。
+	 *
+	 * @param questionId 問題ID
+	 * @return 指定したIDの問題
+	 */
 	Optional<Question> findByQuestionId(Long QuestionId);
 
 
@@ -37,7 +56,13 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// アクセス確認
 	// ==================================================
 
-	// 指定した問題がログインユーザーからアクセス可能か確認
+	/**
+	 * 指定した問題がログインユーザーからアクセス可能か確認する。
+	 *
+	 * @param questionId 問題ID
+	 * @param userId ユーザーID
+	 * @return アクセス可能な場合はtrue
+	 */
 	@Query(value = """
 	        SELECT COUNT(*) > 0
 	        FROM question
@@ -56,7 +81,13 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// 通常学習
 	// ==================================================
 
-	// 非ログインユーザー用問題数取得(デフォルト)
+	/**
+	 * 非ログインユーザーが通常学習で利用できる問題数を取得する。
+	 *
+	 * @param languageVariant 学習対象言語
+	 * @param difficulty 難易度
+	 * @return 条件に一致する問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT (*)
 	        FROM question
@@ -70,7 +101,15 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("difficulty") String difficulty
 	);
 
-	// ログインユーザー用問題数取得(デフォルト)
+	/**
+	 * ログインユーザーが通常学習で利用できる問題数を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariant 学習対象言語
+	 * @param difficulty 難易度
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @return 条件に一致する問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM question
@@ -98,7 +137,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("sourceCondition") String sourceCondition
 	);
 
-	// 非ログインユーザー用問題取得
+	/**
+	 * 非ログインユーザーが通常学習で利用できる問題を最大50件取得する。
+	 *
+	 * @param languageVariant 学習対象言語
+	 * @param difficulty 難易度
+	 * @param offset 取得開始位置
+	 * @return 条件に一致する問題の一覧
+	 */
 	@Query(value = """
 	        SELECT *
 	        FROM question
@@ -115,7 +161,16 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("offset") int offset
 	);
 
-	// ログインユーザー用問題取得
+	/**
+	 * ログインユーザーが通常学習で利用できる問題を最大50件取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariant 学習対象言語
+	 * @param difficulty 難易度
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param offset 取得開始位置
+	 * @return 条件に一致する問題の一覧
+	 */
 	@Query(value = """
 	        SELECT *
 	        FROM question
@@ -160,7 +215,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// 未学習問題
 	// ==================================================
 
-	// 未学習問題の数を取得
+	/**
+	 * 指定したユーザーの未学習問題数を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariant 学習対象言語
+	 * @param difficulties 難易度の検索条件
+	 * @return 条件に一致する未学習問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM question q
@@ -181,7 +243,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("difficulties") String difficulties
 	);
 
-	// 未学習問題を取得
+	/**
+	 * 指定したユーザーの未学習問題を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariant 学習対象言語
+	 * @param difficulties 難易度の検索条件
+	 * @return 条件に一致する未学習問題の一覧
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM question q
@@ -206,7 +275,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// リストの問題
 	// ==================================================
 	
-	// 指定したリストに登録されている問題数を取得
+	/**
+	 * 指定した問題リストに登録されている通常学習用の問題数を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param listId 問題リストID
+	 * @param languageVariant 学習対象言語
+	 * @return 条件に一致する問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM question q
@@ -224,7 +300,14 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("languageVariant") String languageVariant
 	);
 	
-	// 指定したリストに登録されている問題を取得
+	/**
+	 * 指定した問題リストに登録されている通常学習用の問題を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param listId 問題リストID
+	 * @param languageVariant 学習対象言語
+	 * @return 条件に一致する問題の一覧
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM question q
@@ -247,7 +330,23 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// ユーザー用問題一覧
 	// ==================================================
 
-	// 検索条件に一致するユーザー用問題一覧を取得
+	/**
+	 * 指定された検索条件に一致するユーザー用問題一覧を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param difficulties 難易度の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param studyCondition 学習状況の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param languageVariants 学習対象言語の検索条件
+	 * @param listId 問題リストの検索条件
+	 * @param japaneseKeyword 日本語の検索キーワード
+	 * @param chineseKeyword 中国語の検索キーワード
+	 * @param pageable ページング情報
+	 * @return 条件に一致するユーザー用問題一覧
+	 */
 	@Query(value = """
 	        SELECT
 	            q.question_id         AS questionId,
@@ -270,17 +369,17 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            q.alternative_answer_zhuyin AS alternativeAnswerZhuyin
 	        FROM question q
 	        JOIN structure s
-	        ON q.structure_id = s.structure_id
+		        ON q.structure_id = s.structure_id
 	        LEFT JOIN study_history sh
-	        ON (
-	            q.question_id = sh.question_id
-	            AND sh.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = sh.question_id
+		            AND sh.user_id = :userId
+		        )
 	        LEFT JOIN favorite f
-	        ON (
-	            q.question_id = f.question_id
-	            AND f.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = f.question_id
+		            AND f.user_id = :userId
+		        )
 	        WHERE q.difficulty IN (:difficulties)
 	        AND (
 	            :studyCondition = 'ALL'
@@ -360,17 +459,17 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        SELECT COUNT(*)
 	        FROM question q
 	        JOIN structure s
-	        ON q.structure_id = s.structure_id
+		        ON q.structure_id = s.structure_id
 	        LEFT JOIN study_history sh
-	        ON (
-	            q.question_id = sh.question_id
-	            AND sh.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = sh.question_id
+		            AND sh.user_id = :userId
+		        )
 	        LEFT JOIN favorite f
-	        ON (
-	            q.question_id = f.question_id
-	            AND f.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = f.question_id
+		            AND f.user_id = :userId
+		        )
 	        WHERE q.difficulty IN (:difficulties)
 	        AND (
 	            :studyCondition = 'ALL'
@@ -447,28 +546,17 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        """,
 	        nativeQuery = true)
 	Page<UserQuestionListDto> findUserQuestionList(
-	        @Param("userId")
-	        long userId,
-	        @Param("difficulties")
-	        List<String> difficulties,
-	        @Param("evaluations")
-	        List<String> evaluations,
-	        @Param("studyCondition")
-	        String studyCondition,
-	        @Param("favoriteCondition")
-	        String favoriteCondition,
-	        @Param("sourceCondition")
-	        String sourceCondition,
-	        @Param("structureIds")
-	        List<Long> structureIds,
-	        @Param("languageVariants")
-	        List<String> languageVariants,
-	        @Param("listId")
-	        Long listId,
-	        @Param("japaneseKeyword")
-	        String japaneseKeyword,
-	        @Param("chineseKeyword")
-	        String chineseKeyword,
+	        @Param("userId") long userId,
+	        @Param("difficulties") List<String> difficulties,
+	        @Param("evaluations") List<String> evaluations,
+	        @Param("studyCondition") String studyCondition,
+	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("sourceCondition") String sourceCondition,
+	        @Param("structureIds") List<Long> structureIds,
+	        @Param("languageVariants") List<String> languageVariants,
+	        @Param("listId") Long listId,
+	        @Param("japaneseKeyword") String japaneseKeyword,
+	        @Param("chineseKeyword") String chineseKeyword,
 	        Pageable pageable
 	);
 
@@ -476,7 +564,19 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// Admin用問題一覧
 	// ==================================================
 
-	// 検索条件に一致するAdmin用問題一覧を取得
+	/**
+	 * 指定された検索条件に一致する管理者用問題一覧を取得する。
+	 *
+	 * @param difficulties 難易度の検索条件
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param languageVariants 学習対象言語の検索条件
+	 * @param japaneseKeyword 日本語の検索キーワード
+	 * @param chineseKeyword 中国語の検索キーワード
+	 * @param sortCondition 並び順
+	 * @param pageable ページング情報
+	 * @return 条件に一致する管理者用問題一覧
+	 */
 	@Query(
 	        value = """
 	        SELECT
@@ -488,32 +588,24 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            s.name             AS structureName,
 	            q.ai_generated     AS aiGenerated,
 	            u.login_id         AS ownerLoginId
-
 	        FROM question q
-
 	        JOIN structure s
 	            ON q.structure_id = s.structure_id
-
 	        LEFT JOIN users u
 	            ON q.owner_user_id = u.id
-
 	        WHERE q.difficulty IN (:difficulties)
-
 	        AND (
 	            :sourceCondition = 'ALL'
 	            OR (:sourceCondition = 'ORIGINAL_ONLY' AND q.ai_generated = false)
 	            OR (:sourceCondition = 'GENERATED_ONLY' AND q.ai_generated = true)
 	        )
-
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
-
 	        AND (
 	            :japaneseKeyword = ''
 	            OR LOWER(q.japanese_text)
 	                LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
 	        )
-
 	        AND (
 	            :chineseKeyword = ''
 	            OR LOWER(q.chinese_text)
@@ -521,7 +613,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            OR LOWER(q.alternative_answer)
 	                LIKE LOWER(CONCAT('%', :chineseKeyword, '%'))
 	        )
-
 	        ORDER BY
 	            CASE
 	                WHEN :sortCondition = 'UPDATED_DESC'
@@ -533,27 +624,22 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	            END ASC,
 	            q.question_id DESC
 	        """,
-
 	        countQuery = """
 	        SELECT COUNT(*)
 	        FROM question q
 	        WHERE q.difficulty IN (:difficulties)
-
 	        AND (
 	            :sourceCondition = 'ALL'
 	            OR (:sourceCondition = 'ORIGINAL_ONLY' AND q.ai_generated = false)
 	            OR (:sourceCondition = 'GENERATED_ONLY' AND q.ai_generated = true)
 	        )
-
 	        AND q.structure_id IN (:structureIds)
 	        AND q.language_variant IN (:languageVariants)
-
 	        AND (
 	            :japaneseKeyword = ''
 	            OR LOWER(q.japanese_text)
 	                LIKE LOWER(CONCAT('%', :japaneseKeyword, '%'))
 	        )
-
 	        AND (
 	            :chineseKeyword = ''
 	            OR LOWER(q.chinese_text)
@@ -564,7 +650,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        """,
 	        nativeQuery = true
 	)
-	Page<AdminQuestionListDto> findUserQuestionList(
+	Page<AdminQuestionListDto> findAdminQuestionList(
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("sourceCondition") String sourceCondition,
 	        @Param("structureIds") List<Long> structureIds,
@@ -580,20 +666,30 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// AI生成
 	// ==================================================
 	
-	// AI生成元として利用可能な問題数を取得
+	/**
+	 * AI生成元として利用可能な問題数を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param difficulties 難易度の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param languageVariant 学習対象言語
+	 * @return AI生成元として利用可能な問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT (*)
 	        FROM question q
 	        JOIN study_history sh
-	        ON (
-	            q.question_id = sh.question_id
-	            AND sh.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = sh.question_id
+		            AND sh.user_id = :userId
+		        )
 	        LEFT JOIN favorite f
-	        ON (
-	            q.question_id = f.question_id
-	            AND f.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = f.question_id
+		            AND f.user_id = :userId
+		        )
 	        WHERE q.difficulty IN (:difficulties)
 	        AND sh.evaluation IN (:evaluations)
 	        AND (
@@ -613,40 +709,38 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        """,
 	        nativeQuery = true)
 	Long countAiGenerationSourceQuestions(
-
-	        @Param("userId")
-	        long userId,
-
-	        @Param("difficulties")
-	        List<String> difficulties,
-
-	        @Param("evaluations")
-	        List<String> evaluations,
-
-	        @Param("favoriteCondition")
-	        String favoriteCondition,
-
-	        @Param("structureIds")
-	        List<Long> structureIds,
-
-	        @Param("languageVariant")
-	        String languageVariant
+	        @Param("userId") long userId,
+	        @Param("difficulties") List<String> difficulties,
+	        @Param("evaluations") List<String> evaluations,
+	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("structureIds") List<Long> structureIds,
+	        @Param("languageVariant") String languageVariant
 	);
 	
-	// AI生成元として利用可能な問題をランダムに最大50件取得
+	/**
+	 * AI生成元として利用可能な問題をランダムに最大50件取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param difficulties 難易度の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param languageVariant 学習対象言語
+	 * @return AI生成元として利用可能な問題の一覧
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM question q
 	        JOIN study_history sh
-	        ON (
-	            q.question_id = sh.question_id
-	            AND sh.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = sh.question_id
+		            AND sh.user_id = :userId
+		        )
 	        LEFT JOIN favorite f
-	        ON (
-	            q.question_id = f.question_id
-	            AND f.user_id = :userId
-	        )
+		        ON (
+		            q.question_id = f.question_id
+		            AND f.user_id = :userId
+		        )
 	        WHERE q.difficulty IN (:difficulties)
 	        AND sh.evaluation IN (:evaluations)
 	        AND (
@@ -668,34 +762,29 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        """,
 	        nativeQuery = true)
 	List<Question> findAiGenerationSourceQuestions(
-
-	        @Param("userId")
-	        long userId,
-
-	        @Param("difficulties")
-	        List<String> difficulties,
-
-	        @Param("evaluations")
-	        List<String> evaluations,
-
-	        @Param("favoriteCondition")
-	        String favoriteCondition,
-
-	        @Param("structureIds")
-	        List<Long> structureIds,
-
-	        @Param("languageVariant")
-	        String languageVariant
+	        @Param("userId") long userId,
+	        @Param("difficulties") List<String> difficulties,
+	        @Param("evaluations") List<String> evaluations,
+	        @Param("favoriteCondition") String favoriteCondition,
+	        @Param("structureIds") List<Long> structureIds,
+	        @Param("languageVariant") String languageVariant
 	);
 
-	// 指定したリストのAI生成元として利用可能な問題数を取得
+	/**
+	 * 指定した問題リストのAI生成元として利用可能な問題数を取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param listId 問題リストID
+	 * @param languageVariant 学習対象言語
+	 * @return AI生成元として利用可能な問題数
+	 */
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM question q
 	        JOIN question_list_item qli
-	          ON q.question_id = qli.question_id
+		        ON q.question_id = qli.question_id
 	        JOIN question_list ql
-	          ON qli.list_id = ql.list_id
+				ON qli.list_id = ql.list_id
 	        WHERE qli.list_id = :listId
 	          AND ql.user_id = :userId
 	          AND q.language_variant = :languageVariant
@@ -707,14 +796,21 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("languageVariant") String languageVariant
 	);
 
-	// 指定したリストからAI生成元として利用可能な問題を全件取得
+	/**
+	 * 指定した問題リストからAI生成元として利用可能な問題をすべて取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param listId 問題リストID
+	 * @param languageVariant 学習対象言語
+	 * @return AI生成元として利用可能な問題の一覧
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM question q
 	        JOIN question_list_item qli
-	          ON q.question_id = qli.question_id
+		          ON q.question_id = qli.question_id
 	        JOIN question_list ql
-	          ON qli.list_id = ql.list_id
+		          ON qli.list_id = ql.list_id
 	        WHERE qli.list_id = :listId
 	          AND ql.user_id = :userId
 	          AND q.language_variant = :languageVariant
@@ -727,14 +823,21 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	        @Param("languageVariant") String languageVariant
 	);
 
-	// 指定したリストからAI生成元として利用可能な問題をランダムに最大50件取得
+	/**
+	 * 指定した問題リストからAI生成元として利用可能な問題をランダムに最大50件取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param listId 問題リストID
+	 * @param languageVariant 学習対象言語
+	 * @return AI生成元として利用可能な問題の一覧
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM question q
 	        JOIN question_list_item qli
-	          ON q.question_id = qli.question_id
+		          ON q.question_id = qli.question_id
 	        JOIN question_list ql
-	          ON qli.list_id = ql.list_id
+		          ON qli.list_id = ql.list_id
 	        WHERE qli.list_id = :listId
 	          AND ql.user_id = :userId
 	          AND q.language_variant = :languageVariant
@@ -753,7 +856,11 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	// 更新・削除
 	// ==================================================
 
-	// 指定したユーザーが所有するAI生成由来の問題をすべて削除
+	/**
+	 * 指定したユーザーが所有するAI生成由来の問題をすべて削除する。
+	 *
+	 * @param userId ユーザーID
+	 */
 	@Modifying
 	@Query(value = """
 	        DELETE FROM question
@@ -763,7 +870,12 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 	void deleteByOwnerId(
 	        @Param("userId") Long userId);
 
-	// 指定した構文を使用する問題の構文を別の構文へ一括置換
+	/**
+	 * 指定した文法・構造を使用する問題を別の文法・構造へ一括変更する。
+	 *
+	 * @param targetStructure 変更対象の文法・構造
+	 * @param replacementStructure 変更後の文法・構造
+	 */
 	@Modifying
 	@Query("""
 	        UPDATE Question q

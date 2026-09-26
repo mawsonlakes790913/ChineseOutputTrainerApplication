@@ -9,6 +9,12 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 @Configuration
 public class OpenAiConfig {
 
+    /**
+     * OpenAI APIとの通信に使用するClientを生成する。
+     * 接続に必要な設定は環境変数から取得する。
+     *
+     * @return OpenAI API用のClient
+     */
     @Bean
     OpenAIClient openAIClient() {
 

@@ -8,6 +8,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+/**
+ * ユーザー新規登録画面の入力内容を保持するフォームクラス。
+ */
 @Data
 @PasswordMatch(
     passwordFieldName = "password",

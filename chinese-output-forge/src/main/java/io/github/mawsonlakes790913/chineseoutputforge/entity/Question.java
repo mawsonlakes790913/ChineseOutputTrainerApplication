@@ -22,6 +22,9 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * 中国語学習で使用する問題情報を保持するエンティティ。
+ */
 @Getter
 @Setter
 @Entity
@@ -90,5 +93,4 @@ public class Question {
     @ManyToOne
     @JoinColumn(name = "owner_user_id")
     private Users owner;
-
 }

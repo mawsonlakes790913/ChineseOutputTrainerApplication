@@ -5,6 +5,9 @@ import java.util.List;
 import io.github.mawsonlakes790913.chineseoutputforge.value.Range;
 import lombok.Data;
 
+/**
+ * 通常学習メニューで使用する難易度別の問題数と出題範囲を保持するDTO。
+ */
 @Data
 public class PracticeMenuDto {
 	
@@ -14,5 +17,4 @@ public class PracticeMenuDto {
     private List<Range> intermediateRanges;
     private long advancedCount;
     private List<Range> advancedRanges;
-    
 }

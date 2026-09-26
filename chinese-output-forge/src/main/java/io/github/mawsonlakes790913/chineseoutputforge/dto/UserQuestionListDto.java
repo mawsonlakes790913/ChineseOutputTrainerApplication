@@ -3,36 +3,24 @@ package io.github.mawsonlakes790913.chineseoutputforge.dto;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
 
+/**
+ * ユーザー用問題一覧に表示する問題情報を保持するProjection DTO。
+ */
 public interface UserQuestionListDto {
 
     Long getQuestionId();
-
     String getJapaneseText();
-
     String getChineseText();
-
     String getAlternativeAnswer();
-
     String getStructureName();
-    
     String getStructureDescriptionZhCn();
-
     String getStructureDescriptionZhTw();
-
     Difficulty getDifficulty();
-
     Evaluation getEvaluation();
-
     boolean isFavorite();
-    
-    boolean isAiGenerated();
-    
+    boolean isAiGenerated();    
     String getPinyin();
-
     String getZhuyin();
-
     String getAlternativeAnswerPinyin();
-
     String getAlternativeAnswerZhuyin();
-
 }

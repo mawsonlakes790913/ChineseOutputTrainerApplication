@@ -4,6 +4,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+/**
+ * パスワード再設定用メールアドレスの入力内容を保持するフォームクラス。
+ */
 @Data
 public class ForgotPasswordForm {
 

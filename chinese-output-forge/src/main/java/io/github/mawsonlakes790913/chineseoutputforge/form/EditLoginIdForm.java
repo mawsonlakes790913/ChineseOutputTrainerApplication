@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+/**
+ * ユーザーID変更画面の入力内容を保持するフォームクラス。
+ */
 @Data
 public class EditLoginIdForm {
     @NotBlank(message = "{signup.loginId.notBlank}")

@@ -8,6 +8,9 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * ユーザーと問題のお気に入り関係を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "favorite")
@@ -25,5 +28,4 @@ public class Favorite {
     @MapsId("questionId")
     @JoinColumn(name = "question_id")
     private Question question;
-
 }

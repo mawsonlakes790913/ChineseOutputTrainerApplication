@@ -19,6 +19,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.dto.AiPronunciationRequest
 import io.github.mawsonlakes790913.chineseoutputforge.dto.AiPronunciationResponseDto;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * AIを使用した中国語の発音表記生成に関する業務処理を行うService。
+ * 中国語文から拼音・注音の発音表記を生成する。
+ */
 @Service
 @RequiredArgsConstructor
 public class AiPronunciationService {
@@ -27,88 +31,98 @@ public class AiPronunciationService {
 	private final ObjectMapper objectMapper;
 	private final Client geminiClient;
 
-	public AiPronunciationResponseDto generatePronunciation(AiPronunciationRequestDto request) {
-		
-	    // 言語別ルールを取得
+	/**
+	 * 指定された中国語文の発音表記をAIで生成する。
+	 * 学習対象言語に対応するプロンプトとリクエスト情報からAIへの入力を作成し、
+	 * 拼音・注音の発音表記を取得する。
+	 *
+	 * @param request 発音表記生成に使用するリクエスト情報
+	 * @return AIによって生成された発音表記
+	 */
+	public AiPronunciationResponseDto generatePronunciation(
+	        AiPronunciationRequestDto request) {
+
+	    // 学習対象言語に対応する発音表記生成用プロンプトを取得
 	    String pronunciationPrompt =
 	            aiPromptService.getPronunciationPrompt(request.getLanguageVariant());
-	    
-	    // DTOをJSON形式に変換
+
+	    // リクエストDTOをJSON形式に変換
 	    String requestJson;
 	    try {
-
-	    	requestJson =
+	        requestJson =
 	                objectMapper.writeValueAsString(
-	                		request);
+	                        request);
 
 	    } catch (JsonProcessingException e) {
-
-	        throw new IllegalStateException(
-	                "発音情報生成リクエストのJSON変換に失敗しました。",
-	                e);
+	        // JSON変換に失敗した場合は例外をスロー
+	        throw new IllegalStateException("発音情報生成リクエストのJSON変換に失敗しました。", e);
 	    }
-	    
+
 	    // AIへ送信する入力を作成
 	    String input =
-	    		pronunciationPrompt
+	            pronunciationPrompt
 	            + "\n\n"
 	            + "## 中国語及び別解\n"
 	            + requestJson;
-	    
+
+	    // Geminiで発音表記を生成
 	    return generatePronunciationWithGemini(input);
 	}
 	
+	/**
+	 * Gemini APIを使用して発音表記を生成する。
+	 *
+	 * @param input AIへ送信する入力
+	 * @return AIによって生成された発音表記
+	 */
 	private AiPronunciationResponseDto generatePronunciationWithGemini(String input) {
-		
-	    Schema responseSchema =
-	            createGeminiResponseSchema();
 
-		// Thinking LevelをLOWに設定
-		ThinkingConfig thinkingConfig =
-		        ThinkingConfig.builder()
-		                .thinkingLevel(ThinkingLevel.Known.LOW)
-		                .build();
+	    // Geminiのレスポンス形式を定義するSchemaを作成
+	    Schema responseSchema = createGeminiResponseSchema();
 
-		// APIリクエストを作成(Gemini)
-		GenerateContentConfig config =
-		        GenerateContentConfig.builder()
-		                .responseMimeType("application/json")
-		                .responseSchema(responseSchema)
-		                .thinkingConfig(thinkingConfig)
-		                .build();
+	    // Thinking LevelをLOWに設定
+	    ThinkingConfig thinkingConfig =
+	            ThinkingConfig.builder()
+	                    .thinkingLevel(ThinkingLevel.Known.LOW)
+	                    .build();
 
-		// APIへリクエストを送信
-		GenerateContentResponse response =
-		        geminiClient.models.generateContent(
-		                "gemini-3.7-flash",
-		                input,
-		                config);
+	    // GeminiへのAPIリクエスト設定を作成
+	    GenerateContentConfig config =
+	            GenerateContentConfig.builder()
+	                    .responseMimeType("application/json")
+	                    .responseSchema(responseSchema)
+	                    .thinkingConfig(thinkingConfig)
+	                    .build();
+
+	    // APIへリクエストを送信
+	    GenerateContentResponse response = geminiClient.models.generateContent(
+	                    "gemini-3.7-flash",
+	                    input,
+	                    config);
 
 	    // AIが生成したJSONを取得
-	    String responseJson =
-	            response.text();
-	    
-	    // JSONをDTOへ変換
-	    AiPronunciationResponseDto aiPronunciationResponseDto;
-	    
-	    try {
+	    String responseJson = response.text();
 
-	    	aiPronunciationResponseDto =
-	                objectMapper.readValue(
+	    // 生成されたJSONを発音表記DTOへ変換
+	    AiPronunciationResponseDto aiPronunciationResponseDto;
+	    try {
+	        aiPronunciationResponseDto = objectMapper.readValue(
 	                        responseJson,
 	                        AiPronunciationResponseDto.class);
 
 	    } catch (JsonProcessingException e) {
-
-	    	throw new IllegalStateException(
-	    	        "発音情報の生成結果を取得できませんでした。",
-	    	        e);
+	        // JSONからDTOへの変換に失敗した場合は例外をスロー
+	        throw new IllegalStateException("発音情報の生成結果を取得できませんでした。", e);
 	    }
 
 	    return aiPronunciationResponseDto;
-	    
 	}
 	
+	/**
+	 * Geminiから受け取る発音表記のJSON Schemaを作成する。
+	 *
+	 * @return 発音表記生成結果のレスポンスSchema
+	 */
 	private Schema createGeminiResponseSchema() {
 
 	    return Schema.builder()

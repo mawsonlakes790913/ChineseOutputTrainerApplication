@@ -8,6 +8,11 @@ import com.google.genai.Client;
 @Configuration
 public class GeminiConfig {
 
+    /**
+     * Gemini APIとの通信に使用するClientを生成する。
+     *
+     * @return Gemini API用のClient
+     */
     @Bean
     Client geminiClient() {
         return new Client();

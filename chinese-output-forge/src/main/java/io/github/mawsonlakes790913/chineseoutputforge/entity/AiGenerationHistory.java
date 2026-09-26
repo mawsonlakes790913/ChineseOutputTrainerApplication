@@ -12,6 +12,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * AI問題生成時の生成履歴を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "ai_generation_history")

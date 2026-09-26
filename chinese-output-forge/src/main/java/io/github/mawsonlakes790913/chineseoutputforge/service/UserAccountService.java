@@ -22,7 +22,11 @@ import io.github.mawsonlakes790913.chineseoutputforge.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
+/**
+ * ユーザーアカウント管理に関する業務処理を行うService。
+ * ユーザー情報の取得、ログインID・メールアドレス・パスワード・学習設定の変更、
+ * 退会および管理者によるユーザー削除を行う。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,6 +40,12 @@ public class UserAccountService {
 	private final AiGenerationHistoryRepository aiGenerationHistoryRepository;
 	private final QuestionRepository questionRepository;
 	
+	/**
+	 * ログインIDからユーザーを取得する。
+	 *
+	 * @param loginId ログインID
+	 * @return ユーザー。存在しない場合はnull
+	 */
 	public Users getUserOne(String loginId) {
 
 	    log.debug("ユーザー検索 userId={}", loginId);
@@ -44,6 +54,14 @@ public class UserAccountService {
 	            .orElse(null);
 	}
 	
+	/**
+	 * ユーザーのログインIDを変更する。
+	 * 現在のログインIDとの一致および他のユーザーとの重複を確認した上で更新する。
+	 *
+	 * @param currentLoginId 現在のログインID
+	 * @param newLoginId 新しいログインID
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updateLoginId(
 	        String currentLoginId,
@@ -83,7 +101,7 @@ public class UserAccountService {
 	    // ログインIDを変更
 	    user.setLoginId(newLoginId);
 
-	    // 更新
+	    // ユーザー情報を更新
 	    userRepository.save(user);
 
 	    log.info(
@@ -93,6 +111,15 @@ public class UserAccountService {
 	            newLoginId);
 	}
     
+	/**
+	 * ユーザーのパスワードを変更する。
+	 * 現在のパスワードを確認し、新しいパスワードをハッシュ化して更新する。
+	 *
+	 * @param loginId ログインID
+	 * @param currentPassword 現在のパスワード
+	 * @param newPassword 新しいパスワード
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updatePassword(String loginId, String currentPassword, String newPassword, Locale locale) {
 		
@@ -132,7 +159,7 @@ public class UserAccountService {
 	    // パスワードをハッシュ化して更新
 	    user.setPassword(passwordEncoder.encode(newPassword));
 
-	    // 更新
+	    // ユーザー情報を更新
 	    userRepository.save(user);
 
 	    log.info(
@@ -142,6 +169,14 @@ public class UserAccountService {
 
 	}
 	
+	/**
+	 * ユーザーのメールアドレスを変更する。
+	 * 現在のメールアドレスとの一致および他のユーザーとの重複を確認した上で更新する。
+	 *
+	 * @param loginId ログインID
+	 * @param newEmail 新しいメールアドレス
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updateEmail(
 	        String loginId,
@@ -184,7 +219,7 @@ public class UserAccountService {
 	    // メールアドレスを変更
 	    user.setEmail(newEmail);
 
-	    // 更新
+	    // ユーザー情報を更新
 	    userRepository.save(user);
 
 	    log.info(
@@ -194,6 +229,13 @@ public class UserAccountService {
 	            newEmail);
 	}
 	
+	/**
+	 * ログイン中のユーザーの退会処理を行う。
+	 * ユーザーに関連するデータを削除した後、ユーザー情報を削除する。
+	 *
+	 * @param loginId ログインID
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void cancelMembership(String loginId, Locale locale) {
 
@@ -203,7 +245,7 @@ public class UserAccountService {
         		"user.delete.error.notFound",
                 locale);
 	    
-        // ログ用にidとログインidを取得
+        // ログ出力用にユーザーIDとログインIDを保持
         Long userId = user.getId();
         String deletedLoginId = user.getLoginId();
 
@@ -215,62 +257,79 @@ public class UserAccountService {
                 deletedLoginId);
 	}
 
-
+	/**
+	 * 管理者操作によって指定したユーザーを削除する。
+	 * 管理者ユーザーは削除対象外とし、ユーザーに関連するデータも削除する。
+	 *
+	 * @param userId 削除するユーザーID
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void deleteUser(Long userId, Locale locale) {
 
+	    // 削除対象のユーザーを取得
 	    Users user = userRepository.findById(userId)
 	            .orElseThrow(() ->
 	                    new IllegalArgumentException(
 	                            messageSource.getMessage(
 	                                    "user.delete.error.notFound",
 	                                    null,
-	                                    locale
-	                            )
-	                    )
-	            );
+	                                    locale)));
 
+	    // 管理者ユーザーは削除不可
 	    if (user.getRole() == Role.ADMIN) {
 	        throw new IllegalStateException(
 	                messageSource.getMessage(
 	                        "admin.user.delete.error.admin",
 	                        null,
-	                        locale
-	                )
-	        );
+	                        locale));
 	    }
 
+	    // ログ出力用に削除対象のログインIDを保持
 	    String deletedLoginId = user.getLoginId();
 
+	    // ユーザーに紐づくデータを削除
 	    deleteUserData(user);
 
+	    // ユーザー削除完了をログに記録
 	    log.info(
 	            "ユーザー削除完了 userId={}, loginId={}",
 	            userId,
 	            deletedLoginId);
 	}
 
-
+	/**
+	 * ユーザーに関連するデータとユーザー情報を削除する。
+	 *
+	 * @param user 削除対象のユーザー
+	 */
 	private void deleteUserData(Users user) {
 
 	    Long userId = user.getId();
 
-	    // ① ユーザーのお気に入りを削除
+	    // ユーザーのお気に入りを削除
 	    favoriteRepository.deleteByUserId(userId);
 
-	    // ② ユーザーのAI生成履歴を削除
+	    // ユーザーのAI生成履歴を削除
 	    aiGenerationHistoryRepository.deleteByUserId(userId);
 
-	    // ③ ユーザーの学習履歴を削除
+	    // ユーザーの学習履歴を削除
 	    studyHistoryRepository.deleteByUserId(userId);
 
-	    // ④ ユーザー所有のAI生成由来問題を削除
+	    // ユーザー所有のAI生成由来問題を削除
 	    questionRepository.deleteByOwnerId(userId);
 
-	    // ⑤ ユーザーを削除
+	    // ユーザーを削除
 	    userRepository.delete(user);
 	}
 	
+	/**
+	 * ユーザーの学習対象言語を変更する。
+	 *
+	 * @param loginId ログインID
+	 * @param languageVariant 新しい学習対象言語
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updateLanguageVariant(
 	        String loginId,
@@ -283,8 +342,8 @@ public class UserAccountService {
         		"user.settings.error.notFound",
                 locale);
 
+        // 学習対象言語を更新
 	    user.setLanguageVariant(languageVariant);
-
 	    userRepository.save(user);
 
 	    log.debug(
@@ -293,6 +352,13 @@ public class UserAccountService {
 	            languageVariant);
 	}
 	
+	/**
+	 * ユーザーの発音表記設定を変更する。
+	 *
+	 * @param loginId ログインID
+	 * @param pronunciationType 新しい発音表記
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updatePronunciationType(
 	        String loginId,
@@ -305,8 +371,8 @@ public class UserAccountService {
         		"user.settings.error.notFound",
                 locale);
 
+        // 発音表記設定を更新
 	    user.setPronunciationType(pronunciationType);
-
 	    userRepository.save(user);
 
 	    log.debug(
@@ -315,13 +381,23 @@ public class UserAccountService {
 	            pronunciationType);
 	}
 	
+	/**
+	 * ログインIDからユーザーを取得し、存在しない場合は例外を発生させる。
+	 *
+	 * @param loginId ログインID
+	 * @param messageCode ユーザーが存在しない場合のメッセージコード
+	 * @param locale 現在の言語・地域情報
+	 * @return ユーザー
+	 */
 	private Users getUserOrThrow(
 	        String loginId,
 	        String messageCode,
 	        Locale locale) {
 
+	    // ログインIDからユーザーを取得
 	    Users user = getUserOne(loginId);
 
+	    // ユーザーが存在しない場合は例外をスロー
 	    if (user == null) {
 	        throw new IllegalArgumentException(
 	                messageSource.getMessage(

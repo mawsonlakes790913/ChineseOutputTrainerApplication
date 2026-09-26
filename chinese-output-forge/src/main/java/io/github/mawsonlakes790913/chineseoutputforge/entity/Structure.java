@@ -9,6 +9,9 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * 中国語学習問題で使用する構文情報を保持するエンティティ。
+ */
 @Entity
 @Table(name = "structure")
 @Getter
@@ -28,5 +31,4 @@ public class Structure {
 
     @Column(name = "description_zh_tw", nullable = false)
     private String descriptionZhTw;
-
 }

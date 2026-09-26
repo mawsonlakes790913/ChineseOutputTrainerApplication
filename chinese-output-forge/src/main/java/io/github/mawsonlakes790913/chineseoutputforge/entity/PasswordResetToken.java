@@ -13,6 +13,9 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * パスワード再設定に使用するトークン情報を保持するエンティティ。
+ */
 @Entity
 @Table(name = "password_reset_token")
 @Getter

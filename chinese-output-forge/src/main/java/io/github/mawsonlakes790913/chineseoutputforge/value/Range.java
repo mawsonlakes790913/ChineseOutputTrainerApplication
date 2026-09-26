@@ -1,5 +1,8 @@
 package io.github.mawsonlakes790913.chineseoutputforge.value;
 
+/**
+ * 問題の出題範囲を表すValueクラス。
+ */
 public class Range {
 
     private long start;

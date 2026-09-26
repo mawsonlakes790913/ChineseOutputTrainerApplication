@@ -12,18 +12,39 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Question;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistory;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.StudyHistoryKey;
 
+/**
+ * ユーザーの問題ごとの学習履歴情報のDB操作を行うRepository。
+ */
 public interface StudyHistoryRepository extends JpaRepository<StudyHistory, StudyHistoryKey> {
 	
-	// 指定した学習履歴情報を取得
-	Optional<StudyHistory> findByStudyHistoryKey(
-	        StudyHistoryKey studyHistoryKey);
+    /**
+     * 指定した学習履歴情報を取得する。
+     *
+     * @param studyHistoryKey 学習履歴情報の複合主キー
+     * @return 学習履歴情報
+     */
+	Optional<StudyHistory> findByStudyHistoryKey(StudyHistoryKey studyHistoryKey);
 
-	// 指定した問題の学習履歴をすべて削除
-	void deleteByStudyHistoryKeyQuestionId(
-	        Long questionId);
+    /**
+     * 指定した問題の学習履歴をすべて削除する。
+     *
+     * @param questionId 問題ID
+     */
+	void deleteByStudyHistoryKeyQuestionId(Long questionId);
 
 
-	// 復習条件に一致する問題数を取得
+    /**
+     * 指定した復習条件に一致する問題数を取得する。
+     *
+     * @param userId ユーザーID
+     * @param languageVariants 学習対象言語の検索条件
+     * @param evaluations 理解度の検索条件
+     * @param difficulties 難易度の検索条件
+     * @param favoriteCondition お気に入りの検索条件
+     * @param sourceCondition 問題の生成元の検索条件
+     * @param structureIds 文法・構造の検索条件
+     * @return 復習条件に一致する問題数
+     */
 	@Query(value = """
 	        SELECT COUNT(*)
 	        FROM study_history sh
@@ -80,7 +101,18 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("structureIds") List<Long> structureIds
 	);
 
-	// 復習条件に一致する問題をランダムに最大50件取得
+    /**
+     * 指定した復習条件に一致する問題をランダムに最大50件取得する。
+     *
+     * @param userId ユーザーID
+     * @param languageVariants 学習対象言語の検索条件
+     * @param evaluations 理解度の検索条件
+     * @param difficulties 難易度の検索条件
+     * @param favoriteCondition お気に入りの検索条件
+     * @param sourceCondition 問題の生成元の検索条件
+     * @param structureIds 文法・構造の検索条件
+     * @return 復習条件に一致する問題の一覧
+     */
 	@Query(value = """
 	        SELECT q.*
 	        FROM study_history sh
@@ -139,7 +171,18 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("structureIds") List<Long> structureIds
 	);
 	
-	// 復習条件に一致する問題をすべて取得
+    /**
+     * 指定した復習条件に一致する問題をすべて取得する。
+     *
+     * @param userId ユーザーID
+     * @param languageVariants 学習対象言語の検索条件
+     * @param evaluations 理解度の検索条件
+     * @param difficulties 難易度の検索条件
+     * @param favoriteCondition お気に入りの検索条件
+     * @param sourceCondition 問題の生成元の検索条件
+     * @param structureIds 文法・構造の検索条件
+     * @return 復習条件に一致するすべての問題
+     */
 	@Query(value = """
 	        SELECT q.*
 	        FROM study_history sh
@@ -196,14 +239,16 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("structureIds") List<Long> structureIds
 	);
 
-	// 指定したユーザーの学習履歴をすべて削除
+    /**
+     * 指定したユーザーの学習履歴をすべて削除する。
+     *
+     * @param userId ユーザーID
+     */
 	@Modifying
 	@Query(value = """
 	        DELETE FROM study_history
 	        WHERE user_id = :userId
 	        """, nativeQuery = true)
-	void deleteByUserId(
-	        @Param("userId") Long userId);
+	void deleteByUserId(@Param("userId") Long userId);
 
-	
 }	

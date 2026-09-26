@@ -4,6 +4,9 @@ import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import lombok.Data;
 
+/**
+ * 管理者用問題編集画面で使用する変更前の問題情報を保持するDTO。
+ */
 @Data
 public class OriginalQuestionDTO {
 
@@ -22,5 +25,4 @@ public class OriginalQuestionDTO {
     private String template;
     private boolean aiGenerated;
     private String ownerLoginId;
-    
 }

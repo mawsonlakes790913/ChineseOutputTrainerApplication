@@ -31,6 +31,15 @@ public class SecurityConfig {
 	private final LoginSuccessHandler loginSuccessHandler;
 	private final CustomAccessDeniedHandler customAccessDeniedHandler;
 	
+	/**
+	 * Spring Securityのセキュリティ設定を構築する。
+	 * アクセス制御、ログイン・ログアウト、Remember Me、
+	 * アクセス拒否時の処理を設定する。
+	 *
+	 * @param http セキュリティ設定を構築するHttpSecurity
+	 * @return 構築したSecurityFilterChain
+	 * @throws Exception セキュリティ設定の構築に失敗した場合
+	 */
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 	    
@@ -112,6 +121,7 @@ public class SecurityConfig {
 			    })
 	        )
 	        
+	        // Remember Meの設定
 	        .rememberMe(remember -> remember
 	        	    .rememberMeParameter("remember-me")
 	        	    .tokenValiditySeconds(3600)
@@ -120,9 +130,6 @@ public class SecurityConfig {
 	        .exceptionHandling(exception -> exception
 	            .accessDeniedHandler(customAccessDeniedHandler)
 	        );
-	    
-//	    // CSRFを無効化
-//	    http.csrf(csrf -> csrf.disable());
 	    
 	    return http.build();
 	}

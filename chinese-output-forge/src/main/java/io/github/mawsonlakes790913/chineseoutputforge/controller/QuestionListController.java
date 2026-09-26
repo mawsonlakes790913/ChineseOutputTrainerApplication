@@ -24,6 +24,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListServic
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * ユーザーの問題リスト管理に関するリクエストを処理するController。
+ * 問題リストの一覧表示・作成・編集・削除・詳細表示・問題の登録状態取得を行う。
+ */
 @Controller
 @RequiredArgsConstructor
 public class QuestionListController {
@@ -33,27 +37,41 @@ public class QuestionListController {
 	private final QuestionListItemService questionListItemService;
 	private final MessageSource messageSource;
 	
-	// ユーザーの問題リスト一覧を表示
+	/**
+	 * ログインユーザーが所有する問題リストの一覧を表示する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param model 画面に渡すデータ
+	 * @return 問題リスト一覧画面のビュー名
+	 */
 	@GetMapping("/user/question-list/list")
 	public String getUserQuestionListList(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        Model model) {
 
 	    // ログインユーザーを取得
-	    Users user =
-	            userAccountService.getUserOne(loginUser.getUsername());
+	    Users user = getLoginUser(loginUser);
 
-	    // ユーザーが所有するリストをすべて取得
+	    // ユーザーが所有する問題リストを取得
 	    List<QuestionList> questionLists =
 	            questionListService.getQuestionLists(user);
 
-	    // リスト一覧を画面に渡す
+	    // 問題リスト一覧を画面へ渡す
 	    model.addAttribute("questionLists", questionLists);
 
 	    return "/user/question-list/list";
 	}
 	
-	// リストを新規作成する
+	/**
+	 * ログインユーザーの問題リストを新規作成する。
+	 * 作成できない場合はエラーメッセージを設定して一覧画面へ戻る。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param listName 作成するリスト名
+	 * @param redirectAttributes リダイレクト後に渡すFlash属性
+	 * @param locale 現在の言語・地域情報
+	 * @return 問題リスト一覧画面へのリダイレクト先
+	 */
 	@PostMapping("/user/question-list/create")
 	public String postUserQuestionListCreate(
 	        @AuthenticationPrincipal UserDetails loginUser,
@@ -64,9 +82,8 @@ public class QuestionListController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
+	    // 新しい問題リストを作成
 	    try {
-
-	        // 新しいリストを作成
 	        questionListService.createQuestionList(
 	                user,
 	                listName,
@@ -79,20 +96,23 @@ public class QuestionListController {
 	                        "questionList.success.create",
 	                        null,
 	                        locale));
-
 	    } catch (IllegalArgumentException e) {
-
-	        // エラーメッセージを設定
+	        // 作成エラーメッセージを設定
 	        redirectAttributes.addFlashAttribute(
 	                "errorMessage",
 	                e.getMessage());
 	    }
 
-	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
 	}
 	
-	// question画面のモーダルからリストを新規作成
+	/**
+	 * 問題画面のモーダルからログインユーザーの問題リストを新規作成する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param listName 作成するリスト名
+	 * @param locale 現在の言語・地域情報
+	 */
 	@PostMapping("/user/question-list/create-modal")
 	@ResponseBody
 	public void postUserQuestionListCreateModal(
@@ -103,14 +123,21 @@ public class QuestionListController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
-	    // リストを新規作成
+	    // 新しい問題リストを作成
 	    questionListService.createQuestionList(
 	            user,
 	            listName,
 	            locale);
 	}
 	
-	// リストの詳細を取得
+	/**
+	 * 指定された問題リストに登録されている問題を取得する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param listId 対象リストのID
+	 * @param locale 現在の言語・地域情報
+	 * @return リストに登録されている問題の一覧
+	 */
 	@GetMapping("/user/question-list/detail")
 	@ResponseBody
 	public List<QuestionListItemDto> getUserQuestionListDetail(
@@ -121,18 +148,27 @@ public class QuestionListController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
-	    // 指定したリストに登録されている問題をすべて取得
+	    // 指定した問題リストに登録されている問題を取得
 	    List<QuestionListItemDto> listItems =
 	            questionListItemService.getQuestionListItems(
 	                    user,
 	                    listId,
 	                    locale);
 
-	    // リストの問題一覧をJSON形式で返す
+	    // 問題リストの問題一覧を返す
 	    return listItems;
 	}
 	
-	// リストを削除
+	/**
+	 * 指定された問題リストを削除する。
+	 * 削除できない場合はエラーメッセージを設定して一覧画面へ戻る。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param listId 削除するリストのID
+	 * @param redirectAttributes リダイレクト後に渡すFlash属性
+	 * @param locale 現在の言語・地域情報
+	 * @return 問題リスト一覧画面へのリダイレクト先
+	 */
 	@PostMapping("/user/question-list/delete")
 	public String postUserQuestionListDelete(
 	        @AuthenticationPrincipal UserDetails loginUser,
@@ -143,9 +179,8 @@ public class QuestionListController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
+	    // 指定した問題リストを削除
 	    try {
-
-	        // 指定したリストを削除
 	        questionListService.deleteQuestionList(
 	                user,
 	                listId,
@@ -158,20 +193,27 @@ public class QuestionListController {
 	                        "questionList.success.delete",
 	                        null,
 	                        locale));
-
 	    } catch (IllegalArgumentException e) {
-
-	        // エラーメッセージを設定
+	        // 削除エラーメッセージを設定
 	        redirectAttributes.addFlashAttribute(
 	                "errorMessage",
 	                e.getMessage());
 	    }
 
-	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
 	}
 	
-	// リスト名を変更
+	/**
+	 * 指定された問題リストの名前を変更する。
+	 * 変更できない場合はエラーメッセージを設定して一覧画面へ戻る。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param listId 変更するリストのID
+	 * @param listName 変更後のリスト名
+	 * @param redirectAttributes リダイレクト後に渡すFlash属性
+	 * @param locale 現在の言語・地域情報
+	 * @return 問題リスト一覧画面へのリダイレクト先
+	 */
 	@PostMapping("/user/question-list/edit")
 	public String postUserQuestionListEdit(
 	        @AuthenticationPrincipal UserDetails loginUser,
@@ -183,51 +225,60 @@ public class QuestionListController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
+	    // 指定した問題リストの名前を変更
 	    try {
-
-	        // 指定したリストの名前を変更
 	        questionListService.editQuestionList(
 	                user,
 	                listId,
 	                listName,
 	                locale);
 
-	        // 変更完了メッセージを設定
+	        // 名前変更完了メッセージを設定
 	        redirectAttributes.addFlashAttribute(
 	                "successMessage",
 	                messageSource.getMessage(
 	                        "questionList.success.edit",
 	                        null,
 	                        locale));
-
 	    } catch (IllegalArgumentException e) {
-
-	        // エラーメッセージを設定
+	        // 名前変更エラーメッセージを設定
 	        redirectAttributes.addFlashAttribute(
 	                "errorMessage",
 	                e.getMessage());
 	    }
 
-	    // リスト一覧画面へ戻る
 	    return "redirect:/user/question-list/list";
 	}
 	
-	// ユーザーが所有するリストと指定した問題の登録状態を取得
+	/**
+	 * ログインユーザーが所有する問題リストと、
+	 * 指定された問題が各リストに登録されているかどうかを取得する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param questionId 登録状態を確認する問題のID
+	 * @return 各問題リストと指定された問題の登録状態
+	 */
 	@GetMapping("/user/question-list/selection")
 	@ResponseBody
 	public List<QuestionListSelectionDto> getQuestionListSelection(
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam Long questionId
-			) {
-		
+	        @RequestParam Long questionId) {
+
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
-		
-	    // ユーザーが所有するリストと指定した問題の登録状態を取得
-		return questionListService.getQuestionListSelection(user, questionId);
-		
+
+	    // ユーザーが所有する問題リストと指定した問題の登録状態を取得して返す
+	    return questionListService.getQuestionListSelection(
+	            user,
+	            questionId);
 	}
 	
+	/**
+	 * ログインユーザー情報からUsersを取得する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @return ログイン中のUsers
+	 */
 	private Users getLoginUser(UserDetails loginUser) {
 		return userAccountService.getUserOne(loginUser.getUsername());
 	}

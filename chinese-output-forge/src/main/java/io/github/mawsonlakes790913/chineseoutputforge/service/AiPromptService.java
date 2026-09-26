@@ -12,14 +12,14 @@ import org.springframework.stereotype.Service;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.LanguageVariant;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * AI問題生成および発音表記生成で使用するプロンプトを管理するService。
+ * classpath上のプロンプトファイルを読み込み、用途や学習対象言語に応じて提供する。
+ */
 @Service
 @RequiredArgsConstructor
 public class AiPromptService {
 
-//    private static final String COMMON_PROMPT_PATH =
-//            "prompts/ai-question-generation-common.txt";
-//    private static final String COMMON_PROMPT_PATH =
-//            "prompts/ai-question-generation-common-test.txt";
     private static final String COMMON_PROMPT_PATH =
             "prompts/ai-question-generation-common-test2.txt";
 
@@ -37,85 +37,119 @@ public class AiPromptService {
     
     private final MessageSource messageSource;
     
-    // AI問題生成の共通プロンプトを取得する
+    /**
+     * AI問題生成で使用する共通プロンプトを取得する。
+     *
+     * @param locale 現在の言語・地域情報
+     * @return AI問題生成の共通プロンプト
+     */
     public String getCommonPrompt(Locale locale) {
 
         return readPromptFile(COMMON_PROMPT_PATH, locale);
     }
 
 
-    // LanguageVariantに対応するLanguage Profileを取得する
+    /**
+     * 学習対象言語に対応するLanguage Profileを取得する。
+     *
+     * @param languageVariant 学習対象言語
+     * @param locale 現在の言語・地域情報
+     * @return 学習対象言語に対応するLanguage Profile
+     */
     public String getLanguageProfile(
-    		LanguageVariant languageVariant,
-    		Locale locale) {
+            LanguageVariant languageVariant,
+            Locale locale) {
 
+        // 中国大陸向けの言語別ルールを取得
         if (languageVariant == LanguageVariant.MAINLAND) {
             return readPromptFile(MAINLAND_PROFILE_PATH, locale);
         }
 
+        // 台湾向けの言語別ルールを取得
         if (languageVariant == LanguageVariant.TAIWAN) {
             return readPromptFile(TAIWAN_PROFILE_PATH, locale);
         }
 
+        // 未対応の言語区分の場合は例外をスロー
         throw new IllegalArgumentException(
                 "Unsupported language variant: " + languageVariant);
     }
     
-    // classpath上のプロンプトファイルを読み込む
+    /**
+     * classpath上のプロンプトファイルをUTF-8で読み込む。
+     *
+     * @param path プロンプトファイルのパス
+     * @param locale 現在の言語・地域情報
+     * @return 読み込んだプロンプト
+     */
     private String readPromptFile(
-    		String path,
-    		Locale locale) {
+            String path,
+            Locale locale) {
 
+        // クラスパス上のプロンプトファイルを取得
         ClassPathResource resource =
                 new ClassPathResource(path);
 
-        try (InputStream inputStream =
-                resource.getInputStream()) {
-
-            return new String(
+        // プロンプトファイルをUTF-8で読み込む
+        try (InputStream inputStream = resource.getInputStream()) {
+            
+        	return new String(
                     inputStream.readAllBytes(),
                     StandardCharsets.UTF_8);
 
         } catch (IOException e) {
-
-        	throw new IllegalStateException(
-        	        messageSource.getMessage(
-        	                "ai.prompt.error.read",
-        	                new Object[] { path },
-        	                locale),
-        	        e);
+            // ファイルの読み込みに失敗した場合は例外をスロー
+            throw new IllegalStateException(
+                    messageSource.getMessage(
+                            "ai.prompt.error.read",
+                            new Object[] { path },
+                            locale),
+                    e);
         }
-    }
-    // 発音記号取得のプロンプトを取得する
-    public String getPronunciationPrompt(LanguageVariant languageVariant) {
-
-    	if (languageVariant == LanguageVariant.MAINLAND) {
-    		return loadPronunciationPrompt(MAINLAND_PRONUNCIATION_PATH);
-    	} else {
-    		return loadPronunciationPrompt(TAIWAN_PRONUNCIATION_PATH);
-    	}
-        
     }
     
-    // classpath上のプロンプトファイルを読み込む(発音記号)
-    private String loadPronunciationPrompt(String path) {
-    	
-        ClassPathResource resource =
-                new ClassPathResource(path);
+    /**
+     * 学習対象言語に対応する発音表記生成用プロンプトを取得する。
+     *
+     * @param languageVariant 学習対象言語
+     * @return 発音表記生成用プロンプト
+     */
+    public String getPronunciationPrompt(LanguageVariant languageVariant) {
 
+        // 中国大陸向けの発音生成プロンプトを取得
+        if (languageVariant == LanguageVariant.MAINLAND) {
+            return loadPronunciationPrompt(MAINLAND_PRONUNCIATION_PATH);
+
+        // 台湾向けの発音生成プロンプトを取得
+        } else {
+            return loadPronunciationPrompt(TAIWAN_PRONUNCIATION_PATH);
+        }
+    }
+    
+    /**
+     * classpath上の発音表記生成用プロンプトファイルをUTF-8で読み込む。
+     *
+     * @param path プロンプトファイルのパス
+     * @return 読み込んだ発音表記生成用プロンプト
+     * @throws IllegalStateException プロンプトファイルの読み込みに失敗した場合
+     */
+    private String loadPronunciationPrompt(String path) {
+
+        // クラスパス上の発音生成プロンプトファイルを取得
+        ClassPathResource resource = new ClassPathResource(path);
+
+        // 発音生成プロンプトファイルをUTF-8で読み込む
         try (InputStream inputStream =
                 resource.getInputStream()) {
-
             return new String(
                     inputStream.readAllBytes(),
                     StandardCharsets.UTF_8);
 
         } catch (IOException e) {
-
-        	throw new IllegalStateException(
-        	        "プロンプトファイルの読み込みに失敗しました: " + path,
-        	        e);
+            // ファイルの読み込みに失敗した場合は例外をスロー
+            throw new IllegalStateException(
+                    "プロンプトファイルの読み込みに失敗しました: " + path,
+                    e);
         }
-    	
     }
 }

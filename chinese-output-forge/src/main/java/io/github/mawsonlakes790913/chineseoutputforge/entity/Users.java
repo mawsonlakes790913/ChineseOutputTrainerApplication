@@ -13,6 +13,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * アプリケーションのユーザー情報を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "users")

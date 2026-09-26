@@ -38,6 +38,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * ユーザー用問題一覧に関するリクエストを処理するController。
+ * 問題の検索・一覧表示・削除、理解度の更新を行う。
+ */
 @Controller
 @RequiredArgsConstructor
 public class UserQuestionController {
@@ -50,7 +54,27 @@ public class UserQuestionController {
 	private final StructureService structureService;
 	private final QuestionListService questionListService;
 
-	
+	/**
+	 * ログインユーザーの問題一覧を検索条件に基づいて取得し、問題一覧画面を表示する。
+	 * 学習対象言語が未指定の場合は、セッションに保存されている学習対象言語を使用する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param pageable ページング情報
+	 * @param difficulties 難易度の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param studyCondition 学習状況の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param languageVariants 学習対象言語の検索条件
+	 * @param listId 問題リストの検索条件
+	 * @param japaneseKeyword 日本語の検索キーワード
+	 * @param chineseKeyword 中国語の検索キーワード
+	 * @param session セッション情報
+	 * @param request HTTPリクエスト
+	 * @param model 画面に渡すデータ
+	 * @return ユーザー問題一覧画面のビュー名
+	 */
 	@GetMapping("/user/question/list")
 	public String getUserQuestionList(
 	        @AuthenticationPrincipal UserDetails loginUser,
@@ -68,46 +92,41 @@ public class UserQuestionController {
 	        HttpSession session,
 	        HttpServletRequest request,
 	        Model model) {
-		
+
 	    // 現在のURLを取得
 	    String currentUrl = request.getRequestURI();
-
 	    if (request.getQueryString() != null) {
 	        currentUrl += "?" + request.getQueryString();
 	    }
-
 	    model.addAttribute("currentUrl", currentUrl);
-		
-		// 言語切替後の戻り先
-		model.addAttribute("languageVariantRedirect", "/user/question/list");
 
-		Users user = getLoginUser(loginUser);
+	    // 言語切替後の戻り先を設定
+	    model.addAttribute("languageVariantRedirect", "/user/question/list");
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
-	    
-	    // 学習対象言語が未指定の場合は、
-	    // セッションで設定されている学習対象言語を使用
-		// 検索条件を画面へ戻す
-	    // 学習対象言語
-	    if (languageVariants == null || languageVariants.isEmpty()) {
 
+	    // 学習対象言語が未指定の場合はセッションの設定を使用
+	    if (languageVariants == null || languageVariants.isEmpty()) {
 	        LanguageVariant languageVariant =
 	                (LanguageVariant) session.getAttribute("languageVariant");
 
+	        // セッションにも設定がない場合は中国大陸向けを使用
 	        if (languageVariant == null) {
 	            languageVariant = LanguageVariant.MAINLAND;
 	        }
 
 	        languageVariants = Arrays.asList(languageVariant);
 	    }
-
 	    model.addAttribute(
 	            "selectedLanguageVariants",
 	            languageVariants
 	    );
 
-	    // 検索（パラメータが未指定ならService側で全件扱い）
+	    // 検索条件に一致する問題を取得
 	    Page<UserQuestionListDto> questionPage =
-	    		userQuestionService.getFilteredUserQuestionList(
+	            userQuestionService.getFilteredUserQuestionList(
 	                    userId,
 	                    difficulties,
 	                    evaluations,
@@ -121,54 +140,57 @@ public class UserQuestionController {
 	                    chineseKeyword,
 	                    pageable);
 
+	    // ページネーション情報を作成
 	    PaginationDto pagination =
-	    		paginationService.createPagination(questionPage);
-	    
-		long start = questionPage.getNumber() * questionPage.getSize() + 1;
-		long end = start + questionPage.getNumberOfElements() - 1;
+	            paginationService.createPagination(questionPage);
 
-		model.addAttribute("start", start);
-		model.addAttribute("end", end);
-		model.addAttribute("total", questionPage.getTotalElements());
+	    // 現在のページに表示する問題の範囲を算出
+	    long start = questionPage.getNumber() * questionPage.getSize() + 1;
+	    long end = start + questionPage.getNumberOfElements() - 1;
+	    model.addAttribute("start", start);
+	    model.addAttribute("end", end);
+	    model.addAttribute("total", questionPage.getTotalElements());
 
-	    // 一覧
+	    // 問題一覧とページネーション情報をModelに設定
 	    model.addAttribute("questionList", questionPage.getContent());
 	    model.addAttribute("page", questionPage);
 	    model.addAttribute("pagination", pagination);
 
-	    // 選択肢用structureを取得
+	    // 検索条件の選択肢として使用する文法・構造を取得
 	    model.addAttribute(
 	            "structures",
 	            structureService.findStructures());
-	    
-	    // 表示する発音記号を取得
+
+	    // 表示する発音表記を取得
 	    PronunciationType pronunciationType =
 	            (PronunciationType) session.getAttribute("pronunciationType");
+
+	    // 未設定の場合は拼音を使用
 	    if (pronunciationType == null) {
 	        pronunciationType = PronunciationType.PINYIN;
 	    }
 	    model.addAttribute("pronunciationType", pronunciationType);
 
-	    // 検索条件を画面へ戻す
-	    model.addAttribute("selectedDifficulties", difficulties);
 	    // 学習済みで理解度が未指定の場合は全選択として表示
 	    if (studyCondition == StudyCondition.LEARNED_ONLY
 	            && (evaluations == null || evaluations.isEmpty())) {
-
 	        evaluations = Arrays.asList(Evaluation.values());
 	    }
 
+	    // 検索条件をModelに設定
+	    model.addAttribute("selectedDifficulties", difficulties);
 	    model.addAttribute("selectedEvaluations", evaluations);
 	    model.addAttribute("selectedStudyCondition", studyCondition);
 	    model.addAttribute("selectedFavoriteCondition", favoriteCondition);
 	    model.addAttribute("selectedSourceCondition", sourceCondition);
 	    model.addAttribute("selectedStructureIds", structureIds);
-	    // リスト一覧を取得
+
+	    // ユーザーが所有する問題リストを取得
 	    model.addAttribute(
 	            "questionLists",
 	            questionListService.getQuestionLists(user));
 
-	    // 選択したリストを画面へ戻す
+	    // 選択した問題リストとキーワードをModelに設定
 	    model.addAttribute("selectedListId", listId);
 	    model.addAttribute("japaneseKeyword", japaneseKeyword);
 	    model.addAttribute("chineseKeyword", chineseKeyword);
@@ -176,6 +198,16 @@ public class UserQuestionController {
 	    return "user/question/list";
 	}
 	
+	/**
+	 * ログインユーザーが所有する指定された問題を削除する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param questionId 削除する問題のID
+	 * @param returnUrl 削除後に戻る問題一覧画面のURL
+	 * @param redirectAttributes リダイレクト後に渡すFlash属性
+	 * @param locale 現在の言語・地域情報
+	 * @return 削除後のリダイレクト先
+	 */
 	@PostMapping("/user/question/delete")
 	public String postUserQuestionDelete(
 			@AuthenticationPrincipal UserDetails loginUser,
@@ -183,42 +215,58 @@ public class UserQuestionController {
 			@RequestParam String returnUrl,
 			RedirectAttributes redirectAttributes,
 			Locale locale) {
-		
+
 		// ユーザーIDを取得
 		Users user = getLoginUser(loginUser);
-	    Long userId = user.getId();
-		
-	    // 削除
-		userQuestionService.deleteOwnedQuestion(userId, questionId);
-		
-		redirectAttributes.addFlashAttribute(
-		        "successMessage",
-		        messageSource.getMessage(
-		                "user.question.delete.success",
-		                null,
-		                locale));
+		Long userId = user.getId();
 
-	    return "redirect:" + returnUrl;
+		// ユーザーが所有する問題を削除
+		userQuestionService.deleteOwnedQuestion(userId, questionId);
+
+		// 削除成功メッセージを設定
+		redirectAttributes.addFlashAttribute(
+				"successMessage",
+				messageSource.getMessage(
+						"user.question.delete.success",
+						null,
+						locale));
+
+		return "redirect:" + returnUrl;
 	}
 	
+	/**
+	 * 指定された問題の理解度を更新する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @param questionId 理解度を更新する問題のID
+	 * @param evaluation 更新後の理解度
+	 * @param locale 現在の言語・地域情報
+	 */
 	@PostMapping("/evaluation/toggle")
 	@ResponseBody
-	public void postEvaluationToggle(@AuthenticationPrincipal UserDetails loginUser,
-	        				   @RequestParam Long questionId,
-	        				   @RequestParam Evaluation evaluation,
-	        				   Locale locale) {
-		
-		// ユーザー情報を取得
-		Users user = getLoginUser(loginUser);
-		
-		evaluationService.updateEvaluation(
-		        user,
-		        questionId,
-		        evaluation,
-		        locale);
-		
+	public void postEvaluationToggle(
+	        @AuthenticationPrincipal UserDetails loginUser,
+	        @RequestParam Long questionId,
+	        @RequestParam Evaluation evaluation,
+	        Locale locale) {
+
+	    // ログインユーザーを取得
+	    Users user = getLoginUser(loginUser);
+
+	    // 指定された問題の理解度を更新
+	    evaluationService.updateEvaluation(
+	            user,
+	            questionId,
+	            evaluation,
+	            locale);
 	}
 	
+	/**
+	 * ログインユーザー情報からUsersを取得する。
+	 *
+	 * @param loginUser ログインユーザー情報
+	 * @return ログイン中のUsers
+	 */
 	private Users getLoginUser(UserDetails loginUser) {
 	    return userAccountService.getUserOne(loginUser.getUsername());
 	}

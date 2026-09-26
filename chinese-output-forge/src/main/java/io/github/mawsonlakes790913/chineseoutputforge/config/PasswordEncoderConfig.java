@@ -8,6 +8,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class PasswordEncoderConfig {
 
+    /**
+     * パスワードのハッシュ化に使用するPasswordEncoderを生成する。
+     * BCrypt方式を使用する。
+     *
+     * @return BCrypt方式のPasswordEncoder
+     */
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

@@ -19,7 +19,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 
-
+/**
+ * ログイン成功後の処理を行うAuthenticationSuccessHandler。
+ * ユーザー設定をセッションに保存し、ログイン成功情報を設定する。
+ */
 @Component
 @Slf4j
 public class LoginSuccessHandler
@@ -27,11 +30,27 @@ extends SavedRequestAwareAuthenticationSuccessHandler {
 	
 	private final UserAccountService userAccountService;
 	
+    /**
+     * LoginSuccessHandlerを生成し、ログイン成功後のデフォルト遷移先を設定する。
+     *
+     * @param userAccountService ユーザーアカウント管理Service
+     */
 	public LoginSuccessHandler(UserAccountService userAccountService) {
 	    this.userAccountService = userAccountService;
 	    super.setDefaultTargetUrl("/");
 	}
 	
+    /**
+     * ログイン成功後の処理を行う。
+     * ユーザーの学習設定をセッションに保存し、
+     * ログイン成功メッセージを設定した後に画面遷移を行う。
+     *
+     * @param request HTTPリクエスト
+     * @param response HTTPレスポンス
+     * @param authentication 認証情報
+     * @throws IOException レスポンス処理に失敗した場合
+     * @throws ServletException Servlet処理に失敗した場合
+     */
 	@Override
 	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         // ログインIDからユーザー情報を取得

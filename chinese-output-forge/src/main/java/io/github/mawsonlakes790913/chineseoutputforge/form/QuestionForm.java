@@ -9,6 +9,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+/**
+ * 管理者用問題追加・編集画面の入力内容を保持するフォームクラス。
+ */
 @ValidQuestionTemplate
 @Data
 public class QuestionForm {
@@ -29,24 +32,11 @@ public class QuestionForm {
     @Length(max = 255)
     private String alternativeAnswer;
 
-//    @NotBlank
-//    private String pinyin;
-//
-//    @NotBlank
-//    private String zhuyin;
-//
-//    @Length(max = 255)
-//    private String alternativeAnswerPinyin;
-//
-//    @Length(max = 255)
-//    private String alternativeAnswerZhuyin;
-
     @NotNull
     private Difficulty difficulty;
 
     @NotNull
     private Long structureId;
-
 
     private boolean allowAiVariation;
 

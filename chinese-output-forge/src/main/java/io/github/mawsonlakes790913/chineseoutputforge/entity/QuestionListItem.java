@@ -13,6 +13,9 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * 問題リストと問題の関連を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "question_list_item")

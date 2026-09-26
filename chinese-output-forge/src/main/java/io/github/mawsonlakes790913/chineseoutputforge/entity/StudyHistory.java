@@ -11,6 +11,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+/**
+ * ユーザーの問題ごとの学習履歴を保持するエンティティ。
+ */
 @Data
 @Entity
 @Table(name = "study_history")

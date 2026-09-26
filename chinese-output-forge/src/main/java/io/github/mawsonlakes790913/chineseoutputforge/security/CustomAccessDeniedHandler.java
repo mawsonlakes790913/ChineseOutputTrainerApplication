@@ -13,11 +13,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * アクセス権限がないリクエストを処理するAccessDeniedHandler。
+ * アクセス拒否情報をログに記録し、403エラーを返す。
+ */
 @Component
 @Slf4j
 public class CustomAccessDeniedHandler
 implements AccessDeniedHandler {
 
+    /**
+     * アクセス拒否時の処理を行う。
+     * ログインIDとアクセス先URIをログに記録し、403エラーを返す。
+     *
+     * @param request HTTPリクエスト
+     * @param response HTTPレスポンス
+     * @param accessDeniedException アクセス拒否時に発生した例外
+     * @throws IOException レスポンスの送信に失敗した場合
+     * @throws ServletException Servlet処理に失敗した場合
+     */
     @Override
     public void handle(
             HttpServletRequest request,

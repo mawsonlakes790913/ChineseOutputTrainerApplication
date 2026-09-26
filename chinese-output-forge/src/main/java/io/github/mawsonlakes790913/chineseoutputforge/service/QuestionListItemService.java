@@ -21,6 +21,10 @@ import io.github.mawsonlakes790913.chineseoutputforge.repository.QuestionReposit
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * 問題リストへの問題の登録管理に関する業務処理を行うService。
+ * 問題の追加・削除・取得、および複数の問題リストへの登録状態の更新を行う。
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -32,15 +36,23 @@ public class QuestionListItemService {
 	private final MessageSource messageSource;
 	private final QuestionListService questionListService;
 	
-	
-	
+	/**
+	 * 指定した問題をユーザーが所有する問題リストに追加する。
+	 * 問題数の上限および重複登録を確認した上で追加し、
+	 * 問題リストの更新日時を更新する。
+	 *
+	 * @param user ユーザー
+	 * @param listId 問題リストID
+	 * @param questionId 問題ID
+	 * @param locale 現在の言語・地域情報
+	 */
 	public void addQuestionToList(
 			Users user,
 			Long listId,
 			Long questionId,
 			Locale locale) {
 		
-		// ユーザーが所有するリストを取得
+		// ユーザーが所有する問題リストを取得
 		QuestionList questionList =
 		        questionListRepository
 		                .findByListIdAndUserId(listId, user.getId())
@@ -50,7 +62,7 @@ public class QuestionListItemService {
 		                                null,
 		                                locale)));
 		
-		// リスト内の問題数が上限に達していないか確認
+		// 問題リスト内の問題数が上限に達していないか確認
 		if (questionListItemRepository
 		        .countByQuestionListItemKeyListId(listId) >= 1000) {
 
@@ -71,7 +83,7 @@ public class QuestionListItemService {
 		                                null,
 		                                locale)));
 		
-		// 同じ問題がリストに登録済みでないか確認
+		// 同じ問題が問題リストに登録済みでないか確認
 		if (questionListItemRepository
 		        .existsByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
 		                listId,
@@ -89,16 +101,16 @@ public class QuestionListItemService {
 		key.setListId(listId);
 		key.setQuestionId(questionId);
 		
-		// リストと問題の紐付けを作成
+		// 問題リストと問題の紐付けを作成
 		QuestionListItem questionListItem = new QuestionListItem();
 		questionListItem.setQuestionListItemKey(key);
 		questionListItem.setQuestionList(questionList);
 		questionListItem.setQuestion(question);
 		
-		// リストに問題を追加
+		// 問題リストに問題を追加
 		questionListItemRepository.save(questionListItem);
 
-		// リストの更新日時を更新
+		// 問題リストの更新日時を更新
 		questionList.setUpdatedAt(LocalDateTime.now());
 		questionListRepository.save(questionList);
 		
@@ -109,6 +121,15 @@ public class QuestionListItemService {
 		
 	}
 	
+	/**
+	 * 指定した問題をユーザーが所有する問題リストから削除する。
+	 * 削除後、問題リストの更新日時を更新する。
+	 *
+	 * @param user ユーザー
+	 * @param listId 問題リストID
+	 * @param questionId 問題ID
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void deleteQuestionFromList(
 			Users user,
@@ -116,7 +137,7 @@ public class QuestionListItemService {
 			Long questionId,
 			Locale locale) {
 		
-	    // ユーザーが所有するリストか確認
+	    // ユーザーが所有する問題リストか確認
 		QuestionList questionList =
 		    questionListRepository
 		            .findByListIdAndUserId(listId, user.getId())
@@ -131,10 +152,10 @@ public class QuestionListItemService {
 		key.setListId(listId);
 		key.setQuestionId(questionId);
 		
-		// リストから問題を削除
+		// 問題リストから問題を削除
 		questionListItemRepository.deleteByQuestionListItemKey(key);
 		
-		// リストの更新日時を更新
+		// 問題リストの更新日時を更新
 		questionList.setUpdatedAt(LocalDateTime.now());
 		questionListRepository.save(questionList);
 		
@@ -145,12 +166,20 @@ public class QuestionListItemService {
 		
 	}
 	
+	/**
+	 * 指定した問題リストに登録されている問題を取得する。
+	 *
+	 * @param user ユーザー
+	 * @param listId 問題リストID
+	 * @param locale 現在の言語・地域情報
+	 * @return 問題リストに登録されている問題の一覧
+	 */
 	public List<QuestionListItemDto> getQuestionListItems(
 	        Users user,
 	        Long listId,
 	        Locale locale) {
 
-	    // ユーザーが所有するリストか確認
+	    // ユーザーが所有する問題リストか確認
 	    questionListRepository
 	            .findByListIdAndUserId(listId, user.getId())
 	            .orElseThrow(() -> new IllegalArgumentException(
@@ -159,7 +188,7 @@ public class QuestionListItemService {
 	                            null,
 	                            locale)));
 
-	    // リストに登録されている問題をDTOで取得
+	    // 問題リストに登録されている問題をDTOで取得
 	    List<QuestionListItemDto> questionListItems =
 	            questionListItemRepository.findQuestionListItems(
 	                    listId,
@@ -168,6 +197,16 @@ public class QuestionListItemService {
 	    return questionListItems;
 	}
 	
+	/**
+	 * 指定した問題の複数の問題リストへの登録状態を更新する。
+	 * 現在の登録状態と選択された問題リストを比較し、
+	 * 必要に応じて問題の追加・削除を行う。
+	 *
+	 * @param user ユーザー
+	 * @param questionId 問題ID
+	 * @param selectedListIds 登録対象として選択された問題リストIDの一覧
+	 * @param locale 現在の言語・地域情報
+	 */
 	@Transactional
 	public void updateQuestionLists(
 	        Users user,
@@ -175,18 +214,16 @@ public class QuestionListItemService {
 	        List<Long> selectedListIds,
 	        Locale locale) {
 
-	    // 現在のリスト登録状態を取得
+	    // 現在の問題リスト登録状態を取得
 	    List<QuestionListSelectionDto> questionListSelections =
 	            questionListService.getQuestionListSelection(
 	                    user,
 	                    questionId);
-
+	    // 各問題リストの選択状態に応じて登録状態を更新
 	    for (QuestionListSelectionDto questionListSelection : questionListSelections) {
-
-	        // 未登録からチェックありになった場合は追加
+	    	// 新たに選択された問題リストに追加
 	        if (!questionListSelection.getRegistered()
 	                && selectedListIds.contains(questionListSelection.getListId())) {
-
 	            addQuestionToList(
 	                    user,
 	                    questionListSelection.getListId(),
@@ -194,10 +231,9 @@ public class QuestionListItemService {
 	                    locale);
 	        }
 
-	        // 登録済みからチェックなしになった場合は削除
+	        // 選択解除された問題リストから削除
 	        if (questionListSelection.getRegistered()
 	                && !selectedListIds.contains(questionListSelection.getListId())) {
-
 	            deleteQuestionFromList(
 	                    user,
 	                    questionListSelection.getListId(),

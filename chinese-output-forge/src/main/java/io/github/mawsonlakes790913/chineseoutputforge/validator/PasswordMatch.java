@@ -9,6 +9,10 @@ import java.lang.annotation.Target;
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
 
+/**
+ * 指定した2つのパスワードフィールドの値が一致することを検証する
+ * カスタムバリデーションアノテーション。
+ */
 @Documented
 @Constraint(validatedBy = { PasswordMatchValidator.class })
 @Target(ElementType.TYPE)
@@ -16,10 +20,10 @@ import jakarta.validation.Payload;
 public @interface PasswordMatch {
 	String message() default "{password.match.message}"; 
 	
-	/** グループ */
+	// グループ
     Class<?>[] groups() default {};
 
-    /** ペイロード */
+    //ペイロード
     Class<? extends Payload>[] payload() default {};
     
     String passwordFieldName() default "";
