@@ -10,53 +10,64 @@
 
 例えば、
 
-* 苦手な問題
-* 復習したい問題
-* 旅行で使いたい表現
+-   苦手な問題
+-   復習したい問題
+-   旅行で使いたい表現
 
 など、ユーザー自身が用途に応じてリストを作成し、問題を分類できるようにする。
 
 また、1つの問題を複数のリストへ登録できる構成とし、リストごとに登録された問題を確認・管理できるようにする。
 
----
+------------------------------------------------------------------------
 
 # DB設計
 
-```text
+``` text
 git commit -m "Add database schema and entities for question lists"
 ```
 
 「リストそのもの」と「リストに登録された問題」は別の概念なので、2つのテーブルを用意する。
 
-## QUESTION_LIST — リストそのもの
+## QUESTION_LIST --- リストそのもの
 
-| カラム          | PostgreSQL型    | 制約                                    |
-| ------------ | -------------- | ------------------------------------- |
-| `list_id`    | `BIGSERIAL`    | `PRIMARY KEY`                         |
-| `user_id`    | `BIGINT`       | `NOT NULL`, `FOREIGN KEY → USERS(id)` |
-| `list_name`  | `VARCHAR(100)` | `NOT NULL`                            |
-| `created_at` | `TIMESTAMP`    | `NOT NULL DEFAULT CURRENT_TIMESTAMP`  |
-| `updated_at` | `TIMESTAMP`    | `NOT NULL DEFAULT CURRENT_TIMESTAMP`  |
+  -------------------------------------------------------------------------
+  カラム         PostgreSQL型     制約
+  -------------- ---------------- -----------------------------------------
+  `list_id`      `BIGSERIAL`      `PRIMARY KEY`
+
+  `user_id`      `BIGINT`         `NOT NULL`, `FOREIGN KEY → USERS(id)`
+
+  `list_name`    `VARCHAR(100)`   `NOT NULL`
+
+  `created_at`   `TIMESTAMP`      `NOT NULL DEFAULT CURRENT_TIMESTAMP`
+
+  `updated_at`   `TIMESTAMP`      `NOT NULL DEFAULT CURRENT_TIMESTAMP`
+  -------------------------------------------------------------------------
 
 関係は、
 
-```text
+``` text
 USERS 1 → N QUESTION_LIST
 ```
 
 となる。
 
-## QUESTION_LIST_ITEM — リストに入っている問題
+## QUESTION_LIST_ITEM --- リストに入っている問題
 
 こちらは中間テーブルとする。
 
 `list_id`と`question_id`による複合主キーとし、同じ問題を同じリストへ二重登録できないことをDB側でも保証する。
 
-| カラム           | PostgreSQL型 | 制約                                                 |
-| ------------- | ----------- | -------------------------------------------------- |
-| `list_id`     | `BIGINT`    | `NOT NULL`, `FOREIGN KEY → QUESTION_LIST(list_id)` |
-| `question_id` | `BIGINT`    | `NOT NULL`, `FOREIGN KEY → QUESTION(id)`           |
-| `added_at`    | `TIMESTAMP` | `NOT NULL DEFAULT CURRENT_TIMESTAMP`               |
+  ------------------------------------------------------------------------------
+  カラム          PostgreSQL型   制約
+  --------------- -------------- -----------------------------------------------
+  `list_id`       `BIGINT`       `NOT NULL`,
+                                 `FOREIGN KEY → QUESTION_LIST(list_id)`
+
+  `question_id`   `BIGINT`       `NOT NULL`, `FOREIGN KEY → QUESTION(id)`
+
+  `added_at`      `TIMESTAMP`    `NOT NULL DEFAULT CURRENT_TIMESTAMP`
+  ------------------------------------------------------------------------------
 
 ### 中間テーブル
 
@@ -66,7 +77,7 @@ USERS 1 → N QUESTION_LIST
 
 そのため、
 
-```text
+``` text
 QUESTION_LIST
       1
       |
@@ -82,7 +93,7 @@ QUESTION
 
 ### テーブル定義
 
-```sql
+``` sql
 CREATE TABLE question_list (
     list_id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -115,13 +126,13 @@ CREATE TABLE question_list_item (
 );
 ```
 
----
+------------------------------------------------------------------------
 
 ## Entityクラス追加
 
 ### QuestionList
 
-```java
+``` java
 @Data
 @Entity
 @Table(name = "question_list")
@@ -153,7 +164,7 @@ public class QuestionList {
 
 ### QuestionListItem
 
-```java
+``` java
 @Data
 @Entity
 @Table(name = "question_list_item")
@@ -182,7 +193,7 @@ public class QuestionListItem {
 
 そのため、
 
-```java
+``` java
 private QuestionList questionList;
 private Question question;
 ```
@@ -193,7 +204,7 @@ private Question question;
 
 つまり、
 
-```text
+``` text
 QuestionListItemKey
     → 主キーの管理
 
@@ -205,7 +216,7 @@ questionList / question
 
 ### QuestionListItemKey
 
-```java
+``` java
 @Embeddable
 @Data
 public class QuestionListItemKey implements Serializable {
@@ -218,15 +229,15 @@ public class QuestionListItemKey implements Serializable {
 
 その後、`LocalDateTime`型のフィールドにHibernateが日時を自動設定するアノテーションを追加した。
 
-```text
+``` text
 git commit -m "Add automatic timestamp handling to question list entities"
 ```
 
----
+------------------------------------------------------------------------
 
 # リスト基本操作の実装
 
-```text
+``` text
 git commit -m "Implement basic question list management"
 ```
 
@@ -234,7 +245,7 @@ git commit -m "Implement basic question list management"
 
 今回実装する基本操作は、
 
-```text
+``` text
 List作成
 List名編集
 List削除
@@ -248,13 +259,13 @@ List削除
 
 とする。
 
----
+------------------------------------------------------------------------
 
 ## 準備編 - Repositoryクラスを作成
 
 ### QuestionListRepository
 
-```java
+``` java
 public interface QuestionListRepository
         extends JpaRepository<QuestionList, Long> {
 }
@@ -262,13 +273,13 @@ public interface QuestionListRepository
 
 ### QuestionListItemRepository
 
-```java
+``` java
 public interface QuestionListItemRepository
         extends JpaRepository<QuestionListItem, QuestionListItemKey> {
 }
 ```
 
----
+------------------------------------------------------------------------
 
 ## QuestionListService
 
@@ -276,7 +287,7 @@ public interface QuestionListItemRepository
 
 ### createQuestionList - リストを新規作成するメソッド
 
-```java
+``` java
 public void createQuestionList(
         Users user,
         String listName,
@@ -333,7 +344,7 @@ public void createQuestionList(
 
 ### editQuestionList - リストを編集するメソッド
 
-```java
+``` java
 public void editQuestionList(
         Users user,
         Long listId,
@@ -374,7 +385,7 @@ public void editQuestionList(
 
 ### deleteQuestionList - リストを削除するメソッド
 
-```java
+``` java
 public void deleteQuestionList(
         Users user,
         Long listId,
@@ -396,7 +407,7 @@ public void deleteQuestionList(
 }
 ```
 
----
+------------------------------------------------------------------------
 
 ## QuestionListItemService
 
@@ -404,45 +415,284 @@ public void deleteQuestionList(
 
 ### addQuestionToList - 問題をリストへ追加する
 
-処理の基本的な流れは、
+``` java
+public void addQuestionToList(
+        Users user,
+        Long listId,
+        Long questionId,
+        Locale locale) {
 
-```text
-リストを取得
-    ↓
-ログインユーザー所有か確認
-    ↓
-Questionを取得
-    ↓
-QuestionListItemKeyを生成
-    ↓
-重複確認
-    ↓
-QuestionListItemを保存
+    // ユーザーが所有するリストを取得
+    QuestionList questionList =
+            questionListRepository
+                    .findByListIdAndUserId(
+                            listId,
+                            user.getId())
+                    .orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    messageSource.getMessage(
+                                            "questionList.error.notFound",
+                                            null,
+                                            locale)));
+
+    // リスト内の問題数が上限に達していないか確認
+    if (questionListItemRepository
+            .countByQuestionListItemKeyListId(listId) >= 1000) {
+
+        throw new IllegalArgumentException(
+                messageSource.getMessage(
+                        "questionListItem.error.limitExceeded",
+                        null,
+                        locale));
+    }
+
+    // 追加対象の問題を取得
+    Question question =
+            questionRepository
+                    .findByQuestionId(questionId)
+                    .orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    messageSource.getMessage(
+                                            "question.error.notFound",
+                                            null,
+                                            locale)));
+
+    // 同じ問題がリストに登録済みでないか確認
+    if (questionListItemRepository
+            .existsByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
+                    listId,
+                    questionId)) {
+
+        throw new IllegalArgumentException(
+                messageSource.getMessage(
+                        "questionListItem.error.duplicateItem",
+                        null,
+                        locale));
+    }
+
+    // リストIDと問題IDから複合主キーを作成
+    QuestionListItemKey key = new QuestionListItemKey();
+    key.setListId(listId);
+    key.setQuestionId(questionId);
+
+    // リストと問題の紐付けを作成
+    QuestionListItem questionListItem =
+            new QuestionListItem();
+
+    questionListItem.setQuestionListItemKey(key);
+    questionListItem.setQuestionList(questionList);
+    questionListItem.setQuestion(question);
+
+    // リストに問題を追加
+    questionListItemRepository.save(questionListItem);
+
+    log.debug(
+            "問題をリストへ追加 listId={}, userId={}, questionId={}",
+            questionList.getListId(),
+            questionList.getUser().getId(),
+            question.getQuestionId());
+}
 ```
 
-とする。
+まず`listId`と`userId`を利用して、操作対象がログインユーザー自身のリストであることを確認する。
 
-複合主キーによるDB側の重複防止だけでなく、Serviceでも登録済みか確認することで適切なエラーメッセージを返せるようにする。
+その後、1つのリストに登録できる問題数の上限である1000問に達していないか確認し、追加対象の`Question`を取得する。
 
-### deleteQuestionFromList - リストから問題を削除
+同じ問題がすでに登録されている場合は、複合主キーによるDB側の重複防止に任せるのではなく、Service側で事前に確認して適切なエラーメッセージを返す。
 
-削除時についても、
+最後に`listId`と`questionId`から`QuestionListItemKey`を作成し、`QuestionListItem`を保存する。
 
-```text
-listId
-questionId
-userId
+### deleteQuestionFromList - リストから問題を削除する
+
+``` java
+public void deleteQuestionFromList(
+        Users user,
+        Long listId,
+        Long questionId,
+        Locale locale) {
+
+    // ユーザーが所有するリストか確認
+    questionListRepository
+            .findByListIdAndUserId(
+                    listId,
+                    user.getId())
+            .orElseThrow(
+                    () -> new IllegalArgumentException(
+                            messageSource.getMessage(
+                                    "questionList.error.notFound",
+                                    null,
+                                    locale)));
+
+    // リストIDと問題IDから複合主キーを作成
+    QuestionListItemKey key =
+            new QuestionListItemKey();
+
+    key.setListId(listId);
+    key.setQuestionId(questionId);
+
+    // リストから問題を削除
+    questionListItemRepository
+            .deleteByQuestionListItemKey(key);
+
+    log.debug(
+            "問題をリストから削除 listId={}, userId={}, questionId={}",
+            listId,
+            user.getId(),
+            questionId);
+}
 ```
 
-を利用し、ログインユーザーが所有するリストからのみ削除できるようにする。
+削除時も`listId`だけで処理せず、`listId`と`userId`からリストを検索することで、ログインユーザーが所有するリストからのみ削除できるようにする。
 
----
+ここで取得した`QuestionList`自体はその後の削除処理では利用しない。
+
+目的は、
+
+``` text
+listIdが存在する
+    +
+そのlistIdの所有者がログインユーザーである
+    ↓
+問題を削除
+
+存在しない / 他ユーザーのリスト
+    ↓
+例外を投げて処理終了
+```
+
+という所有者確認である。
+
+### getQuestionListItems - 指定したリストの問題をすべて取得する
+
+この段階では画面表示用DTOをまだ作成していないため、一時的に`Question`の一覧として返す。
+
+``` java
+public List<Question> getQuestionListItems(
+        Users user,
+        Long listId,
+        Locale locale) {
+
+    // ユーザーが所有するリストか確認
+    questionListRepository
+            .findByListIdAndUserId(
+                    listId,
+                    user.getId())
+            .orElseThrow(
+                    () -> new IllegalArgumentException(
+                            messageSource.getMessage(
+                                    "questionList.error.notFound",
+                                    null,
+                                    locale)));
+
+    // リストに登録されている項目を取得
+    List<QuestionListItem> questionListItems =
+            questionListItemRepository
+                    .findByQuestionListItemKeyListId(listId);
+
+    // Questionだけを格納するリストを作成
+    List<Question> questions =
+            new ArrayList<>();
+
+    // QuestionListItemからQuestionを取り出す
+    for (QuestionListItem questionListItem : questionListItems) {
+        Question question =
+                questionListItem.getQuestion();
+
+        questions.add(question);
+    }
+
+    return questions;
+}
+```
+
+追加・削除と同様に、先に所有者確認を行ってからリスト内の問題を取得する。
+
+### getQuestionListItem - 指定したquestionIdの問題を取得する
+
+``` java
+public Question getQuestionListItem(
+        Users user,
+        Long listId,
+        Long questionId,
+        Locale locale) {
+
+    // ユーザーが所有するリストか確認
+    questionListRepository
+            .findByListIdAndUserId(
+                    listId,
+                    user.getId())
+            .orElseThrow(
+                    () -> new IllegalArgumentException(
+                            messageSource.getMessage(
+                                    "questionList.error.notFound",
+                                    null,
+                                    locale)));
+
+    // 指定した問題がリストに登録されているか確認
+    if (!questionListItemRepository
+            .existsByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
+                    listId,
+                    questionId)) {
+
+        throw new IllegalArgumentException(
+                messageSource.getMessage(
+                        "questionListItem.error.notFound",
+                        null,
+                        locale));
+    }
+
+    // 指定したIDの問題を取得
+    Question question =
+            questionRepository
+                    .findByQuestionId(questionId)
+                    .orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    messageSource.getMessage(
+                                            "question.error.notFound",
+                                            null,
+                                            locale)));
+
+    return question;
+}
+```
+
+### QuestionListItemService実装に伴い追加したRepositoryメソッド
+
+#### QuestionRepository
+
+``` java
+Optional<Question> findByQuestionId(Long questionId);
+```
+
+#### QuestionListItemRepository
+
+``` java
+boolean existsByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
+        Long listId,
+        Long questionId);
+
+QuestionListItem
+        findByQuestionListItemKeyListIdAndQuestionListItemKeyQuestionId(
+                Long listId,
+                Long questionId);
+
+List<QuestionListItem>
+        findByQuestionListItemKeyListId(Long listId);
+
+void deleteByQuestionListItemKey(
+        QuestionListItemKey key);
+
+int countByQuestionListItemKeyListId(
+        Long listId);
+```
+
+------------------------------------------------------------------------
 
 ## QuestionListController
 
 リスト管理画面では、
 
-```text
+``` text
 GET  /user/question-list/list
 POST /user/question-list/create
 GET  /user/question-list/detail
@@ -452,15 +702,193 @@ POST /user/question-list/edit
 
 を利用する。
 
-新規作成・編集については専用画面へ遷移せず一覧画面上のBootstrap Modalを利用するため、作成画面・編集画面表示専用のGETは作成しない。
+新規作成・編集については専用画面へ遷移せず一覧画面上のBootstrap
+Modalを利用するため、作成画面・編集画面表示専用のGETは作成しない。
 
----
+### getUserQuestionList - ユーザーの問題リスト一覧を表示
+
+``` java
+@GetMapping("/user/question-list/list")
+public String getUserQuestionList(
+        @AuthenticationPrincipal UserDetails loginUser,
+        Model model) {
+
+    // ログインユーザーを取得
+    Users user =
+            userAccountService
+                    .getUserOne(loginUser.getUsername());
+
+    // ユーザーが所有するリストをすべて取得
+    List<QuestionList> questionLists =
+            questionListService
+                    .getQuestionLists(user);
+
+    // リスト一覧を画面に渡す
+    model.addAttribute(
+            "questionLists",
+            questionLists);
+
+    return "/user/question-list/list";
+}
+```
+
+### postUserQuestionListCreate - リストを新規作成する
+
+``` java
+@PostMapping("/user/question-list/create")
+public String postUserQuestionListCreate(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam String listName,
+        RedirectAttributes redirectAttributes,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    try {
+        // 新しいリストを作成
+        questionListService.createQuestionList(
+                user,
+                listName,
+                locale);
+
+        // 作成完了メッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                messageSource.getMessage(
+                        "questionList.success.create",
+                        null,
+                        locale));
+
+    } catch (IllegalArgumentException e) {
+        // エラーメッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "errorMessage",
+                e.getMessage());
+    }
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+### getUserQuestionListDetail - リストの詳細を取得
+
+この段階では動作確認用として`Question`の一覧をJSONで返す。
+
+``` java
+@GetMapping("/user/question-list/detail")
+@ResponseBody
+public List<Question> getUserQuestionListDetail(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    // 指定したリストに登録されている問題をすべて取得
+    List<Question> listItems =
+            questionListItemService
+                    .getQuestionListItems(
+                            user,
+                            listId,
+                            locale);
+
+    // リストの問題一覧をJSON形式で返す
+    return listItems;
+}
+```
+
+### postUserQuestionListDelete - リストを削除する
+
+``` java
+@PostMapping("/user/question-list/delete")
+public String postUserQuestionListDelete(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        RedirectAttributes redirectAttributes,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    try {
+        // 指定したリストを削除
+        questionListService.deleteQuestionList(
+                user,
+                listId,
+                locale);
+
+        // 削除完了メッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                messageSource.getMessage(
+                        "questionList.success.delete",
+                        null,
+                        locale));
+
+    } catch (IllegalArgumentException e) {
+        // エラーメッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "errorMessage",
+                e.getMessage());
+    }
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+### postUserQuestionListEdit - リスト名を変更する
+
+``` java
+@PostMapping("/user/question-list/edit")
+public String postUserQuestionListEdit(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        @RequestParam String listName,
+        RedirectAttributes redirectAttributes,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    try {
+        // 指定したリストの名前を変更
+        questionListService.editQuestionList(
+                user,
+                listId,
+                listName,
+                locale);
+
+        // 変更完了メッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                messageSource.getMessage(
+                        "questionList.success.edit",
+                        null,
+                        locale));
+
+    } catch (IllegalArgumentException e) {
+        // エラーメッセージを設定
+        redirectAttributes.addFlashAttribute(
+                "errorMessage",
+                e.getMessage());
+    }
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+------------------------------------------------------------------------
 
 ## QuestionListItemController
 
 問題リスト項目については、
 
-```text
+``` text
 GET  /user/question-list/item
 POST /user/question-list/item/add
 POST /user/question-list/item/delete
@@ -468,7 +896,86 @@ POST /user/question-list/item/delete
 
 を利用する。
 
----
+### getUserQuestionListItem - 指定した問題の詳細を取得する
+
+``` java
+@GetMapping("/user/question-list/item")
+@ResponseBody
+public Question getUserQuestionListItem(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        @RequestParam Long questionId,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    // 指定したリスト内の問題を取得
+    Question question =
+            questionListItemService
+                    .getQuestionListItem(
+                            user,
+                            listId,
+                            questionId,
+                            locale);
+
+    return question;
+}
+```
+
+### postQuestionListItemAdd - リストに問題を追加する
+
+``` java
+@PostMapping("/user/question-list/item/add")
+public String postQuestionListItemAdd(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        @RequestParam Long questionId,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    // 指定した問題をリストに追加
+    questionListItemService.addQuestionToList(
+            user,
+            listId,
+            questionId,
+            locale);
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+この時点では、問題を1つのリストへ直接追加するための専用POSTエンドポイントとして実装した。
+
+### postQuestionListItemDelete - リストから問題を削除する
+
+``` java
+@PostMapping("/user/question-list/item/delete")
+public String postQuestionListItemDelete(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        @RequestParam Long questionId,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    // 指定した問題をリストから削除
+    questionListItemService.deleteQuestionFromList(
+            user,
+            listId,
+            questionId,
+            locale);
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+------------------------------------------------------------------------
 
 ## /user/question-list/list.html
 
@@ -476,7 +983,7 @@ POST /user/question-list/item/delete
 
 この画面から、
 
-```text
+``` text
 新規作成
 詳細表示
 編集
@@ -485,13 +992,13 @@ POST /user/question-list/item/delete
 
 を行えるようにする。
 
----
+------------------------------------------------------------------------
 
 ## /user/question-list/list.js
 
 問題リストの「詳細」ボタンを押した際に、対象の`listId`からリスト内の問題を取得する。
 
-```javascript
+``` javascript
 const response = await fetch(
     `/user/question-list/detail?listId=${listId}`
 );
@@ -510,7 +1017,7 @@ const listItems =
 
 この段階では動作確認を優先し、簡易的に、
 
-```javascript
+``` javascript
 listItems.forEach(question => {
 
     const div =
@@ -527,13 +1034,13 @@ listItems.forEach(question => {
 
 として表示する。
 
----
+------------------------------------------------------------------------
 
 ## /user/menu.html
 
 ユーザーメニューから問題リスト管理画面へ移動できるリンクを追加する。
 
-```html
+``` html
 <a th:href="@{/user/question-list/list}"
    class="list-group-item list-group-item-action">
 
@@ -546,7 +1053,7 @@ listItems.forEach(question => {
 </a>
 ```
 
----
+------------------------------------------------------------------------
 
 ## 実行
 
@@ -590,7 +1097,7 @@ listItems.forEach(question => {
 
 ![](../../images/0029-10.png)
 
----
+------------------------------------------------------------------------
 
 ## この実装の限界
 
@@ -598,7 +1105,7 @@ listItems.forEach(question => {
 
 動作確認のため、DBから直接50問を登録する。
 
-```sql
+``` sql
 INSERT INTO question_list_item (
     list_id,
     question_id,
@@ -619,7 +1126,7 @@ LIMIT 50;
 
 現在のAPIでは`Question` Entityを利用しているが、最終的に表示したいのは、
 
-```text
+``` text
 中国語
 日本語
 難易度
@@ -637,17 +1144,17 @@ LIMIT 50;
 
 そこでDTOを導入する。
 
----
+------------------------------------------------------------------------
 
 # 問題リスト詳細表示のDTO化
 
-```text
+``` text
 git commit -m "Implement question list detail view and interactions"
 ```
 
 ## QuestionListItemDto
 
-```java
+``` java
 public interface QuestionListItemDto {
 
     Long getQuestionId();
@@ -682,7 +1189,7 @@ public interface QuestionListItemDto {
 
 一覧では、
 
-```text
+``` text
 chineseText
 japaneseText
 difficulty
@@ -693,7 +1200,7 @@ aiGenerated
 
 を使用し、詳細モーダルでは、
 
-```text
+``` text
 pinyin
 zhuyin
 alternativeAnswer
@@ -704,13 +1211,13 @@ structureName
 
 も利用する。
 
----
+------------------------------------------------------------------------
 
 ## QuestionListItemRepository
 
 複数のEntityから必要な情報を取得する。
 
-```java
+``` java
 @Query(value = """
         SELECT
             q.question_id AS questionId,
@@ -761,7 +1268,7 @@ List<QuestionListItemDto> findQuestionListItems(
 
 これにより、
 
-```text
+``` text
 question_list_item
     ↓
 question
@@ -774,13 +1281,13 @@ structure
 
 から、問題リスト画面に必要な情報を1つのDTOとして取得できる。
 
----
+------------------------------------------------------------------------
 
 ## QuestionListItemService.getQuestionListItems()
 
 戻り値を`List<Question>`から`List<QuestionListItemDto>`へ変更する。
 
-```java
+``` java
 public List<QuestionListItemDto> getQuestionListItems(
         Users user,
         Long listId,
@@ -806,13 +1313,13 @@ public List<QuestionListItemDto> getQuestionListItems(
 }
 ```
 
----
+------------------------------------------------------------------------
 
 ## QuestionListController.getUserQuestionListDetail()
 
 Controller側もDTOを返すように変更する。
 
-```java
+``` java
 @GetMapping("/user/question-list/detail")
 @ResponseBody
 public List<QuestionListItemDto>
@@ -835,7 +1342,7 @@ public List<QuestionListItemDto>
 
 これにより、問題リスト詳細用にEntityそのものをJSONへ変換する必要がなくなった。
 
----
+------------------------------------------------------------------------
 
 ## 問題リスト詳細画面の表示・操作機能の実装
 
@@ -843,7 +1350,7 @@ public List<QuestionListItemDto>
 
 さらに、
 
-```text
+``` text
 理解度変更
 お気に入り登録・解除
 問題詳細表示
@@ -854,7 +1361,7 @@ public List<QuestionListItemDto>
 
 POST処理はJavaScriptの`fetch()`から行うため、CSRF情報をHTMLへ追加する。
 
-```html
+``` html
 <meta name="_csrf"
       th:content="${_csrf.token}">
 
@@ -864,7 +1371,7 @@ POST処理はJavaScriptの`fetch()`から行うため、CSRF情報をHTMLへ追�
 
 JavaScriptでは、
 
-```javascript
+``` javascript
 const csrfToken =
     document.querySelector(
         'meta[name="_csrf"]'
@@ -878,7 +1385,7 @@ const csrfHeader =
 
 として取得する。
 
----
+------------------------------------------------------------------------
 
 ## messages.propertiesによる多言語対応
 
@@ -886,7 +1393,7 @@ HTMLだけでなくJavaScriptから動的に生成する文言についても、
 
 例えば、
 
-```properties
+``` properties
 questionList.detail.chinese=中国語
 questionList.detail.japanese=日本語
 questionList.detail.difficulty=難易度
@@ -913,7 +1420,7 @@ questionListItem.delete.error=問題の削除に失敗しました。
 
 外部JavaScriptではThymeleafの、
 
-```text
+``` text
 #{questionList.detail.chinese}
 ```
 
@@ -921,7 +1428,7 @@ questionListItem.delete.error=問題の削除に失敗しました。
 
 そのためHTML側に`data-*`としてメッセージを設定し、JavaScriptから取得する構成とする。
 
----
+------------------------------------------------------------------------
 
 ## 実行
 
@@ -943,11 +1450,11 @@ questionListItem.delete.error=問題の削除に失敗しました。
 
 ![](../../images/0029-16.png)
 
----
+------------------------------------------------------------------------
 
 # 各トレーニングのquestion画面から問題をリストに追加できるようにする
 
-```text
+``` text
 feat: add question list management to training question pages
 ```
 
@@ -955,7 +1462,7 @@ feat: add question list management to training question pages
 
 そこで、
 
-```text
+``` text
 通常学習
 復習
 AI生成学習
@@ -965,7 +1472,7 @@ AI生成学習
 
 ## どんな動きにするか
 
-```text
+``` text
 question.html
     │
     │ リストボタン
@@ -984,11 +1491,11 @@ question.html
 
 モーダルでは単純な「追加先」ではなく、**現在の問題がどのリストへ登録されているか**をチェック状態として表示する。
 
----
+------------------------------------------------------------------------
 
 ## QuestionListSelectionDto
 
-```java
+``` java
 public interface QuestionListSelectionDto {
 
     Long getListId();
@@ -1005,13 +1512,13 @@ Repositoryではユーザーが所有するリストをすべて取得しつつ�
 
 そのため、ユーザー所有の全リストを残しつつ登録状態を判定できるようにする。
 
----
+------------------------------------------------------------------------
 
 ## チェック状態に合わせて登録状態を一括更新
 
 モーダルから、
 
-```text
+``` text
 questionId
 selectedListIds
 ```
@@ -1020,7 +1527,7 @@ selectedListIds
 
 Service側では、
 
-```text
+``` text
 未登録 + チェックあり
     → 追加
 
@@ -1036,13 +1543,13 @@ Service側では、
 
 として差分を更新する。
 
----
+------------------------------------------------------------------------
 
 ## /practice/question.html
 
 お気に入りボタンの横へリストボタンを追加する。
 
-```html
+``` html
 <button id="questionListButton"
         type="button"
         class="btn p-0 border-0 bg-transparent"
@@ -1057,13 +1564,13 @@ Service側では、
 
 さらに、リスト選択用のBootstrap Modalを追加する。
 
----
+------------------------------------------------------------------------
 
 ## /practice/question.js
 
 ### リスト一覧を取得
 
-```javascript
+``` javascript
 function loadQuestionLists() {
 
     const questionId =
@@ -1139,7 +1646,7 @@ function loadQuestionLists() {
 
 ### チェック状態を保存
 
-```javascript
+``` javascript
 const params =
     new URLSearchParams();
 
@@ -1159,7 +1666,7 @@ checkedLists.forEach(checkbox => {
 
 更新APIへ送信する。
 
-```javascript
+``` javascript
 fetch("/user/question-list/item/update", {
 
     method: "POST",
@@ -1180,7 +1687,7 @@ fetch("/user/question-list/item/update", {
 
 更新成功後はページ遷移せずモーダルだけを閉じる。
 
-```javascript
+``` javascript
 const modalElement =
     document.getElementById(
         "questionListModal"
@@ -1194,7 +1701,7 @@ const modal =
 modal.hide();
 ```
 
----
+------------------------------------------------------------------------
 
 ## 実行
 
@@ -1218,7 +1725,7 @@ DB側でも登録状態が変更される。
 
 ![](../../images/0029-21.png)
 
----
+------------------------------------------------------------------------
 
 ## 追加修正　questionのモーダルからリストを新規に作れるようにする
 
@@ -1226,7 +1733,7 @@ DB側でも登録状態が変更される。
 
 通常の、
 
-```text
+``` text
 POST /user/question-list/create
 ```
 
@@ -1234,7 +1741,7 @@ POST /user/question-list/create
 
 question画面ではページ遷移したくないため、
 
-```java
+``` java
 @PostMapping("/user/question-list/create-modal")
 @ResponseBody
 public void postUserQuestionListCreateModal(
@@ -1258,7 +1765,7 @@ public void postUserQuestionListCreateModal(
 
 ### JavaScript
 
-```javascript
+``` javascript
 const questionListCreateButton =
     document.getElementById(
         "questionListCreateButton"
@@ -1324,11 +1831,12 @@ if (questionListCreateButton) {
 }
 ```
 
-作成後に`questionListButton.click()`を実行すると、Bootstrap Modalの開閉処理まで再実行されてしまう。
+作成後に`questionListButton.click()`を実行すると、Bootstrap
+Modalの開閉処理まで再実行されてしまう。
 
 そこで、
 
-```javascript
+``` javascript
 function loadQuestionLists() {
     ...
 }
@@ -1336,7 +1844,7 @@ function loadQuestionLists() {
 
 として一覧取得処理を独立させ、作成後は、
 
-```javascript
+``` javascript
 return loadQuestionLists();
 ```
 
@@ -1354,7 +1862,7 @@ return loadQuestionLists();
 
 ![](../../images/0029-23.png)
 
----
+------------------------------------------------------------------------
 
 ### /review/question.html
 
@@ -1372,7 +1880,7 @@ AI生成学習にも同じリスト操作を追加する。
 
 AI生成問題保存後に返された`questionId`を、
 
-```javascript
+``` javascript
 questionListButton.dataset.questionId =
     questionId;
 ```
@@ -1407,7 +1915,7 @@ AI生成問題もリストへ登録できる。
 
 ![](../../images/0029-29.png)
 
----
+------------------------------------------------------------------------
 
 ## ファイル名の整理
 
@@ -1415,7 +1923,7 @@ AI生成問題もリストへ登録できる。
 
 当初は、
 
-```text
+``` text
 /static/js/
 
 ├── practice/
@@ -1433,7 +1941,7 @@ AI生成問題もリストへ登録できる。
 
 また、
 
-```text
+``` text
 ai-practice/question.html
     ↓
 practice.js
@@ -1444,7 +1952,7 @@ ai-practice/question.js
 
 そこで、
 
-```text
+``` text
 /static/js/
 
 ├── practice/
@@ -1460,11 +1968,11 @@ ai-practice/question.js
 
 `/practice.js`の処理を`/ai-practice/question.js`へ統合し、`/practice.js`は削除する。
 
----
+------------------------------------------------------------------------
 
 # 追加修正 - リストの表示順を更新日時の降順で取得するようにする
 
-```text
+``` text
 git commit -m "fix: sort lists by updated date in descending order"
 ```
 
@@ -1472,7 +1980,7 @@ git commit -m "fix: sort lists by updated date in descending order"
 
 そこでRepositoryを、
 
-```java
+``` java
 List<QuestionList>
     findByUserIdOrderByUpdatedAtDesc(
         Long userId
@@ -1481,11 +1989,11 @@ List<QuestionList>
 
 のように変更し、最近更新されたリストから表示する。
 
----
+------------------------------------------------------------------------
 
 # 追加修正 − 問題追加・削除時もリストをupdated扱いにする
 
-```text
+``` text
 git commit -m "fix: update list timestamp when adding or removing questions"
 ```
 
@@ -1493,7 +2001,7 @@ git commit -m "fix: update list timestamp when adding or removing questions"
 
 そのため、
 
-```text
+``` text
 question_list_itemへ問題追加
 question_list_itemから問題削除
 ```
@@ -1530,11 +2038,11 @@ question_list_itemから問題削除
 
 ![](../../images/0029-36.png)
 
----
+------------------------------------------------------------------------
 
 # 追加修正 - リスト追加モーダルのリストの表示順も直す
 
-```text
+``` text
 git commit -m "fix: sort modal lists by updated date in descending order"
 ```
 
@@ -1544,7 +2052,7 @@ git commit -m "fix: sort modal lists by updated date in descending order"
 
 モーダル用のリスト取得についても、
 
-```text
+``` text
 updated_at DESC
 ```
 
@@ -1556,11 +2064,11 @@ updated_at DESC
 
 ![](../../images/0029-38.png)
 
----
+------------------------------------------------------------------------
 
 # 追加修正 - messages.propertiesへの追加①
 
-```text
+``` text
 git commit -m "fix: add missing confirmation message for list deletion"
 ```
 
@@ -1570,17 +2078,17 @@ git commit -m "fix: add missing confirmation message for list deletion"
 
 ## messages.properties
 
-```properties
+``` properties
 questionList.delete.confirm=このリストを削除しますか？
 ```
 
 簡体字・繁体字についても対応する。
 
-```properties
+``` properties
 questionList.delete.confirm=确定要删除这个列表吗？
 ```
 
-```properties
+``` properties
 questionList.delete.confirm=確定要刪除這個清單嗎？
 ```
 
@@ -1590,11 +2098,11 @@ questionList.delete.confirm=確定要刪除這個清單嗎？
 
 ![](../../images/0029-40.png)
 
----
+------------------------------------------------------------------------
 
 # 追加修正 - messages.propertiesへの追加②
 
-```text
+``` text
 git commit -m "fix: localize question list modal messages"
 ```
 
@@ -1608,7 +2116,7 @@ question画面のリスト追加モーダルについて、表示言語を変更
 
 例えば、
 
-```html
+``` html
 <h5 class="modal-title">
     リスト
 </h5>
@@ -1636,7 +2144,7 @@ question画面のリスト追加モーダルについて、表示言語を変更
 
 通常学習・復習・AI生成学習の3画面で同じメッセージキーを使用する。
 
-```html
+``` html
 <h5 class="modal-title"
     th:text="#{questionList.modal.title}">
     リスト
@@ -1663,7 +2171,7 @@ question画面のリスト追加モーダルについて、表示言語を変更
 
 ## messages.properties
 
-```properties
+``` properties
 # 問題リスト選択モーダル
 questionList.modal.title=リスト
 questionList.modal.newList=新しいリスト
@@ -1681,7 +2189,7 @@ questionList.modal.save=保存
 
 ![](../../images/0029-42.png)
 
----
+------------------------------------------------------------------------
 
 # このチャプターはここまで
 
@@ -1689,7 +2197,7 @@ questionList.modal.save=保存
 
 DBでは、
 
-```text
+``` text
 question_list
 question_list_item
 ```
@@ -1698,7 +2206,7 @@ question_list_item
 
 バックエンドでは、
 
-```text
+``` text
 QuestionList
 QuestionListItem
 QuestionListItemKey
@@ -1715,9 +2223,10 @@ QuestionListItemController
 
 を中心としてリストの作成・編集・削除、問題の追加・削除を実装した。
 
-また、リスト詳細については`Question` Entityをそのまま返す初期実装から`QuestionListItemDto`へ変更し、
+また、リスト詳細については`Question`
+Entityをそのまま返す初期実装から`QuestionListItemDto`へ変更し、
 
-```text
+``` text
 question
 structure
 study_history
@@ -1728,7 +2237,7 @@ favorite
 
 フロントエンドではユーザーメニューのリスト管理画面だけでなく、
 
-```text
+``` text
 通常学習
 復習
 AI生成学習
@@ -1738,7 +2247,7 @@ AI生成学習
 
 さらに、
 
-```text
+``` text
 モーダルから新規リスト作成
 リストの更新日時順表示
 問題追加・削除時のupdated_at更新
@@ -1751,3 +2260,60 @@ JavaScript構成の整理
 まで追加修正を行った。
 
 これにより、学習中に画面を離れることなく問題を任意のリストへ整理し、そのリストをユーザーメニューから管理できる基本機能が完成した。
+
+------------------------------------------------------------------------
+
+# 追加修正 - 不要になった問題リスト追加用エンドポイントを削除する
+
+各question画面から問題リストの登録状態を一括更新できるようになったことで、初期実装で追加した問題追加専用エンドポイントが使用されなくなった。
+
+初期実装では、以下のメソッドから問題をリストへ追加していた。
+
+``` java
+@PostMapping("/user/question-list/item/add")
+public String postQuestionListItemAdd(
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam Long listId,
+        @RequestParam Long questionId,
+        Locale locale) {
+
+    // ログインユーザーを取得
+    Users user = getLoginUser(loginUser);
+
+    // 指定した問題をリストに追加
+    questionListItemService.addQuestionToList(
+            user,
+            listId,
+            questionId,
+            locale);
+
+    // リスト一覧画面へ戻る
+    return "redirect:/user/question-list/list";
+}
+```
+
+その後、各question画面のリスト選択モーダルから、
+
+``` text
+POST /user/question-list/item/update
+```
+
+へ`questionId`と`selectedListIds`を送信し、`updateQuestionLists()`で現在の登録状態との差分を判定して追加・削除を行う構成へ変更した。
+
+そのため、
+
+``` text
+POST /user/question-list/item/add
+```
+
+を直接呼び出す箇所は存在しなくなった。
+
+不要になった`postQuestionListItemAdd()`を`QuestionListItemController`から削除する。
+
+一方、
+
+``` text
+POST /user/question-list/item/delete
+```
+
+は問題リスト管理画面から問題を直接削除する際に使用しているため、こちらは残す。
