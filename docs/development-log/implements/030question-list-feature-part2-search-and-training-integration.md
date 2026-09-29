@@ -1893,6 +1893,115 @@ git commit -m "style: simplify question list table layout"
 
 ---
 
+# 追加修正 − 通常学習のメニューでリストを選択せずに出題開始を押したときのエラーメッセージを表示させる
+
+```text
+git commit -m "fix: show error when no question list is selected"
+```
+
+現時点では、通常学習のリスト学習でリストを選択せずに「出題開始」を押すと、`PracticeController` が返すエラーメッセージではなく、`<select required>` に対してブラウザが表示するHTML標準の入力検証メッセージが表示される。
+
+![](../../images/0030-13.png)
+
+## 原因
+
+リスト選択用の`<select>`に`required`を指定していたため、リストを選択せずに「出題開始」を押すと、フォームが`PracticeController`へ送信される前にブラウザ側の入力検証によって処理が停止していた。
+
+そのため、`PracticeController`側でリストが選択されているかを判定し、アプリケーション独自のエラーメッセージを返すことができなかった。
+
+また、`@RequestParam`はデフォルトで`required = true`となるため、リスト未選択時の`listId`を`null`として受け取れるようにする必要がある。
+
+## 修正
+
+リスト選択用の`<select>`から`required`を削除し、フォームを`PracticeController`まで送信できるようにする。
+
+また、`getPracticeListStart`で`listId`を任意のリクエストパラメータとして受け取り、`null`の場合はエラーメッセージをFlash Attributeに設定して通常学習メニューへ戻す。
+
+### PracticeController.getPracticeListStart
+
+`listId`を未指定でも受け取れるように、`@RequestParam(required = false)`を指定する。
+
+```java
+@PreAuthorize("isAuthenticated()")
+@GetMapping("/practice/list/start")
+public String getPracticeListStart(
+        HttpSession session,
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam(required = false) Long listId,
+        RedirectAttributes redirectAttributes,
+        Locale locale) {
+
+    // 何も選択していない場合はエラーを表示
+    if (listId == null) {
+
+        String listErrorMessage =
+                messageSource.getMessage(
+                        "practice.list.error.selectList",
+                        null,
+                        locale);
+
+        redirectAttributes.addFlashAttribute(
+                "listErrorMessage",
+                listErrorMessage);
+
+        return "redirect:/practice/menu";
+    }
+
+    // 以下省略
+}
+```
+
+`listId == null`の場合は、`MessageSource`からエラーメッセージを取得する。
+
+取得したメッセージを`listErrorMessage`という名前でFlash Attributeに保存し、`/practice/menu`へリダイレクトする。
+
+### /practice/menu.html
+
+リスト選択用の`<select>`から`required`を削除する。
+
+```html
+<select id="practiceQuestionList"
+        class="form-select"
+        name="listId">
+```
+
+また、リスト学習のエラーメッセージを表示する領域を追加する。
+
+```html
+<!-- ============================= -->
+<!-- エラーメッセージ -->
+<!-- ============================= -->
+
+<p th:if="${listErrorMessage}"
+   class="text-danger fw-bold mb-2 text-center"
+   th:text="${listErrorMessage}">
+</p>
+```
+
+`PracticeController`から`listErrorMessage`が渡された場合のみ、エラーメッセージを表示する。
+
+### messages.properties
+
+リストを選択していない場合に表示するメッセージを追加する。
+
+```properties
+practice.list.error.selectList=リストを選択してください。
+```
+
+各言語のメッセージファイルにも同じキーのメッセージを追加する。
+
+## 実行
+
+http://localhost:8080/practice/menu にアクセスし、リストを選択せずに「出題開始」を押す。
+
+ブラウザ標準の入力検証メッセージではなく、`PracticeController`で設定したエラーメッセージが表示されるようになった。
+
+![](../../images/0030-14.png)
+
+
+
+---
+
 # このチャプターはここまで
 
 今回のチャプターでは、前チャプターで実装したリスト機能を既存機能へ統合した。
