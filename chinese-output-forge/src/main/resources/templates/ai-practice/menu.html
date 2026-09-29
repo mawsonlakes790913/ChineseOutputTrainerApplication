@@ -563,8 +563,7 @@
 
                     <select id="aiPracticeQuestionList"
                             class="form-select"
-                            name="listId"
-                            required>
+                            name="listId">
 
                         <option value=""
                                 selected
@@ -663,8 +662,15 @@
 				
 				    </h2>
 				
-				</div>                
-
+				</div>       
+				         
+				<!-- ============================= -->
+				<!-- エラーメッセージ -->
+				<!-- ============================= -->
+				<p th:if="${listErrorMessage}"
+				   class="text-danger fw-bold mb-2 text-center"
+				   th:text="${listErrorMessage}">
+				</p>   
 
                 <!-- 出題開始 -->
 

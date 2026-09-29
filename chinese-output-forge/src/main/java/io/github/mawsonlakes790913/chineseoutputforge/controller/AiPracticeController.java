@@ -3,6 +3,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Difficulty;
 import io.github.mawsonlakes790913.chineseoutputforge.constant.Evaluation;
@@ -45,6 +47,7 @@ public class AiPracticeController {
 	private final FavoriteService favoriteService;
 	private final StructureService structureService;
 	private final QuestionListService questionListService;
+	private final MessageSource messageSource;
 	
 	/**
 	 * AI生成学習メニュー画面を表示する。
@@ -262,9 +265,26 @@ public class AiPracticeController {
 	public String getAiPracticeListStart(
 	        HttpSession session,
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam Long listId,
+	        @RequestParam(required = false) Long listId,
 	        @RequestParam boolean limit50,
+	        RedirectAttributes redirectAttributes,
 	        Locale locale) {
+		
+		// 何も選択していない場合はエラーを表示
+		if (listId == null) {
+
+		    String listErrorMessage =
+		            messageSource.getMessage(
+		                    "practice.list.error.selectList",
+		                    null,
+		                    locale);
+
+		    redirectAttributes.addFlashAttribute(
+		            "listErrorMessage",
+		            listErrorMessage);
+
+		    return "redirect:/ai-practice/menu";
+		}
 
 	    // 既存のAI生成学習データを破棄
 	    clearAiPracticeSession(session);
