@@ -1998,7 +1998,104 @@ http://localhost:8080/practice/menu にアクセスし、リストを選択せ�
 
 ![](../../images/0030-14.png)
 
+---
 
+# 追加修正 − AI学習のメニューでリストを選択せずに出題開始を押したときのエラーメッセージを表示させる
+
+```text
+git commit -m "fix: show error when no question list is selected in AI practice"
+```
+
+通常学習のリスト学習と同様に、AI学習のリストからの問題生成でも、リストを選択せずに「出題開始」を押した場合にブラウザ標準の入力検証メッセージではなく、`AiPracticeController`で設定したエラーメッセージを表示するように修正する。
+
+## 原因
+
+リスト選択用の`<select>`に`required`を指定していたため、リストを選択せずに「出題開始」を押すと、フォームが`AiPracticeController`へ送信される前にブラウザ側の入力検証によって処理が停止していた。
+
+また、`@RequestParam`はデフォルトで`required = true`となるため、リスト未選択時の`listId`を`null`として受け取れるようにする必要がある。
+
+## 修正
+
+リスト選択用の`<select>`から`required`を削除し、フォームを`AiPracticeController`まで送信できるようにする。
+
+また、`getAiPracticeListStart`で`listId`を任意のリクエストパラメータとして受け取り、`null`の場合はエラーメッセージをFlash Attributeに設定してAI学習メニューへ戻す。
+
+### AiPracticeController.getAiPracticeListStart
+
+`listId`を未指定でも受け取れるように、`@RequestParam(required = false)`を指定する。
+
+```java
+@GetMapping("/ai-practice/list/start")
+public String getAiPracticeListStart(
+        HttpSession session,
+        @AuthenticationPrincipal UserDetails loginUser,
+        @RequestParam(required = false) Long listId,
+        @RequestParam boolean limit50,
+        RedirectAttributes redirectAttributes,
+        Locale locale) {
+
+    // 何も選択していない場合はエラーを表示
+    if (listId == null) {
+
+        String listErrorMessage =
+                messageSource.getMessage(
+                        "practice.list.error.selectList",
+                        null,
+                        locale);
+
+        redirectAttributes.addFlashAttribute(
+                "listErrorMessage",
+                listErrorMessage);
+
+        return "redirect:/ai-practice/menu";
+    }
+
+    // 以下省略
+}
+```
+
+`listId == null`の場合は、`MessageSource`からエラーメッセージを取得する。
+
+取得したメッセージを`listErrorMessage`という名前でFlash Attributeに保存し、`/ai-practice/menu`へリダイレクトする。
+
+### /ai-practice/menu.html
+
+リスト選択用の`<select>`から`required`を削除する。
+
+```html
+<select id="aiPracticeQuestionList"
+        class="form-select"
+        name="listId">
+```
+
+また、リストからのAI問題生成のエラーメッセージを表示する領域を追加する。
+
+```html
+<!-- ============================= -->
+<!-- エラーメッセージ -->
+<!-- ============================= -->
+
+<p th:if="${listErrorMessage}"
+   class="text-danger fw-bold mb-2 text-center"
+   th:text="${listErrorMessage}">
+</p>
+```
+
+`AiPracticeController`から`listErrorMessage`が渡された場合のみ、エラーメッセージを表示する。
+
+### messages.properties
+
+通常学習で追加したメッセージキーをそのまま使用するため、新たなメッセージの追加は不要である。
+
+```properties
+practice.list.error.selectList=リストを選択してください。
+```
+
+## 実行
+
+`/ai-practice/menu`にアクセスし、リストを選択せずに「出題開始」を押す。
+
+ブラウザ標準の入力検証メッセージではなく、`AiPracticeController`で設定したエラーメッセージが表示されることを確認する。
 
 ---
 
