@@ -345,7 +345,25 @@ public class PracticeController {
 	public String getPracticeListStart(
 	        HttpSession session,
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam Long listId) {
+	        @RequestParam(required = false) Long listId,
+	        RedirectAttributes redirectAttributes,
+	        Locale locale) {
+		
+		// 何も選択していない場合はエラーを表示
+		if (listId == null) {
+
+		    String listErrorMessage =
+		            messageSource.getMessage(
+		                    "practice.list.error.selectList",
+		                    null,
+		                    locale);
+
+		    redirectAttributes.addFlashAttribute(
+		            "listErrorMessage",
+		            listErrorMessage);
+
+		    return "redirect:/practice/menu";
+		}
 
 	    // 既存の通常学習データを破棄
 	    clearPracticeSession(session);
