@@ -75,7 +75,7 @@
 						                class="btn btn-outline-danger"
 						                th:disabled="${session.languageVariant != null
 						                    && session.languageVariant.name() == 'MAINLAND'}"
-						                th:onclick="return confirm([[#{settings.languageVariant.mainland.confirm}]])">
+						                th:onclick="|return confirm('#{settings.languageVariant.mainland.confirm}');|">
 						            🇨🇳 普通话
 						        </button>
 						
@@ -96,7 +96,7 @@
 						                class="btn btn-outline-success"
 						                th:disabled="${session.languageVariant != null
 						                    && session.languageVariant.name() == 'TAIWAN'}"
-						                th:onclick="return confirm([[#{settings.languageVariant.taiwan.confirm}]])">
+						                th:onclick="|return confirm('#{settings.languageVariant.taiwan.confirm}');|">
 						            🇹🇼 國語
 						        </button>
 						

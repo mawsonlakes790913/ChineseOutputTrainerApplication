@@ -18,77 +18,73 @@
 
     <div layout:fragment="content">
 
-        <div class="header">
+        <h1 class="h2"
+            th:text="#{user.edit.loginId.heading}">
+            ユーザーID変更
+        </h1>
 
-            <h1 class="h2"
-                th:text="#{user.edit.loginId.heading}">
-                ユーザーID変更
-            </h1>
+        <!-- フォームの横幅を制限 -->
+        <div class="mx-auto mt-4"
+             style="max-width: 500px;">
 
-            <!-- フォームの横幅を制限 -->
-            <div class="mx-auto mt-4"
-                 style="max-width: 500px;">
+            <form th:action="@{/user/edit/loginId}"
+                  th:object="${editLoginIdForm}"
+                  method="post">
 
-                <form th:action="@{/user/edit/loginId}"
-                      th:object="${editLoginIdForm}"
-                      method="post">
+                <!-- 現在のユーザーID -->
+                <div class="mb-4">
 
-                    <!-- 現在のユーザーID -->
-                    <div class="mb-4">
+                    <label class="form-label fw-bold"
+                           th:text="#{user.edit.loginId.current}">
+                        現在のユーザーID
+                    </label>
 
-                        <label class="form-label fw-bold"
-                               th:text="#{user.edit.loginId.current}">
-                            現在のユーザーID
-                        </label>
-
-                        <div class="form-control bg-light"
-                             th:text="${currentLoginId}">
-                            current_user
-                        </div>
-
+                    <div class="form-control bg-light"
+                         th:text="${currentLoginId}">
+                        current_user
                     </div>
 
-                    <!-- 新しいユーザーID -->
-                    <div class="mb-4">
+                </div>
 
-                        <label for="loginId"
-                               class="form-label fw-bold"
-                               th:text="#{user.edit.loginId.new}">
-                            新しいユーザーID
-                        </label>
+                <!-- 新しいユーザーID -->
+                <div class="mb-4">
 
-                        <input type="text"
-                               id="loginId"
-                               th:field="*{loginId}"
-                               th:placeholder="#{signup.loginId.placeholder}"
-                               th:errorclass="is-invalid"
-                               class="form-control">
-                        <div class="invalid-feedback"
-                             th:errors="*{loginId}">
-                        </div>
+                    <label for="loginId"
+                           class="form-label fw-bold"
+                           th:text="#{user.edit.loginId.new}">
+                        新しいユーザーID
+                    </label>
 
+                    <input type="text"
+                           id="loginId"
+                           th:field="*{loginId}"
+                           th:placeholder="#{signup.loginId.placeholder}"
+                           th:errorclass="is-invalid"
+                           class="form-control">
+                    <div class="invalid-feedback"
+                         th:errors="*{loginId}">
                     </div>
 
-                    <!-- 更新 -->
-                    <div class="text-center">
+                </div>
 
-                        <button type="submit"
-                                class="btn btn-primary"
-                                th:text="#{user.edit.loginId.update}">
-                            更新
-                        </button>
+                <!-- 更新 -->
+                <div class="text-center">
 
-                        <a th:href="@{/user/profile}"
-                           class="btn btn-secondary ms-2"
-                           th:text="#{user.edit.loginId.back}">
-                            戻る
-                        </a>
+                    <button type="submit"
+                            class="btn btn-primary"
+                            th:text="#{user.edit.loginId.update}">
+                        更新
+                    </button>
 
-                    </div>
+                    <a th:href="@{/user/profile}"
+                       class="btn btn-secondary ms-2"
+                       th:text="#{user.edit.loginId.back}">
+                        戻る
+                    </a>
 
-                </form>
+                </div>
 
-            </div>
+            </form>
 
         </div>
 
