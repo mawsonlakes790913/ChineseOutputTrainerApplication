@@ -33,6 +33,6 @@ public class LoginController {
 	        session.removeAttribute("loginErrorMessage");
 	    }
 
-	    return "/login";
+	    return "login";
 	}
 }

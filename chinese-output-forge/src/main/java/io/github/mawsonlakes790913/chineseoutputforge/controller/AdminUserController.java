@@ -72,7 +72,7 @@ public class AdminUserController {
 	    model.addAttribute("searchDto", searchDto);
 	    model.addAttribute("sortCondition", sortCondition);
 
-	    return "/admin/user/list";
+	    return "admin/user/list";
 	}
 	
 	/**

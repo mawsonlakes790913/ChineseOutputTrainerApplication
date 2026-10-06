@@ -130,7 +130,7 @@ public class AdminQuestionController {
 	            "structures",
 	            structureService.findStructures());
 
-	    return "/admin/question/list";
+	    return "admin/question/list";
 	}
 	
 	/**

@@ -16,7 +16,7 @@ public class UserMenuController {
 	 */
 	@GetMapping("/user/menu")
 	public String getUserMenu() {
-		return "/user/menu";
+		return "user/menu";
 	}
 	
 	/**

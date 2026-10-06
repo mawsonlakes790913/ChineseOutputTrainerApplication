@@ -35,7 +35,7 @@ public class HomeController {
 	        session.removeAttribute("logoutMessage");
 	    }
 
-	    return "/home";
+	    return "home";
 	}
 	
 	/**

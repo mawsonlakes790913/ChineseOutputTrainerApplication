@@ -16,6 +16,6 @@ public class AdminController {
 	 */
     @GetMapping("/admin/menu")
     public String getAdminMenu() {
-        return "/admin/menu";
+        return "admin/menu";
     }
 }

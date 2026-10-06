@@ -59,7 +59,7 @@ public class QuestionListController {
 	    // 問題リスト一覧を画面へ渡す
 	    model.addAttribute("questionLists", questionLists);
 
-	    return "/user/question-list/list";
+	    return "user/question-list/list";
 	}
 	
 	/**

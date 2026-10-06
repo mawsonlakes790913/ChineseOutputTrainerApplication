@@ -62,7 +62,7 @@ public class AdminStructureController {
                 "pagination",
                 pagination);
 
-        return "/admin/structure/list";
+        return "admin/structure/list";
     }
     
     /**
@@ -75,7 +75,7 @@ public class AdminStructureController {
     public String getStructureAdd(
             @ModelAttribute StructureForm structureForm) {
 
-        return "/admin/structure/add";
+        return "admin/structure/add";
     }
 
     /**
@@ -95,7 +95,7 @@ public class AdminStructureController {
 
         // バリデーションエラーがある場合は入力画面を再表示
         if (bindingResult.hasErrors()) {
-            return "/admin/structure/add";
+            return "admin/structure/add";
         }
 
         // 文法・構造を登録
@@ -110,7 +110,7 @@ public class AdminStructureController {
                     "structure.add.error",
                     e.getMessage());
 
-            return "/admin/structure/add";
+            return "admin/structure/add";
         }
 
         // 登録完了メッセージを設定
@@ -141,7 +141,7 @@ public class AdminStructureController {
                 "structureForm",
                 structureForm);
 
-        return "/admin/structure/edit";
+        return "admin/structure/edit";
     }
 
     /**
@@ -163,7 +163,7 @@ public class AdminStructureController {
 
         // バリデーションエラーがある場合は編集画面を再表示
         if (bindingResult.hasErrors()) {
-            return "/admin/structure/edit";
+            return "admin/structure/edit";
         }
 
         // 文法・構造を更新
@@ -180,7 +180,7 @@ public class AdminStructureController {
                     "structure.edit.error",
                     e.getMessage());
 
-            return "/admin/structure/edit";
+            return "admin/structure/edit";
         }
 
         // 編集完了メッセージを設定

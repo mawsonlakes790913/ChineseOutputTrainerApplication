@@ -103,7 +103,7 @@ public class AiPracticeController {
 	            "questionLists",
 	            questionLists);
 
-	    return "/ai-practice/menu";
+	    return "ai-practice/menu";
 	}
 	
 	/**
