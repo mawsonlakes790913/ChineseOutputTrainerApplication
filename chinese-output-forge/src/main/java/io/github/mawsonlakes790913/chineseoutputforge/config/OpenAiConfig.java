@@ -1,5 +1,6 @@
 package io.github.mawsonlakes790913.chineseoutputforge.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,13 +12,16 @@ public class OpenAiConfig {
 
     /**
      * OpenAI APIとの通信に使用するClientを生成する。
-     * 接続に必要な設定は環境変数から取得する。
      *
+     * @param apiKey OpenAI APIキー
      * @return OpenAI API用のClient
      */
     @Bean
-    OpenAIClient openAIClient() {
+    OpenAIClient openAIClient(
+            @Value("${OPENAI_API_KEY}") String apiKey) {
 
-        return OpenAIOkHttpClient.fromEnv();
+        return OpenAIOkHttpClient.builder()
+                .apiKey(apiKey)
+                .build();
     }
 }
