@@ -1,0 +1,35 @@
+spring:
+
+  config:
+    import: aws-parameterstore:/config/chinese-output-forge/
+
+  messages:
+    fallback-to-system-locale: false
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+app:
+  base-url: ${APP_BASE_URL}
