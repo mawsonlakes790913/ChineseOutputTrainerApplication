@@ -7,22 +7,23 @@
 	<header layout:fragment="header-contents"
 	        class="bg-dark text-white py-3 mb-3">
 	
-	    <div class="container d-flex justify-content-between align-items-center">
-			<h1 class="h4 m-0">
+	    <div class="container d-flex flex-column flex-md-row
+            justify-content-between align-items-md-center gap-3">
+			<h1 class="h4 m-0 text-nowrap">
 			    <a th:href="@{/}"
 			       class="text-white text-decoration-none"
 			       th:text="#{title}">
 			        Chinese Output Forge
 			    </a>
 			</h1>
-		    <div class="ms-auto d-flex gap-3 align-items-center">	
-				<div class="d-flex align-items-center gap-2">
+		    <div class="d-flex gap-3 align-items-center ms-md-auto">
+				<div class="d-flex align-items-center gap-2 text-nowrap">
 					<!-- 学習対象言語 -->
 					<span th:text="#{header.studyLanguage}">
 					    学習言語
 					</span>
 					
-					<div class="dropdown">
+					<div class="dropdown me-5 me-md-0">
 					
 					    <!-- 現在の学習言語 -->
 					    <button class="btn btn-outline-light dropdown-toggle"
@@ -95,7 +96,7 @@
 
 				
 				    <!-- ユーザーアイコン -->
-				    <button class="btn btn-outline-light dropdown-toggle"
+				    <button class="btn btn-outline-light dropdown-toggle ms-5 ms-md-0"
 				            type="button"
 				            data-bs-toggle="dropdown"
 				            aria-expanded="false">
@@ -141,83 +142,85 @@
 						</li>
 				
 				    </ul>
+				    
+					<!-- ハンバーガーアイコン -->
+					<div class="dropdown">
+					    <button type="button"
+					            class="btn p-0 text-white border-0"
+					            data-bs-toggle="dropdown"
+					            aria-expanded="false"
+					            aria-label="メニュー">
+					        <i class="bi bi-list fs-3"></i>
+					    </button>
+					
+					    <ul class="dropdown-menu dropdown-menu-end">
+					
+					        <li>
+					            <a class="dropdown-item"
+					               th:href="@{/about}"
+					               th:text="#{home.about}">
+					                このアプリについて
+					            </a>
+					        </li>
+					
+					        <li><hr class="dropdown-divider"></li>
+					
+					        <li>
+					            <span class="dropdown-header">
+					                表示言語
+					            </span>
+					        </li>
+					
+							<li>
+							    <a class="dropdown-item display-language-link"
+							       href="#"
+							       data-lang="ja">
+							        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
+							    </a>
+							</li>
+					
+							<li>
+							    <a class="dropdown-item display-language-link"
+							       href="#"
+							       data-lang="zh_CN">
+							        <span th:if="${#locale.toString() == 'zh_CN'}">✓ </span>简体中文
+							    </a>
+							</li>
+							
+							<li>
+							    <a class="dropdown-item display-language-link"
+							       href="#"
+							       data-lang="zh_TW">
+							        <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
+							    </a>
+							</li>
+					        
+					        <li><hr class="dropdown-divider"></li>
+							<!-- 未ログイン時 -->
+							<li sec:authorize="isAnonymous()">
+							    <a class="dropdown-item"
+							       th:href="@{/login}"
+							       th:text="#{header.login}">
+							        ログイン
+							    </a>
+							</li>
+							
+							<!-- ログイン時 -->
+							<li sec:authorize="isAuthenticated()">
+							    <form th:action="@{/logout}" method="post">
+							        <button class="dropdown-item"
+							        		type="submit"
+							                th:text="#{header.logout}">
+							            ログアウト
+							        </button>
+							    </form>
+							</li>				        
+					
+					    </ul>
+					</div>					    
 				
 				</div>				
-				<!-- ハンバーガーアイコン -->
-				<div class="dropdown">
-				    <button type="button"
-				            class="btn p-0 text-white border-0"
-				            data-bs-toggle="dropdown"
-				            aria-expanded="false"
-				            aria-label="メニュー">
-				        <i class="bi bi-list fs-3"></i>
-				    </button>
-				
-				    <ul class="dropdown-menu dropdown-menu-end">
-				
-				        <li>
-				            <a class="dropdown-item"
-				               th:href="@{/about}"
-				               th:text="#{home.about}">
-				                このアプリについて
-				            </a>
-				        </li>
-				
-				        <li><hr class="dropdown-divider"></li>
-				
-				        <li>
-				            <span class="dropdown-header">
-				                表示言語
-				            </span>
-				        </li>
-				
-						<li>
-						    <a class="dropdown-item display-language-link"
-						       href="#"
-						       data-lang="ja">
-						        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
-						    </a>
-						</li>
-				
-						<li>
-						    <a class="dropdown-item display-language-link"
-						       href="#"
-						       data-lang="zh_CN">
-						        <span th:if="${#locale.toString() == 'zh_CN'}">✓ </span>简体中文
-						    </a>
-						</li>
-						
-						<li>
-						    <a class="dropdown-item display-language-link"
-						       href="#"
-						       data-lang="zh_TW">
-						        <span th:if="${#locale.toString() == 'zh_TW'}">✓ </span>繁體中文
-						    </a>
-						</li>
-				        
-				        <li><hr class="dropdown-divider"></li>
-						<!-- 未ログイン時 -->
-						<li sec:authorize="isAnonymous()">
-						    <a class="dropdown-item"
-						       th:href="@{/login}"
-						       th:text="#{header.login}">
-						        ログイン
-						    </a>
-						</li>
-						
-						<!-- ログイン時 -->
-						<li sec:authorize="isAuthenticated()">
-						    <form th:action="@{/logout}" method="post">
-						        <button class="dropdown-item"
-						        		type="submit"
-						                th:text="#{header.logout}">
-						            ログアウト
-						        </button>
-						    </form>
-						</li>				        
-				
-				    </ul>
-				</div>			                   	
+		                   	
 			</div>			
 	    </div>	    
 	</header>
