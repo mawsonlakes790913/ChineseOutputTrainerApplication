@@ -118,278 +118,278 @@
             <form th:action="@{/ai-practice/start}"
                   method="get">
 
-                <div class="d-flex gap-2">
-
-                    <!-- ============================= -->
-                    <!-- 理解度 -->
-                    <!-- ============================= -->
-
-                    <div class="mb-4" style="flex: 5;">
-
-                        <div class="card h-100">
-
-                            <div class="card-header"
-                                 th:text="#{aiPractice.menu.evaluation.title}">
-                                理解度
-                            </div>
-
-                            <div class="card-body d-flex align-items-center">
-
-                                <div class="row">
-
-                                    <!-- HARD -->
-
-                                    <div class="col text-center">
-
-                                        <label class="form-check">
-
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   name="evaluations"
-                                                   value="HARD">
-
-                                            <span class="form-check-label">
-
-                                                <span class="fw-bold text-danger"
-                                                      th:text="#{aiPractice.menu.evaluation.hard}">
-                                                    Hard
-                                                </span>
-
-                                                <br>
-
-                                                <small class="text-danger"
-                                                       th:text="#{aiPractice.menu.evaluation.hard.description}">
-                                                    難しい・わからない
-                                                </small>
-
-                                            </span>
-
-                                        </label>
-
-                                    </div>
-
-
-                                    <!-- GOOD -->
-
-                                    <div class="col text-center">
-
-                                        <label class="form-check">
-
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   name="evaluations"
-                                                   value="GOOD">
-
-                                            <span class="form-check-label">
-
-                                                <span class="fw-bold text-primary"
-                                                      th:text="#{aiPractice.menu.evaluation.good}">
-                                                    Good
-                                                </span>
-
-                                                <br>
-
-                                                <small class="text-primary"
-                                                       th:text="#{aiPractice.menu.evaluation.good.description}">
-                                                    少し考えた、一部正解だった
-                                                </small>
-
-                                            </span>
-
-                                        </label>
-
-                                    </div>
-
-
-                                    <!-- EASY -->
-
-                                    <div class="col text-center">
-
-                                        <label class="form-check">
-
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   name="evaluations"
-                                                   value="EASY">
-
-                                            <span class="form-check-label">
-
-                                                <span class="fw-bold text-success"
-                                                      th:text="#{aiPractice.menu.evaluation.easy}">
-                                                    Easy
-                                                </span>
-
-                                                <br>
-
-                                                <small class="text-success"
-                                                       th:text="#{aiPractice.menu.evaluation.easy.description}">
-                                                    簡単だった
-                                                </small>
-
-                                            </span>
-
-                                        </label>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ============================= -->
-                    <!-- 問題難易度 -->
-                    <!-- ============================= -->
-
-                    <div class="mb-4" style="flex: 3.5;">
-
-                        <div class="card h-100">
-
-                            <div class="card-header"
-                                 th:text="#{aiPractice.menu.difficulty.title}">
-                                問題難易度
-                            </div>
-
-                            <div class="card-body d-flex align-items-center">
-
-                                <div class="d-flex gap-3">
-
-                                    <!-- BEGINNER -->
-
-                                    <label class="bg-danger-subtle rounded px-3 py-2">
-
-                                        <input class="form-check-input me-2"
-                                               type="checkbox"
-                                               name="difficulties"
-                                               value="BEGINNER">
-
-                                        <span class="fw-bold text-danger"
-                                              th:text="#{aiPractice.menu.difficulty.beginner}">
-                                            初級
-                                        </span>
-
-                                    </label>
-
-
-                                    <!-- INTERMEDIATE -->
-
-                                    <label class="bg-primary-subtle rounded px-3 py-2">
-
-                                        <input class="form-check-input me-2"
-                                               type="checkbox"
-                                               name="difficulties"
-                                               value="INTERMEDIATE">
-
-                                        <span class="fw-bold text-primary"
-                                              th:text="#{aiPractice.menu.difficulty.intermediate}">
-                                            中級
-                                        </span>
-
-                                    </label>
-
-
-                                    <!-- ADVANCED -->
-
-                                    <label class="bg-success-subtle rounded px-3 py-2">
-
-                                        <input class="form-check-input me-2"
-                                               type="checkbox"
-                                               name="difficulties"
-                                               value="ADVANCED">
-
-                                        <span class="fw-bold text-success"
-                                              th:text="#{aiPractice.menu.difficulty.advanced}">
-                                            上級
-                                        </span>
-
-                                    </label>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ============================= -->
-                    <!-- お気に入り -->
-                    <!-- ============================= -->
-
-                    <div class="mb-4" style="flex: 3.5;">
-
-                        <div class="card h-100">
-
-                            <div class="card-header"
-                                 th:text="#{aiPractice.menu.favorite.title}">
-                                お気に入り
-                            </div>
-
-                            <div class="card-body">
-
-                                <!-- FAVORITED -->
-
-                                <label class="form-check mb-2">
-
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="favoriteCondition"
-                                           value="FAVORITED">
-
-                                    <span class="form-check-label"
-                                          th:text="#{aiPractice.menu.favorite.favorited}">
-                                        お気に入り登録した問題のみ
-                                    </span>
-
-                                </label>
-
-
-                                <!-- NOT_FAVORITED -->
-
-                                <label class="form-check mb-2">
-
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="favoriteCondition"
-                                           value="NOT_FAVORITED">
-
-                                    <span class="form-check-label"
-                                          th:text="#{aiPractice.menu.favorite.notFavorited}">
-                                        お気に入り登録していない問題のみ
-                                    </span>
-
-                                </label>
-
-
-                                <!-- ALL -->
-
-                                <label class="form-check">
-
-                                    <input class="form-check-input"
-                                           type="radio"
-                                           name="favoriteCondition"
-                                           value="ALL"
-                                           checked>
-
-                                    <span class="form-check-label"
-                                          th:text="#{aiPractice.menu.favorite.all}">
-                                        どちらも対象にする
-                                    </span>
-
-                                </label>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
+				<div class="row g-3 mb-3">
+				
+				    <!-- ============================= -->
+				    <!-- 理解度 -->
+				    <!-- ============================= -->
+				
+				    <div class="col-md-6">
+				
+				        <div class="card h-100">
+				
+				            <div class="card-header"
+				                 th:text="#{aiPractice.menu.evaluation.title}">
+				                理解度
+				            </div>
+				
+				            <div class="card-body d-flex align-items-center">
+				
+				                <div class="row">
+				
+				                    <!-- HARD -->
+				
+				                    <div class="col text-center">
+				
+				                        <label class="form-check">
+				
+				                            <input class="form-check-input"
+				                                   type="checkbox"
+				                                   name="evaluations"
+				                                   value="HARD">
+				
+				                            <span class="form-check-label">
+				
+				                                <span class="fw-bold text-danger"
+				                                      th:text="#{aiPractice.menu.evaluation.hard}">
+				                                    Hard
+				                                </span>
+				
+				                                <br>
+				
+				                                <small class="text-danger"
+				                                       th:text="#{aiPractice.menu.evaluation.hard.description}">
+				                                    難しい・わからない
+				                                </small>
+				
+				                            </span>
+				
+				                        </label>
+				
+				                    </div>
+				
+				
+				                    <!-- GOOD -->
+				
+				                    <div class="col text-center">
+				
+				                        <label class="form-check">
+				
+				                            <input class="form-check-input"
+				                                   type="checkbox"
+				                                   name="evaluations"
+				                                   value="GOOD">
+				
+				                            <span class="form-check-label">
+				
+				                                <span class="fw-bold text-primary"
+				                                      th:text="#{aiPractice.menu.evaluation.good}">
+				                                    Good
+				                                </span>
+				
+				                                <br>
+				
+				                                <small class="text-primary"
+				                                       th:text="#{aiPractice.menu.evaluation.good.description}">
+				                                    少し考えた、一部正解だった
+				                                </small>
+				
+				                            </span>
+				
+				                        </label>
+				
+				                    </div>
+				
+				
+				                    <!-- EASY -->
+				
+				                    <div class="col text-center">
+				
+				                        <label class="form-check">
+				
+				                            <input class="form-check-input"
+				                                   type="checkbox"
+				                                   name="evaluations"
+				                                   value="EASY">
+				
+				                            <span class="form-check-label">
+				
+				                                <span class="fw-bold text-success"
+				                                      th:text="#{aiPractice.menu.evaluation.easy}">
+				                                    Easy
+				                                </span>
+				
+				                                <br>
+				
+				                                <small class="text-success"
+				                                       th:text="#{aiPractice.menu.evaluation.easy.description}">
+				                                    簡単だった
+				                                </small>
+				
+				                            </span>
+				
+				                        </label>
+				
+				                    </div>
+				
+				                </div>
+				
+				            </div>
+				
+				        </div>
+				
+				    </div>
+				
+				
+				    <!-- ============================= -->
+				    <!-- 問題難易度 -->
+				    <!-- ============================= -->
+				
+				    <div class="col-md-6">
+				
+				        <div class="card h-100">
+				
+				            <div class="card-header"
+				                 th:text="#{aiPractice.menu.difficulty.title}">
+				                問題難易度
+				            </div>
+				
+				            <div class="card-body d-flex align-items-center">
+				
+				                <div class="d-flex gap-3">
+				
+				                    <!-- BEGINNER -->
+				
+				                    <label class="bg-danger-subtle rounded px-3 py-2">
+				
+				                        <input class="form-check-input me-2"
+				                               type="checkbox"
+				                               name="difficulties"
+				                               value="BEGINNER">
+				
+				                        <span class="fw-bold text-danger"
+				                              th:text="#{aiPractice.menu.difficulty.beginner}">
+				                            初級
+				                        </span>
+				
+				                    </label>
+				
+				
+				                    <!-- INTERMEDIATE -->
+				
+				                    <label class="bg-primary-subtle rounded px-3 py-2">
+				
+				                        <input class="form-check-input me-2"
+				                               type="checkbox"
+				                               name="difficulties"
+				                               value="INTERMEDIATE">
+				
+				                        <span class="fw-bold text-primary"
+				                              th:text="#{aiPractice.menu.difficulty.intermediate}">
+				                            中級
+				                        </span>
+				
+				                    </label>
+				
+				
+				                    <!-- ADVANCED -->
+				
+				                    <label class="bg-success-subtle rounded px-3 py-2">
+				
+				                        <input class="form-check-input me-2"
+				                               type="checkbox"
+				                               name="difficulties"
+				                               value="ADVANCED">
+				
+				                        <span class="fw-bold text-success"
+				                              th:text="#{aiPractice.menu.difficulty.advanced}">
+				                            上級
+				                        </span>
+				
+				                    </label>
+				
+				                </div>
+				
+				            </div>
+				
+				        </div>
+				
+				    </div>
+				
+				
+				    <!-- ============================= -->
+				    <!-- お気に入り -->
+				    <!-- ============================= -->
+				
+				    <div class="col-12">
+				
+				        <div class="card">
+				
+				            <div class="card-header"
+				                 th:text="#{aiPractice.menu.favorite.title}">
+				                お気に入り
+				            </div>
+				
+				            <div class="card-body">
+				
+				                <!-- FAVORITED -->
+				
+				                <label class="form-check mb-2">
+				
+				                    <input class="form-check-input"
+				                           type="radio"
+				                           name="favoriteCondition"
+				                           value="FAVORITED">
+				
+				                    <span class="form-check-label"
+				                          th:text="#{aiPractice.menu.favorite.favorited}">
+				                        お気に入り登録した問題のみ
+				                    </span>
+				
+				                </label>
+				
+				
+				                <!-- NOT_FAVORITED -->
+				
+				                <label class="form-check mb-2">
+				
+				                    <input class="form-check-input"
+				                           type="radio"
+				                           name="favoriteCondition"
+				                           value="NOT_FAVORITED">
+				
+				                    <span class="form-check-label"
+				                          th:text="#{aiPractice.menu.favorite.notFavorited}">
+				                        お気に入り登録していない問題のみ
+				                    </span>
+				
+				                </label>
+				
+				
+				                <!-- ALL -->
+				
+				                <label class="form-check">
+				
+				                    <input class="form-check-input"
+				                           type="radio"
+				                           name="favoriteCondition"
+				                           value="ALL"
+				                           checked>
+				
+				                    <span class="form-check-label"
+				                          th:text="#{aiPractice.menu.favorite.all}">
+				                        どちらも対象にする
+				                    </span>
+				
+				                </label>
+				
+				            </div>
+				
+				        </div>
+				
+				    </div>
+				
+				</div>
 
 
                 <!-- ============================= -->
