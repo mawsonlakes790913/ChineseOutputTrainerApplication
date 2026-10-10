@@ -660,7 +660,7 @@
 			
 			    <form th:action="@{/practice/new/start}" method="get">
 					
-					<div class="d-flex gap-3 mb-3 fs-4">
+					<div class="d-flex flex-column flex-md-row gap-3 mb-3 fs-4">
 					
 						<label class="bg-danger-subtle rounded px-3 py-3 flex-fill">
 						    <input class="form-check-input me-2"
@@ -668,7 +668,7 @@
 						           name="difficulties"
 						           value="BEGINNER">
 						
-							<span>
+							<span class="text-nowrap">
 							    <span th:text="#{practice.menu.difficulty.beginner}"></span>
 							    <span th:text="${newQuestionCount.beginnerCount}">初級: 0問</span>
 							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
@@ -681,7 +681,7 @@
 						           name="difficulties"
 						           value="INTERMEDIATE">
 						
-							<span>
+							<span class="text-nowrap">
 							    <span th:text="#{practice.menu.difficulty.intermediate}"></span>
 							    <span th:text="${newQuestionCount.intermediateCount}">中級: 0問</span>
 							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
@@ -694,7 +694,7 @@
 						           name="difficulties"
 						           value="ADVANCED">
 
-							<span>
+							<span class="text-nowrap">
 							    <span th:text="#{practice.menu.difficulty.advanced}"></span>
 							    <span th:text="${newQuestionCount.advancedCount}">上級: 0問</span>
 							    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
