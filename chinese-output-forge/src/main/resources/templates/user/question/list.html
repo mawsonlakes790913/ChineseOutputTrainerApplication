@@ -578,10 +578,10 @@
     </div>
 
     <!-- ========================= -->
-    <!-- 問題一覧 -->
+    <!-- 問題一覧(PC) -->
     <!-- ========================= -->
 
-    <div class="table-responsive">
+    <div class="table-responsive d-none d-md-block">
 
         <table class="table table-hover align-middle">
 
@@ -860,6 +860,213 @@
         </table>
 
     </div>
+    
+    <!-- ========================= -->
+    <!-- 問題一覧(スマホ) -->
+    <!-- ========================= -->    
+    
+	<!-- スマホ用 -->
+	<div class="d-md-none">
+	
+	    <div th:each="question : ${questionList}"
+	         class="card mb-3">
+	
+	        <div class="card-body">
+	
+	            <!-- 問題番号 -->
+	            <div class="mb-3">
+	                <span class="fw-bold"
+	                      th:text="#{user.question.list.questionId}">
+	                    問題番号
+	                </span>
+	                <span>：</span>
+	                <span th:text="${question.questionId}"></span>
+	            </div>
+	
+	            <!-- 日本語 -->
+	            <div class="mb-3">
+	                <div class="fw-bold mb-1"
+	                     th:text="#{user.question.list.japanese}">
+	                    日本語
+	                </div>
+	                <div th:text="${question.japaneseText}"></div>
+	            </div>
+	
+	            <!-- 中国語 -->
+	            <div class="mb-3">
+	                <div class="fw-bold mb-1"
+	                     th:text="#{user.question.list.chinese}">
+	                    中国語
+	                </div>
+	                <div th:text="${question.chineseText}"></div>
+	            </div>
+	
+	            <!-- 文法・構造 -->
+	            <div class="mb-2">
+	                <span class="fw-bold"
+	                      th:text="#{user.question.list.structure}">
+	                    文法・構造
+	                </span>
+	                <span>：</span>
+	
+	                <span th:text="${question.structureName}"
+	                      data-bs-toggle="tooltip"
+	                      data-bs-placement="top"
+	                      th:data-bs-title="${session.languageVariant != null
+	                          && session.languageVariant.name() == 'TAIWAN'
+	                          ? question.structureDescriptionZhTw
+	                          : question.structureDescriptionZhCn}">
+	                    文法・構造
+	                </span>
+	            </div>
+	
+	            <!-- 難易度 -->
+	            <div class="mb-2">
+	                <span class="fw-bold"
+	                      th:text="#{user.question.list.difficulty}">
+	                    難易度
+	                </span>
+	                <span>：</span>
+	
+	                <span class="text-danger fw-bold"
+	                      th:if="${question.difficulty.name() == 'BEGINNER'}"
+	                      th:text="#{difficulty.beginner}">
+	                    初級
+	                </span>
+	
+	                <span class="text-primary fw-bold"
+	                      th:if="${question.difficulty.name() == 'INTERMEDIATE'}"
+	                      th:text="#{difficulty.intermediate}">
+	                    中級
+	                </span>
+	
+	                <span class="text-success fw-bold"
+	                      th:if="${question.difficulty.name() == 'ADVANCED'}"
+	                      th:text="#{difficulty.advanced}">
+	                    上級
+	                </span>
+	            </div>
+	
+	            <!-- 生成元 -->
+	            <div class="mb-3">
+	                <span class="fw-bold">生成元：</span>
+	
+	                <span class="badge bg-black"
+	                      th:if="${question.aiGenerated}">
+	                    AI
+	                </span>
+	
+	                <span class="badge bg-white text-dark border border-dark"
+	                      th:unless="${question.aiGenerated}">
+	                    APP
+	                </span>
+	            </div>
+	
+	            <!-- 操作 -->
+	            <div class="d-flex align-items-center gap-3">
+	
+	                <!-- 詳細 -->
+	                <button type="button"
+	                        class="detailButton btn btn-outline-primary btn-sm text-nowrap"
+	                        data-bs-toggle="modal"
+	                        data-bs-target="#questionDetailModal"
+	                        th:data-japanese="${question.japaneseText}"
+	                        th:data-chinese="${question.chineseText}"
+	                        th:data-alternative="${question.alternativeAnswer}"
+	                        th:data-pinyin="${question.pinyin}"
+	                        th:data-zhuyin="${question.zhuyin}"
+	                        th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
+	                        th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}"
+	                        th:text="#{user.question.list.detail}">
+	                    詳細
+	                </button>
+	
+	                <!-- 理解度 -->
+	                <span th:if="${question.evaluation == null}"
+	                      class="text-secondary text-nowrap"
+	                      th:text="#{user.question.list.unlearned}">
+	                    未学習
+	                </span>
+	
+	                <button th:if="${question.evaluation?.name() == 'HARD'}"
+	                        class="btn btn-sm btn-danger evaluationButton"
+	                        th:data-question-id="${question.questionId}"
+	                        data-bs-toggle="modal"
+	                        data-bs-target="#evaluationModal">
+	                    Hard
+	                </button>
+	
+	                <button th:if="${question.evaluation?.name() == 'GOOD'}"
+	                        class="btn btn-sm btn-primary evaluationButton"
+	                        th:data-question-id="${question.questionId}"
+	                        data-bs-toggle="modal"
+	                        data-bs-target="#evaluationModal">
+	                    Good
+	                </button>
+	
+	                <button th:if="${question.evaluation?.name() == 'EASY'}"
+	                        class="btn btn-sm btn-success evaluationButton"
+	                        th:data-question-id="${question.questionId}"
+	                        data-bs-toggle="modal"
+	                        data-bs-target="#evaluationModal">
+	                    Easy
+	                </button>
+	
+	                <!-- お気に入り -->
+	                <button class="btn btn-link p-0 favoriteButton"
+	                        th:data-question-id="${question.questionId}">
+	
+	                    <i class="bi bi-heart-fill text-danger"
+	                       th:if="${question.favorite}">
+	                    </i>
+	
+	                    <i class="bi bi-heart text-secondary"
+	                       th:unless="${question.favorite}">
+	                    </i>
+	
+	                </button>
+	
+	                <!-- リスト -->
+	                <button type="button"
+	                        class="btn p-0 border-0 bg-transparent questionListButton"
+	                        th:data-question-id="${question.questionId}"
+	                        data-bs-toggle="modal"
+	                        data-bs-target="#questionListModal">
+	
+	                    <i class="bi bi-folder-plus fs-5 text-secondary"></i>
+	
+	                </button>
+	
+	                <!-- 削除 -->
+	                <form th:action="@{/user/question/delete}"
+	                      method="post"
+	                      class="ms-auto">
+	
+	                    <input type="hidden"
+	                           name="questionId"
+	                           th:value="${question.questionId}">
+	
+	                    <input type="hidden"
+	                           name="returnUrl"
+	                           th:value="${currentUrl}">
+	
+	                    <button type="submit"
+	                            class="btn btn-dark btn-sm"
+	                            th:disabled="${!question.aiGenerated}"
+	                            th:onclick="|return confirm('#{user.question.delete.confirm}')|">
+	
+	                        <i class="bi bi-trash"></i>
+	
+	                    </button>
+	
+	                </form>
+	
+	            </div>
+	
+	        </div>
+	    </div>
+	
+	</div>    
 
     <!-- ========================= -->
     <!-- ページネーション -->
