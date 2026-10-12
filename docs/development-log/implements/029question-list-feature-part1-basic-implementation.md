@@ -3202,3 +3202,264 @@ detail.js
 ```
 
 これにより、従来の「JSONを取得してJavaScriptで問題一覧を生成する構成」から、「Spring MVCとThymeleafで問題一覧を生成し、JavaScriptは画面操作を担当する構成」への変更が完了した。
+
+---
+
+## 追加修正 - 問題リスト詳細画面のスマートフォン対応
+
+```text
+git commit -m "Improve question list detail layout for mobile devices"
+```
+
+問題リスト詳細画面を実装した後、スマートフォンのブラウザから表示を確認した。
+
+PCでは問題リストに登録されている問題をテーブル形式で一覧表示しているが、スマートフォンでは画面幅が狭いため、中国語や日本語の文章が細かく折り返され、各項目が非常に見にくくなっていた。
+
+また、すべての項目を確認するためには横スクロールが必要となり、スマートフォンでの操作性も低下していた。
+
+そのため、通常の問題一覧画面で実装したスマートフォン向けのカード表示と同様に、画面幅によって表示形式を切り替える。
+
+```text
+PC
+↓
+テーブル形式
+
+スマートフォン
+↓
+カード形式
+```
+
+### PC用テーブルをスマートフォンでは非表示にする
+
+既存のPC用テーブルにBootstrapのレスポンシブ表示クラスを追加する。
+
+```html
+<div th:unless="${#lists.isEmpty(listItems)}"
+     class="table-responsive d-none d-md-block">
+```
+
+`d-none d-md-block`を指定することで、`md`未満ではテーブルを非表示にし、`md`以上ではこれまでどおりテーブルを表示する。
+
+### スマートフォン用のカード表示を追加する
+
+PC用テーブルの後に、スマートフォン用のカード表示を追加する。
+
+```html
+<!-- ========================= -->
+<!-- 問題一覧（スマホ） -->
+<!-- ========================= -->
+
+<div th:unless="${#lists.isEmpty(listItems)}"
+     class="d-md-none">
+
+    <div th:each="question : ${listItems}"
+         class="card mb-3">
+
+        <div class="card-body">
+
+            <!-- 中国語 -->
+            <div class="mb-3">
+                <div class="fw-bold mb-1"
+                     th:text="#{questionList.detail.chinese}">
+                    中国語
+                </div>
+
+                <div th:text="${question.chineseText}"></div>
+            </div>
+
+            <!-- 日本語 -->
+            <div class="mb-3">
+                <div class="fw-bold mb-1"
+                     th:text="#{questionList.detail.japanese}">
+                    日本語
+                </div>
+
+                <div th:text="${question.japaneseText}"></div>
+            </div>
+
+            <!-- 難易度 -->
+            <div class="mb-2">
+
+                <span class="fw-bold"
+                      th:text="#{questionList.detail.difficulty}">
+                    難易度
+                </span>
+
+                <span>：</span>
+
+                <span class="text-danger fw-bold"
+                      th:if="${question.difficulty.name() == 'BEGINNER'}"
+                      th:text="#{questionList.detail.difficulty.beginner}">
+                    初級
+                </span>
+
+                <span class="text-primary fw-bold"
+                      th:if="${question.difficulty.name() == 'INTERMEDIATE'}"
+                      th:text="#{questionList.detail.difficulty.intermediate}">
+                    中級
+                </span>
+
+                <span class="text-success fw-bold"
+                      th:if="${question.difficulty.name() == 'ADVANCED'}"
+                      th:text="#{questionList.detail.difficulty.advanced}">
+                    上級
+                </span>
+
+            </div>
+
+            <!-- 生成元 -->
+            <div class="mb-3">
+
+                <span class="fw-bold"
+                      th:text="#{questionList.detail.source}">
+                    生成元
+                </span>
+
+                <span>：</span>
+
+                <span class="badge bg-black"
+                      th:if="${question.aiGenerated}">
+                    AI
+                </span>
+
+                <span class="badge bg-white text-dark border border-dark"
+                      th:unless="${question.aiGenerated}">
+                    APP
+                </span>
+
+            </div>
+
+            <!-- 操作 -->
+            <div class="d-flex align-items-center gap-3">
+
+                <!-- 詳細 -->
+                <button type="button"
+                        class="detailButton btn btn-outline-primary btn-sm text-nowrap"
+                        data-bs-toggle="modal"
+                        data-bs-target="#questionDetailModal"
+                        th:data-japanese="${question.japaneseText}"
+                        th:data-chinese="${question.chineseText}"
+                        th:data-alternative="${question.alternativeAnswer}"
+                        th:data-pinyin="${question.pinyin}"
+                        th:data-zhuyin="${question.zhuyin}"
+                        th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
+                        th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}"
+                        th:data-structure="${question.structureName}"
+                        th:text="#{user.question.list.detail}">
+                    詳細
+                </button>
+
+                <!-- 理解度 -->
+                <span th:if="${question.evaluation == null}"
+                      class="text-secondary text-nowrap"
+                      th:text="#{questionList.detail.evaluation.unlearned}">
+                    未学習
+                </span>
+
+                <button th:if="${question.evaluation?.name() == 'HARD'}"
+                        type="button"
+                        class="btn btn-sm btn-danger evaluationButton"
+                        th:data-question-id="${question.questionId}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#evaluationModal">
+                    Hard
+                </button>
+
+                <button th:if="${question.evaluation?.name() == 'GOOD'}"
+                        type="button"
+                        class="btn btn-sm btn-primary evaluationButton"
+                        th:data-question-id="${question.questionId}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#evaluationModal">
+                    Good
+                </button>
+
+                <button th:if="${question.evaluation?.name() == 'EASY'}"
+                        type="button"
+                        class="btn btn-sm btn-success evaluationButton"
+                        th:data-question-id="${question.questionId}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#evaluationModal">
+                    Easy
+                </button>
+
+                <!-- お気に入り -->
+                <button type="button"
+                        class="btn btn-link p-0 favoriteButton"
+                        th:data-question-id="${question.questionId}">
+
+                    <i class="bi bi-heart-fill text-danger"
+                       th:if="${question.favorite}">
+                    </i>
+
+                    <i class="bi bi-heart text-secondary"
+                       th:unless="${question.favorite}">
+                    </i>
+
+                </button>
+
+                <!-- 削除 -->
+                <form th:action="@{/user/question-list/item/delete}"
+                      method="post"
+                      class="ms-auto">
+
+                    <input type="hidden"
+                           name="listId"
+                           th:value="${param.listId}">
+
+                    <input type="hidden"
+                           name="questionId"
+                           th:value="${question.questionId}">
+
+                    <button type="submit"
+                            class="btn btn-dark btn-sm"
+                            th:onclick="|return confirm('#{questionListItem.delete.confirm}')|">
+
+                        <i class="bi bi-trash"></i>
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+```
+
+`d-md-none`を指定しているため、このカード表示は`md`未満の場合のみ表示される。
+
+PC用とスマートフォン用で表示形式は異なるが、どちらもControllerからModelへ渡された`listItems`を使用している。
+
+また、詳細・理解度・お気に入り・削除についても既存のクラス名や`data-*`属性、エンドポイントをそのまま使用することで、既存の処理を再利用している。
+
+これにより、画面サイズに応じて次のように表示を切り替えられるようになった。
+
+```text
+QuestionListController
+        ↓
+     listItems
+        ↓
+   detail.html
+      ／     ＼
+     ／       ＼
+md未満       md以上
+カード        テーブル
+```
+
+### 確認
+
+Chrome DevToolsでiPhone 13相当のViewport（390 × 844）を設定し、問題リスト詳細画面を確認した。
+
+PCでは従来のテーブル形式を維持したまま、スマートフォンでは各問題がカード形式で表示されることを確認した。
+
+スマートフォンでは中国語と日本語の文章に十分な横幅を確保でき、テーブル表示時に発生していた細かい折り返しや横スクロールも解消された。
+
+また、各カードから詳細表示、理解度、お気に入り、問題リストからの削除を操作できることを確認した。
+
+![](../../images/0029-46.png)
+
+
