@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/layout}">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title th:text="#{questionList.detail.title}">
+        問題リスト詳細
+    </title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+    <meta name="_csrf"
+          th:content="${_csrf.token}">
+
+    <meta name="_csrf_header"
+          th:content="${_csrf.headerName}">
+    <script th:src="@{/js/user/question-list/detail.js}" defer>
+</script>      
+
+</head>
+
+<body>
+
+<div layout:fragment="content"
+     class="w-100">
+
+    <div class="container py-4">
+
+        <!-- ========================= -->
+        <!-- タイトル -->
+        <!-- ========================= -->
+
+        <h1 class="mb-4"
+            th:text="#{questionList.detail.title}">
+            問題リスト詳細
+        </h1>
+        
+		<!-- ========================= -->
+		<!-- 成功メッセージ -->
+		<!-- ========================= -->
+		
+		<div th:if="${successMessage}"
+		     class="alert alert-success alert-dismissible fade show"
+		     role="alert">
+		
+		    <span th:text="${successMessage}"></span>
+		
+		    <button type="button"
+		            class="btn-close"
+		            data-bs-dismiss="alert">
+		    </button>
+		
+		</div>        
+
+
+        <!-- ========================= -->
+        <!-- 問題が存在しない場合 -->
+        <!-- ========================= -->
+
+        <div th:if="${#lists.isEmpty(listItems)}"
+             class="alert alert-secondary"
+             th:text="#{questionList.detail.empty}">
+            このリストには問題が登録されていません。
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- 問題一覧 -->
+        <!-- ========================= -->
+
+        <div th:unless="${#lists.isEmpty(listItems)}"
+             class="table-responsive">
+
+            <table class="table table-hover align-middle">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th th:text="#{questionList.detail.chinese}">
+                            中国語
+                        </th>
+
+                        <th th:text="#{questionList.detail.japanese}">
+                            日本語
+                        </th>
+
+                        <th class="text-nowrap"
+                            th:text="#{questionList.detail.difficulty}">
+                            難易度
+                        </th>
+
+                        <th class="text-nowrap"
+                            th:text="#{questionList.detail.evaluation}">
+                            理解度
+                        </th>
+
+                        <th class="text-nowrap"
+                            th:text="#{questionList.detail.favorite}">
+                            お気に入り
+                        </th>
+
+                        <th class="text-nowrap text-center"
+                            th:text="#{questionList.detail.source}">
+                            生成元
+                        </th>
+
+                        <th class="text-nowrap"
+                            th:text="#{questionList.detail}">
+                            詳細
+                        </th>
+
+                        <th class="text-nowrap"
+                            th:text="#{questionListItem.delete}">
+                            削除
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr th:each="question : ${listItems}">
+
+                        <!-- 中国語 -->
+
+                        <td th:text="${question.chineseText}">
+                        </td>
+
+
+                        <!-- 日本語 -->
+
+                        <td th:text="${question.japaneseText}">
+                        </td>
+
+
+                        <!-- 難易度 -->
+
+                        <td>
+
+                            <span class="text-danger fw-bold"
+                                  th:if="${question.difficulty.name() == 'BEGINNER'}"
+                                  th:text="#{questionList.detail.difficulty.beginner}">
+                                初級
+                            </span>
+
+                            <span class="text-primary fw-bold"
+                                  th:if="${question.difficulty.name() == 'INTERMEDIATE'}"
+                                  th:text="#{questionList.detail.difficulty.intermediate}">
+                                中級
+                            </span>
+
+                            <span class="text-success fw-bold"
+                                  th:if="${question.difficulty.name() == 'ADVANCED'}"
+                                  th:text="#{questionList.detail.difficulty.advanced}">
+                                上級
+                            </span>
+
+                        </td>
+
+
+                        <!-- 理解度 -->
+
+                        <td>
+
+                            <span th:if="${question.evaluation == null}"
+                                  class="text-secondary text-nowrap"
+                                  th:text="#{questionList.detail.evaluation.unlearned}">
+                                未学習
+                            </span>
+
+                            <button th:if="${question.evaluation?.name() == 'HARD'}"
+                                    type="button"
+                                    class="btn btn-sm btn-danger evaluationButton"
+                                    th:data-question-id="${question.questionId}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#evaluationModal">
+                                Hard
+                            </button>
+
+                            <button th:if="${question.evaluation?.name() == 'GOOD'}"
+                                    type="button"
+                                    class="btn btn-sm btn-primary evaluationButton"
+                                    th:data-question-id="${question.questionId}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#evaluationModal">
+                                Good
+                            </button>
+
+                            <button th:if="${question.evaluation?.name() == 'EASY'}"
+                                    type="button"
+                                    class="btn btn-sm btn-success evaluationButton"
+                                    th:data-question-id="${question.questionId}"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#evaluationModal">
+                                Easy
+                            </button>
+
+                        </td>
+
+
+                        <!-- お気に入り -->
+
+                        <td class="text-center">
+
+                            <button type="button"
+                                    class="btn btn-link p-0 favoriteButton"
+                                    th:data-question-id="${question.questionId}">
+
+                                <i class="bi bi-heart-fill text-danger"
+                                   th:if="${question.favorite}">
+                                </i>
+
+                                <i class="bi bi-heart text-secondary"
+                                   th:unless="${question.favorite}">
+                                </i>
+
+                            </button>
+
+                        </td>
+
+
+                        <!-- 生成元 -->
+
+                        <td class="text-center">
+
+                            <span class="badge bg-black"
+                                  th:if="${question.aiGenerated}">
+                                AI
+                            </span>
+
+                            <span class="badge bg-white text-dark border border-dark"
+                                  th:unless="${question.aiGenerated}">
+                                APP
+                            </span>
+
+                        </td>
+
+
+                        <!-- 詳細 -->
+						<td>
+							<button type="button"
+							        class="detailButton btn btn-outline-primary btn-sm text-nowrap"
+							        data-bs-toggle="modal"
+							        data-bs-target="#questionDetailModal"
+							        th:data-japanese="${question.japaneseText}"
+							        th:data-chinese="${question.chineseText}"
+							        th:data-alternative="${question.alternativeAnswer}"
+							        th:data-pinyin="${question.pinyin}"
+							        th:data-zhuyin="${question.zhuyin}"
+							        th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
+							        th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}"
+							        th:data-structure="${question.structureName}"
+							        th:text="#{user.question.list.detail}">
+							    詳細
+							</button>
+						</td>
+
+                        <!-- 削除 -->
+
+                        <td class="text-center">
+
+                            <form th:action="@{/user/question-list/item/delete}"
+                                  method="post">
+
+                                <input type="hidden"
+                                       name="listId"
+                                       th:value="${param.listId}">
+
+                                <input type="hidden"
+                                       name="questionId"
+                                       th:value="${question.questionId}">
+
+                                <button type="submit"
+                                        class="btn btn-dark btn-sm"
+                                        th:onclick="|return confirm('#{questionListItem.delete.confirm}')|">
+
+                                    <i class="bi bi-trash"></i>
+
+                                </button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- 戻る -->
+        <!-- ========================= -->
+
+        <div class="text-center mt-3 mb-3">
+
+            <a th:href="@{/user/question-list/list}"
+               class="btn btn-secondary"
+               th:text="#{questionList.backToList}">
+                問題リスト一覧に戻る
+            </a>
+
+        </div>
+
+    </div>
+    
+    <!-- ========================= -->
+    <!-- 問題詳細モーダル -->
+    <!-- ========================= -->
+
+    <div class="modal fade"
+         id="questionDetailModal"
+         th:data-pronunciation-type="${pronunciationType}">
+
+        <div class="modal-dialog">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title"
+                        th:text="#{user.question.list.detailTitle}">
+                        問題詳細
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                    </button>
+
+                </div>
+
+				<div class="modal-body">
+				
+				    <!-- 日本語 -->
+				    <p>
+				        <strong th:text="#{user.question.list.japanese}">
+				            日本語
+				        </strong>
+				        <br>
+				        <span id="modalJapanese"></span>
+				    </p>
+				
+				
+				    <!-- 中国語 -->
+				    <div class="mb-3">
+				
+				        <strong th:text="#{user.question.list.chinese}">
+				            中国語
+				        </strong>
+				
+				        <br>
+				
+				        <span id="modalChinese"></span>
+				
+				        <!-- 中国語の発音記号 -->
+				        <div id="modalChinesePronunciationArea"
+				             class="text-secondary small mt-1">
+				
+				            <span id="modalChinesePronunciation"></span>
+				
+				        </div>
+				
+				    </div>
+				    
+					<!-- 文法 -->
+					<div class="mb-3">
+					    <strong>文法・構造</strong>
+					    <br>
+					    <span id="modalStructure"></span>
+					</div>				    
+				
+				
+				    <!-- 別解 -->
+				    <div id="modalAlternativeArea"
+				         class="mb-3">
+				
+				        <strong th:text="#{user.question.list.alternativeAnswer}">
+				            別解
+				        </strong>
+				
+				        <br>
+				
+				        <span id="modalAlternative"></span>
+				
+				        <!-- 別解の発音記号 -->
+				        <div id="modalAlternativePronunciationArea"
+				             class="text-secondary small mt-1">
+				
+				            <span id="modalAlternativePronunciation"></span>
+				
+				        </div>
+				
+				    </div>
+				
+				</div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal"
+                            th:text="#{common.close}">
+                        閉じる
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+    
+
+</div>
+
+</body>
+
+</html>

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import io.github.mawsonlakes790913.chineseoutputforge.constant.PronunciationType;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListItemDto;
 import io.github.mawsonlakes790913.chineseoutputforge.dto.QuestionListSelectionDto;
 import io.github.mawsonlakes790913.chineseoutputforge.entity.QuestionList;
@@ -22,6 +23,7 @@ import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListItemService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListService;
 import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -131,19 +133,21 @@ public class QuestionListController {
 	}
 	
 	/**
-	 * 指定された問題リストに登録されている問題を取得する。
+	 * 指定された問題リストに登録されている問題の一覧を表示する。
 	 *
 	 * @param loginUser ログインユーザー情報
 	 * @param listId 対象リストのID
+	 * @param model 画面に渡すデータ
 	 * @param locale 現在の言語・地域情報
-	 * @return リストに登録されている問題の一覧
+	 * @return 問題リスト詳細画面のビュー名
 	 */
 	@GetMapping("/user/question-list/detail")
-	@ResponseBody
-	public List<QuestionListItemDto> getUserQuestionListDetail(
+	public String getUserQuestionListDetail(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long listId,
-	        Locale locale) {
+	        Model model,
+	        Locale locale,
+	        HttpSession session) {
 
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
@@ -155,8 +159,25 @@ public class QuestionListController {
 	                    listId,
 	                    locale);
 
-	    // 問題リストの問題一覧を返す
-	    return listItems;
+	    // 問題リストの問題一覧を画面へ渡す
+	    model.addAttribute(
+	            "listItems",
+	            listItems);
+
+	    // 表示する発音表記を取得
+	    PronunciationType pronunciationType =
+	            (PronunciationType) session.getAttribute("pronunciationType");
+
+	    // 未設定の場合は拼音を使用
+	    if (pronunciationType == null) {
+	        pronunciationType = PronunciationType.PINYIN;
+	    }
+
+	    model.addAttribute(
+	            "pronunciationType",
+	            pronunciationType);
+
+	    return "user/question-list/detail";
 	}
 	
 	/**

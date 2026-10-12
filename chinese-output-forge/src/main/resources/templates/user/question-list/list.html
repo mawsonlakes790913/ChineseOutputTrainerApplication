@@ -27,68 +27,13 @@
     <meta name="_csrf_header"
           th:content="${_csrf.headerName}">
 
-    <script th:src="@{/js/user/question-list/list.js}"></script>
-
 </head>
 
 <body>
 
 <div layout:fragment="content"
      class="w-100">
-     
-	<!-- 成功メッセージ -->
-	<div id="questionListSuccessMessage"
-	     class="alert alert-success d-none"
-	     role="alert">
-	</div>
-	
-	<!-- エラーメッセージ -->
-	<div id="questionListErrorMessage"
-	     class="alert alert-danger d-none"
-	     role="alert">
-	</div>     
-
-    <!-- ========================= -->
-    <!-- JavaScript用メッセージ -->
-    <!-- ========================= -->
-
-    <div id="questionListMessages"
-         class="d-none"
-
-         th:data-empty="#{questionList.detail.empty}"
-         th:data-load-error="#{questionList.detail.loadError}"
-
-         th:data-chinese="#{questionList.detail.chinese}"
-         th:data-japanese="#{questionList.detail.japanese}"
-         th:data-difficulty="#{questionList.detail.difficulty}"
-         th:data-evaluation="#{questionList.detail.evaluation}"
-         th:data-favorite="#{questionList.detail.favorite}"
-         th:data-source="#{questionList.detail.source}"
-         th:data-detail="#{questionList.detail}"
-         th:data-delete="#{questionListItem.delete}"
-
-         th:data-beginner="#{questionList.detail.difficulty.beginner}"
-         th:data-intermediate="#{questionList.detail.difficulty.intermediate}"
-         th:data-advanced="#{questionList.detail.difficulty.advanced}"
-
-         th:data-unlearned="#{questionList.detail.evaluation.unlearned}"
-         th:data-hard="#{questionList.detail.evaluation.hard}"
-         th:data-good="#{questionList.detail.evaluation.good}"
-         th:data-easy="#{questionList.detail.evaluation.easy}"
-
-         th:data-normal="#{questionList.detail.normal}"
-         th:data-ai="#{questionList.detail.ai}"
-
-		th:data-evaluation-update-error="#{questionList.detail.evaluation.updateError}"
-		
-		th:data-delete-confirm="#{questionListItem.delete.confirm}"
-		
-		th:data-delete-success="#{questionListItem.delete.success}"
-		
-		th:data-delete-error="#{questionListItem.delete.error}">
-    </div>
-
-
+      
     <div class="container py-4">
 
         <h1 class="mb-4"
@@ -182,12 +127,11 @@
                         <td>
 
                             <!-- 詳細 -->
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-primary question-list-detail-button"
-                                    th:data-list-id="${questionList.listId}"
-                                    th:text="#{questionList.detail}">
-                                詳細
-                            </button>
+							<a th:href="@{/user/question-list/detail(listId=${questionList.listId})}"
+							   class="btn btn-sm btn-outline-primary"
+							   th:text="#{questionList.detail}">
+							    詳細
+							</a>
 
 
                             <!-- 編集 -->
@@ -218,20 +162,6 @@
 
                             </form>
 
-                        </td>
-
-                    </tr>
-
-
-                    <!-- ========================= -->
-                    <!-- 詳細表示領域 -->
-                    <!-- ========================= -->
-
-                    <tr class="d-none"
-                        th:id="'list-detail-' + ${questionList.listId}">
-
-                        <td colspan="2"
-                            th:id="'list-detail-content-' + ${questionList.listId}">
                         </td>
 
                     </tr>
@@ -406,228 +336,6 @@
 
 </div>
 
-
-<!-- ========================= -->
-<!-- 問題詳細モーダル -->
-<!-- ========================= -->
-
-<div class="modal fade"
-     id="questionDetailModal"
-     tabindex="-1">
-
-    <div class="modal-dialog modal-lg">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-
-                <h5 class="modal-title"
-                    th:text="#{questionList.detail.question.title}">
-                    問題詳細
-                </h5>
-
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal">
-                </button>
-
-            </div>
-
-            <div class="modal-body">
-
-
-                <!-- 中国語 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.chinese}">
-                        中国語
-                    </label>
-
-                    <div id="questionDetailChineseText">
-                    </div>
-
-                </div>
-
-
-                <!-- 日本語 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.japanese}">
-                        日本語
-                    </label>
-
-                    <div id="questionDetailJapaneseText">
-                    </div>
-
-                </div>
-
-
-                <!-- ピンイン -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.pinyin}">
-                        ピンイン
-                    </label>
-
-                    <div id="questionDetailPinyin">
-                    </div>
-
-                </div>
-
-
-                <!-- 注音 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.zhuyin}">
-                        注音
-                    </label>
-
-                    <div id="questionDetailZhuyin">
-                    </div>
-
-                </div>
-
-
-                <!-- 別解 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.alternativeAnswer}">
-                        別解
-                    </label>
-
-                    <div id="questionDetailAlternativeAnswer">
-                    </div>
-
-                </div>
-
-
-                <!-- 別解ピンイン -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.alternativeAnswerPinyin}">
-                        別解ピンイン
-                    </label>
-
-                    <div id="questionDetailAlternativeAnswerPinyin">
-                    </div>
-
-                </div>
-
-
-                <!-- 別解注音 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.alternativeAnswerZhuyin}">
-                        別解注音
-                    </label>
-
-                    <div id="questionDetailAlternativeAnswerZhuyin">
-                    </div>
-
-                </div>
-
-
-                <!-- 構文 -->
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold"
-                           th:text="#{questionList.detail.question.structure}">
-                        構文
-                    </label>
-
-                    <div id="questionDetailStructureName">
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="modal-footer">
-
-                <button type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal"
-                        th:text="#{questionList.detail.question.close}">
-                    閉じる
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- ========================= -->
-<!-- 理解度変更モーダル -->
-<!-- ========================= -->
-
-<div class="modal fade"
-     id="evaluationModal"
-     tabindex="-1">
-
-    <div class="modal-dialog modal-sm">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-
-                <h5 class="modal-title"
-                    th:text="#{questionList.detail.evaluation.change}">
-                    理解度を変更
-                </h5>
-
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal">
-                </button>
-
-            </div>
-
-            <div class="modal-body">
-
-                <div class="d-grid gap-2">
-
-                    <button type="button"
-                            class="btn btn-danger evaluationSelect"
-                            data-evaluation="HARD"
-                            th:text="#{questionList.detail.evaluation.hard}">
-                        Hard
-                    </button>
-
-                    <button type="button"
-                            class="btn btn-primary evaluationSelect"
-                            data-evaluation="GOOD"
-                            th:text="#{questionList.detail.evaluation.good}">
-                        Good
-                    </button>
-
-                    <button type="button"
-                            class="btn btn-success evaluationSelect"
-                            data-evaluation="EASY"
-                            th:text="#{questionList.detail.evaluation.easy}">
-                        Easy
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
 
 </div>
 

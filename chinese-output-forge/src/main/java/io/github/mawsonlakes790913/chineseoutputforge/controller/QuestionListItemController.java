@@ -3,12 +3,14 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import io.github.mawsonlakes790913.chineseoutputforge.entity.Users;
 import io.github.mawsonlakes790913.chineseoutputforge.service.QuestionListItemService;
@@ -25,6 +27,7 @@ public class QuestionListItemController {
 	
 	private final UserAccountService userAccountService;
 	private final QuestionListItemService questionListItemService;
+	private final MessageSource messageSource;
 	
 	/**
 	 * 指定された問題を問題リストから削除する。
@@ -33,26 +36,33 @@ public class QuestionListItemController {
 	 * @param listId 削除元のリストID
 	 * @param questionId 削除する問題のID
 	 * @param locale 現在の言語・地域情報
-	 * @return 問題リスト一覧画面へのリダイレクト先
+	 * @param redirectAttributes リダイレクト先へ渡すFlash属性
+	 * @return 問題リスト詳細画面へのリダイレクト先
 	 */
 	@PostMapping("/user/question-list/item/delete")
 	public String postQuestionListItemDelete(
 	        @AuthenticationPrincipal UserDetails loginUser,
 	        @RequestParam Long listId,
 	        @RequestParam Long questionId,
-	        Locale locale) {
+	        Locale locale,
+	        RedirectAttributes redirectAttributes) {
 
-	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 
-	    // 指定した問題を問題リストから削除
 	    questionListItemService.deleteQuestionFromList(
 	            user,
 	            listId,
 	            questionId,
 	            locale);
 
-	    return "redirect:/user/question-list/list";
+	    redirectAttributes.addFlashAttribute(
+	            "successMessage",
+	            messageSource.getMessage(
+	                    "questionListItem.delete.success",
+	                    null,
+	                    locale));
+
+	    return "redirect:/user/question-list/detail?listId=" + listId;
 	}
 	
 	/**
