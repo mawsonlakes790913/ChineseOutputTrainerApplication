@@ -2,6 +2,7 @@ package io.github.mawsonlakes790913.chineseoutputforge.controller;
 
 import java.util.Locale;
 
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -11,10 +12,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import io.github.mawsonlakes790913.chineseoutputforge.exception.MailSendException;
 import io.github.mawsonlakes790913.chineseoutputforge.form.ForgotPasswordForm;
 import io.github.mawsonlakes790913.chineseoutputforge.form.ResetPasswordForm;
 import io.github.mawsonlakes790913.chineseoutputforge.service.PasswordResetService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * パスワードリセット機能に関するリクエストを処理するController。
@@ -22,9 +25,11 @@ import lombok.RequiredArgsConstructor;
  */
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class PasswordResetController {
 	
 	private final PasswordResetService passwordResetService;
+	private final MessageSource messageSource;
 	
 	/**
 	 * パスワードリセット要求画面を表示する。
@@ -69,9 +74,23 @@ public class PasswordResetController {
 	    }
 
 	    // パスワードリセットトークンを作成してメールを送信
-	    passwordResetService.createPasswordResetToken(
-	            form.getEmail(),
-	            locale);
+	    try {
+	        passwordResetService.createPasswordResetToken(
+	                form.getEmail(),
+	                locale);
+
+	    } catch (MailSendException e) {
+	        log.error("パスワード再設定メールの送信に失敗", e);
+
+	        model.addAttribute(
+	                "mailError",
+	                messageSource.getMessage(
+	                		"password.reset.error.mailSend", 
+	                		null, 
+	                		locale));
+
+	        return getForgotPassword(form, model);
+	    }
 
 	    // メール送信完了画面で表示するメールアドレスを設定
 	    redirectAttributes.addAttribute(

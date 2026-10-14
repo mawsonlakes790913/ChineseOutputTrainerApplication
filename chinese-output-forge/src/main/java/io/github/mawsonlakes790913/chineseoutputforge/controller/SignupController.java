@@ -91,6 +91,13 @@ public class SignupController {
 	                "会員登録完了メールの送信に失敗 loginId={}",
 	                form.getLoginId(),
 	                e);
+
+	        redirectAttributes.addFlashAttribute(
+	                "mailError",
+	                messageSource.getMessage(
+	                		"signup.error.mailSend", 
+	                		null, 
+	                		locale));
 	    }
 
 	    // 登録完了メッセージを設定
