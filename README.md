@@ -129,6 +129,14 @@ ChineseOutputTrainerApplication/
 
 ## ローカル開発環境の構築
 
+本アプリケーションはAWS上にデプロイされており、[公開サイト](https://chinese-output-forge.com)から実際の機能を確認できます。
+
+ローカル環境で実行する場合は、PostgreSQLの構築、環境変数の設定、外部APIの認証情報の準備などが必要です。また、GitHubのリポジトリには本番データベースの問題データが含まれていないため、別途データを用意する必要があります。
+
+そのため、**アプリケーションの動作確認を目的とする場合は、ローカル環境を構築するよりも公開サイトの利用を推奨します。**
+
+以下は、ソースコードを取得してローカル環境で開発・実行する場合の参考情報です。
+
 ### 必要な環境
 
 - JDK 21
@@ -154,16 +162,30 @@ Maven Wrapperを使用しているため、Mavenの個別インストールは�
 
 **注意：** プロジェクトにはSpring Cloud AWS Parameter Store Starterが含まれているため、ローカル起動時にも追加のAWS設定が必要になる可能性があります。現在のSES連携はAWS SDKによる認証を使用し、旧Gmail SMTPの認証情報は使用しません。上記は設定項目の整理であり、すべての外部連携が追加設定なしでローカル動作することを保証するものではありません。
 
+### リポジトリのクローン
+
+以下のコマンドでGitHubからリポジトリを取得します。
+
+```bash
+git clone https://github.com/mawsonlakes790913/ChineseOutputTrainerApplication.git
+cd ChineseOutputTrainerApplication
+```
+
 ### 起動・ビルドコマンド
 
-アプリケーションのディレクトリで実行します。
+Spring Bootアプリケーションのディレクトリへ移動します。
 
 ```bash
 cd chinese-output-forge
+```
+
+必要な環境変数やデータベースを設定したうえで、以下のコマンドを実行します。
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-起動後、`http://localhost:8080`にアクセスします（`application.yml`のローカル設定に基づくURL）。
+起動後、`http://localhost:8080`にアクセスします（ローカル環境で8080番ポートを使用する場合）。
 
 ビルドとテスト：
 
