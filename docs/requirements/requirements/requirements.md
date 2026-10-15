@@ -69,4 +69,4 @@
 
 - [要件詳細](requirements-detail.md)：各機能の具体的な条件・制約
 - [要件変更履歴](requirements-history.md)：開発中の追加・変更と判断理由
-- [データ設計](../design/data-design.md)：データの保持・関連付け（配置に応じてリンクを調整）
+- [データ設計](../design/database/data-design.md)：データの保持・関連付け（配置に応じてリンクを調整）
