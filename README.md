@@ -2,7 +2,7 @@
 
 **日本語から中国語への瞬間作文練習を通じて、学んだ文法・語彙を実際に使えるようにするWebアプリケーションです。** 中国大陸の普通話と台湾華語に対応しています。
 
-[公開アプリ](https://chinese-output-forge.com) · [要件定義](docs/requirements/requirements.md) · [開発ログ](docs/development-log/implements/) · [学習ログ](docs/learning-log/implement/)
+[公開アプリ](https://chinese-output-forge.com) · [要件定義](docs/requirements/requirements/requirements.md) · [開発ログ](docs/development-log/implements/) · [学習ログ](docs/learning-log/implement/)
 
 ## プロジェクト概要
 
@@ -21,6 +21,16 @@ Chinese Output Forgeは、日本語の問題文を見て、対応する中国語
 - **多言語UI：** 日本語、英語、簡体字中国語、繁体字中国語
 - **ユーザー管理：** 会員登録、ログイン、プロフィール管理、メールによるパスワード再設定
 - **管理機能：** 問題、文法構文、ユーザーの管理
+
+## 公開環境の制限事項（Amazon SES）
+
+現在、Amazon SESの本番アクセスを申請中のため、メール送信はサンドボックス環境の制限を受けています。
+
+パスワード再設定メールの送信機能は実装・検証済みですが、**送信先はAmazon SESで検証済みのメールアドレスに限られます。**
+
+そのため、公開サイトでは、一般ユーザーが自身のメールアドレス宛てにパスワード再設定メールを受信する操作を確認できません。
+
+本番アクセスの承認後に、この制限事項を更新する予定です。
 
 ## 画面紹介
 
@@ -55,6 +65,14 @@ Chinese Output Forgeは、日本語の問題文を見て、対応する中国語
 ![問題一覧・検索画面](docs/images/readme-question-list.png)
 
 言語・難易度・学習状況・文法構文・キーワードなどを指定して、登録済みの問題や保存したAI生成問題を検索・確認できます。
+
+### メール送信エラーへの対応
+
+| 会員登録時 | パスワード再設定時 |
+| --- | --- |
+| ![会員登録時のメール送信エラー](docs/images/readme-signup-mail-error.png) | ![パスワード再設定時のメール送信エラー](docs/images/readme-password-reset-mail-error.png) |
+
+Amazon SESによるメール送信に失敗した場合でも、例外を処理して適切なエラーメッセージを表示します。会員登録時は登録処理の成功とメール送信の失敗を区別し、パスワード再設定時は入力内容を保持して再試行できるようにしています。
 
 ## 使用技術
 
@@ -106,7 +124,7 @@ CloudWatchとSNSで監視・アラーム通知を行い、アプリケーショ�
 - **認証・認可：** Spring Securityを利用してログインが必要な機能や管理機能へのアクセスを制御
 - **AWSとの連携：** EC2のIAMロールとAWS SDKによるSESメール送信、独自ドメインのDNS・メール認証設定
 
-データベースの詳細は[ER図](docs/requirements/er-diagram.md)と[テーブル定義](docs/requirements/table-definition.md)を参照してください。
+データベースの詳細は[ER図](docs/requirements/design/database/er-diagram.md)と[テーブル定義](docs/requirements/design/database/table-definition.md)を参照してください。
 
 ## ディレクトリ構成
 
