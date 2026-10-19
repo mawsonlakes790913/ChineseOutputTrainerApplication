@@ -1,6 +1,5 @@
 package io.github.mawsonlakes790913.chineseoutputforge.service;
 
-import java.util.Collections;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -138,7 +137,8 @@ public class ReviewService {
 	                        convertedDifficulties,
 	                        convertedFavoriteCondition,
 	                        sourceCondition.name(),
-	                        structureIds);
+	                        structureIds,
+	                        random);
 
 	    } else {
 
@@ -150,12 +150,8 @@ public class ReviewService {
 	                        convertedDifficulties,
 	                        convertedFavoriteCondition,
 	                        sourceCondition.name(),
-	                        structureIds);
-	    }
-		
-	    // 必要に応じて取得した問題をシャッフル
-	    if (random) {
-	        Collections.shuffle(extractedQuestions);
+	                        structureIds,
+	                        random);
 	    }
 
 	    return extractedQuestions;

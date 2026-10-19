@@ -101,18 +101,19 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("structureIds") List<Long> structureIds
 	);
 
-    /**
-     * 指定した復習条件に一致する問題をランダムに最大50件取得する。
-     *
-     * @param userId ユーザーID
-     * @param languageVariants 学習対象言語の検索条件
-     * @param evaluations 理解度の検索条件
-     * @param difficulties 難易度の検索条件
-     * @param favoriteCondition お気に入りの検索条件
-     * @param sourceCondition 問題の生成元の検索条件
-     * @param structureIds 文法・構造の検索条件
-     * @return 復習条件に一致する問題の一覧
-     */
+	/**
+	 * 指定した復習条件に一致する問題を、指定された順序で最大50件取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariants 学習対象言語の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param difficulties 難易度の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param random trueの場合はランダム順、falseの場合は問題IDの昇順
+	 * @return 復習条件に一致する問題の一覧（最大50件）
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM study_history sh
@@ -158,7 +159,9 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	              )
 	          )
 	          AND q.structure_id IN (:structureIds)
-	        ORDER BY RANDOM()
+	        ORDER BY
+	            CASE WHEN :random = false THEN q.question_id END ASC,
+	            CASE WHEN :random = true THEN RANDOM() END
 	        LIMIT 50
 	        """, nativeQuery = true)
 	List<Question> findReviewQuestions(
@@ -168,21 +171,23 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,
 	        @Param("sourceCondition") String sourceCondition,
-	        @Param("structureIds") List<Long> structureIds
+	        @Param("structureIds") List<Long> structureIds,
+	        @Param("random") boolean random
 	);
 	
-    /**
-     * 指定した復習条件に一致する問題をすべて取得する。
-     *
-     * @param userId ユーザーID
-     * @param languageVariants 学習対象言語の検索条件
-     * @param evaluations 理解度の検索条件
-     * @param difficulties 難易度の検索条件
-     * @param favoriteCondition お気に入りの検索条件
-     * @param sourceCondition 問題の生成元の検索条件
-     * @param structureIds 文法・構造の検索条件
-     * @return 復習条件に一致するすべての問題
-     */
+	/**
+	 * 指定した復習条件に一致する問題を、指定された順序ですべて取得する。
+	 *
+	 * @param userId ユーザーID
+	 * @param languageVariants 学習対象言語の検索条件
+	 * @param evaluations 理解度の検索条件
+	 * @param difficulties 難易度の検索条件
+	 * @param favoriteCondition お気に入りの検索条件
+	 * @param sourceCondition 問題の生成元の検索条件
+	 * @param structureIds 文法・構造の検索条件
+	 * @param random trueの場合はランダム順、falseの場合は問題IDの昇順
+	 * @return 復習条件に一致するすべての問題
+	 */
 	@Query(value = """
 	        SELECT q.*
 	        FROM study_history sh
@@ -228,6 +233,9 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	              )
 	          )
 	          AND q.structure_id IN (:structureIds)
+	        ORDER BY
+	            CASE WHEN :random = false THEN q.question_id END ASC,
+	            CASE WHEN :random = true THEN RANDOM() END
 	        """, nativeQuery = true)
 	List<Question> findAllReviewQuestions(
 	        @Param("userId") Long userId,
@@ -236,7 +244,8 @@ public interface StudyHistoryRepository extends JpaRepository<StudyHistory, Stud
 	        @Param("difficulties") List<String> difficulties,
 	        @Param("favoriteCondition") String favoriteCondition,
 	        @Param("sourceCondition") String sourceCondition,
-	        @Param("structureIds") List<Long> structureIds
+	        @Param("structureIds") List<Long> structureIds,
+	        @Param("random") boolean random
 	);
 
     /**

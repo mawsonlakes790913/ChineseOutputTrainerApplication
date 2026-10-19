@@ -489,3 +489,71 @@ StudyHistoryRepository
 ```
 
 復習問題そのものを取得して出題する処理は、次の「復習モードの実装 その2」で実装する。
+
+---
+
+### 復習モードの出題順序制御の修正 
+
+```text
+git commit -m "fix: correct review question ordering and update development log"
+```
+
+#### 修正の背景
+
+復習モードでは、出題順序として「順番」と「ランダム」を選択できるが、従来の実装ではRepositoryのSQLに`ORDER BY RANDOM()`が固定で指定されていた。
+
+そのため、`random = false`の場合でも問題がランダムに抽出され、ユーザーが選択した出題順序が正しく反映されていなかった。
+
+また、すべての問題を取得するクエリには`ORDER BY`が指定されておらず、取得順序が保証されていなかった。
+
+#### 修正内容
+
+**1. `StudyHistoryRepository.java`の修正**
+
+以下の2つのメソッドに`boolean random`を引数として追加した。
+
+- `findReviewQuestions()`：最大50問を取得するメソッド
+- `findAllReviewQuestions()`：条件に一致するすべての問題を取得するメソッド
+
+両メソッドのSQLに、`CASE WHEN`を使用した条件付きの`ORDER BY`を設定した。
+
+```sql
+ORDER BY
+    CASE WHEN :random = false THEN q.question_id END ASC,
+    CASE WHEN :random = true THEN RANDOM() END
+```
+
+これにより、`random = false`の場合は問題IDの昇順、`random = true`の場合はランダム順で問題を取得する。
+
+なお、`findReviewQuestions()`の`LIMIT 50`は従来どおり維持した。
+
+**2. `ReviewService.java`の修正**
+
+Repositoryの両メソッドを呼び出す際、引数の末尾に`random`を追加した。
+
+また、並び替えをRepository側で実行するようにしたため、Service内の以下の処理を削除した。
+
+```java
+if (random) {
+    Collections.shuffle(extractedQuestions);
+}
+```
+
+これにより、出題順序の制御をRepositoryに集約した。
+
+#### 修正後の動作
+
+| 出題数 | 出題順序 | 動作 |
+|---|---|---|
+| 最大50問 | 順番 | 問題IDの昇順で最大50問取得 |
+| 最大50問 | ランダム | ランダムに最大50問取得 |
+| すべて | 順番 | 条件に一致するすべての問題を問題IDの昇順で取得 |
+| すべて | ランダム | 条件に一致するすべての問題をランダム順で取得 |
+
+#### 修正結果
+
+出題数と出題順序の組み合わせに応じて、適切な順序で問題を取得できる構成に変更した。
+
+また、Service側での追加のシャッフル処理が不要となり、**問題の抽出と並び替えをRepository側で一元的に管理する構成**となった。
+
+※ 上記は実装変更の内容をまとめたものであり、動作確認結果については別途記録する。
