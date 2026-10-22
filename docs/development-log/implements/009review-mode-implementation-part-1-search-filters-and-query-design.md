@@ -557,3 +557,139 @@ if (random) {
 また、Service側での追加のシャッフル処理が不要となり、**問題の抽出と並び替えをRepository側で一元的に管理する構成**となった。
 
 ※ 上記は実装変更の内容をまとめたものであり、動作確認結果については別途記録する。
+
+---
+
+---
+
+### 復習対象言語の選択方法を変更
+
+```text
+git commit -m "refactor: use session language variant for review questions"
+```
+
+#### 修正の背景
+
+従来の復習モードでは、復習メニュー上で学習対象言語を複数選択できる構成としていた。
+
+しかし、アプリ全体ではヘッダーから学習対象言語（`MAINLAND`／`TAIWAN`）を切り替え、その選択状態を`HttpSession`の`languageVariant`に保存している。
+
+そのため、復習メニューでも言語を個別に選択できる構成では、**ヘッダーで選択した学習対象言語と、実際に復習する問題の言語が一致しない可能性があった。**
+
+そこで、復習対象言語はヘッダーで選択した言語に統一し、復習メニューから言語選択機能を削除することにした。
+
+#### 修正内容
+
+**1. `review/menu.html`の修正**
+
+復習メニューから学習対象言語のチェックボックスを削除した。
+
+これにより、復習メニューでは言語を個別に指定せず、ヘッダーで選択した学習対象言語を使用する構成とした。
+
+**2. `js/review/menu.js`の修正**
+
+復習対象問題数を取得する際の検索条件から、`languageVariants`を削除した。
+
+具体的には、以下の処理を削除した。
+
+- 言語選択チェックボックスの変更監視
+- 選択された言語を`URLSearchParams`に追加する処理
+
+これにより、`/review/count`へのリクエストには言語条件を含めず、Controller側でセッションから取得するようにした。
+
+**3. `ReviewController.java`の修正**
+
+`/review/count`と`/review/start`の両メソッドから、複数言語を受け取る`@RequestParam`を削除した。
+
+代わりに、`HttpSession`から現在の学習対象言語を取得する処理を追加した。
+
+```java
+private LanguageVariant getReviewLanguageVariant(HttpSession session) {
+    LanguageVariant languageVariant =
+            (LanguageVariant) session.getAttribute("languageVariant");
+
+    if (languageVariant == null) {
+        languageVariant = LanguageVariant.MAINLAND;
+    }
+
+    return languageVariant;
+}
+```
+
+セッションに学習対象言語が保存されていない場合は、`MAINLAND`を使用する。
+
+`/review/count`と`/review/start`では、このメソッドから取得した`LanguageVariant`をServiceへ渡すようにした。
+
+これにより、**復習対象問題数の取得と、実際の復習問題の抽出で同じ学習対象言語を使用する構成**となった。
+
+**4. `ReviewService.java`の修正**
+
+`countReviewQuestions()`と`getQuestion()`で扱う学習対象言語を、複数値の`List<LanguageVariant>`から単一の`LanguageVariant`へ変更した。
+
+Repositoryへ渡す際は、Enumの`name()`を使用して文字列へ変換する。
+
+```java
+languageVariant.name()
+```
+
+これにより、`MAINLAND`または`TAIWAN`のいずれか一方を検索条件として渡すようにした。
+
+**5. `StudyHistoryRepository.java`の修正**
+
+復習対象問題数の取得と復習問題の抽出に使用するクエリについて、言語条件を複数値から単一値に変更した。
+
+変更前：
+
+```sql
+AND q.language_variant IN (:languageVariants)
+```
+
+変更後：
+
+```sql
+AND q.language_variant = :languageVariant
+```
+
+また、Repositoryの引数も次のように変更した。
+
+```java
+@Param("languageVariant") String languageVariant
+```
+
+これにより、セッションで選択されている単一の学習対象言語に一致する問題だけを検索する構成とした。
+
+#### 修正後の処理の流れ
+
+```text
+ヘッダーで学習対象言語を選択
+    ↓
+HttpSession
+(languageVariant)
+    ↓
+/review/menu
+    ↓
+検索条件を選択
+    ↓
+/review/count または /review/start
+    ↓
+ReviewController
+（セッションから言語を取得）
+    ↓
+ReviewService
+（LanguageVariantをStringへ変換）
+    ↓
+StudyHistoryRepository
+（q.language_variant = :languageVariant）
+    ↓
+選択中の言語に一致する復習問題を検索
+```
+
+#### 修正結果
+
+復習メニューで学習対象言語を個別に選択する必要がなくなり、ヘッダーで選択した言語が復習モードにも適用される構成となった。
+
+また、ControllerからRepositoryまで単一の`LanguageVariant`を扱うように変更したことで、複数言語を前提とした不要な処理を削減した。
+
+**復習対象言語の管理をセッションに統一し、アプリ全体で一貫した言語選択を使用する構成に整理した。**
+
+※ 上記は実装変更の内容をまとめたものであり、動作確認結果については別途記録する。

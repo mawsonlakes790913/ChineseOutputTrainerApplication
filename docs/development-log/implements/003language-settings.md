@@ -1384,3 +1384,253 @@ url.searchParams.set("lang", this.dataset.lang);
 **学習モードの実装**
 
 今回作成した学習対象言語設定を利用し、実際の問題データや学習処理を実装していく。
+
+---
+
+---
+
+# 21. 追加修正 - 学習対象言語切り替え時の405エラーを修正
+
+```bash
+git commit -m "fix: use POST requests for language variant switching"
+```
+
+## 修正の背景
+
+学習対象言語をヘッダーから切り替えようとした際に、`405 Method Not Allowed`が発生した。
+
+Spring Bootのログには、以下の内容が出力されていた。
+
+```text
+Securing GET /language-variant?languageVariant=MAINLAND&redirect=
+
+Resolved [org.springframework.web.HttpRequestMethodNotSupportedException:
+Request method 'GET' is not supported]
+```
+
+このログから、`/language-variant`にGETリクエストが送信されているものの、Controller側ではGETが許可されていないことが確認できた。
+
+## 原因
+
+`header.html`では、学習対象言語の切り替えを`<a>`タグで実装していた。
+
+```html
+<a class="dropdown-item language-variant-link"
+   th:href="@{/language-variant(
+       languageVariant='MAINLAND',
+       redirect=${languageVariantRedirect}
+   )}">
+    🇨🇳 普通话
+</a>
+```
+
+`<a>`タグをクリックすると、ブラウザはGETリクエストを送信する。
+
+一方、`LanguageVariantController.java`では、言語切り替え処理を次のように定義していた。
+
+```java
+@PostMapping("/language-variant")
+```
+
+そのため、HTML側から送信されるHTTPメソッドとController側で受け付けるHTTPメソッドが一致せず、405エラーが発生していた。
+
+また、`header.js`では確認ダイアログを表示していたが、「OK」が選択された場合はリンクの通常動作を継続するだけであり、HTTPメソッドをPOSTへ変更する処理は存在しなかった。
+
+## 修正方針
+
+学習対象言語の変更では、以下の処理が実行される。
+
+- ログイン中のユーザーについて、DBに保存されている学習対象言語を更新する。
+- 中断中の通常学習データをSessionから削除する。
+- 変更後の学習対象言語をSessionに保存する。
+
+これらはアプリケーションの状態を変更する処理であるため、GETではなくPOSTを使用する構成を維持することにした。
+
+そこで、Controllerの`@PostMapping`は変更せず、HTMLとJavaScriptをPOST送信に対応させる。
+
+## 修正内容
+
+### 1. `header.html`の修正
+
+従来の`<a>`タグを、`method="post"`を指定した`<form>`に変更した。
+
+#### 普通話への切り替え
+
+```html
+<form th:if="${session.languageVariant != null
+              && session.languageVariant.name() != 'MAINLAND'}"
+      th:action="@{/language-variant}"
+      method="post"
+      class="language-variant-form">
+
+    <input type="hidden"
+           name="languageVariant"
+           value="MAINLAND">
+
+    <input type="hidden"
+           name="redirect"
+           th:value="${languageVariantRedirect}">
+
+    <button type="submit"
+            class="dropdown-item"
+            th:data-confirm-message="#{header.studyLanguage.confirmMainland}">
+        🇨🇳 普通话
+    </button>
+</form>
+```
+
+#### 台湾華語への切り替え
+
+```html
+<form th:if="${session.languageVariant == null
+              || session.languageVariant.name() != 'TAIWAN'}"
+      th:action="@{/language-variant}"
+      method="post"
+      class="language-variant-form">
+
+    <input type="hidden"
+           name="languageVariant"
+           value="TAIWAN">
+
+    <input type="hidden"
+           name="redirect"
+           th:value="${languageVariantRedirect}">
+
+    <button type="submit"
+            class="dropdown-item"
+            th:data-confirm-message="#{header.studyLanguage.confirmTaiwan}">
+        🇹🇼 國語
+    </button>
+</form>
+```
+
+変更後は、`languageVariant`と`redirect`をhiddenフィールドで送信する。
+
+また、ThymeleafとSpring SecurityのCSRF連携が有効な場合、`th:action`を使用したPOSTフォームにはCSRFトークンが自動的に追加される。
+
+これにより、Spring SecurityのCSRF保護を維持しながら言語変更リクエストを送信できる。
+
+### 2. `header.js`の修正
+
+従来は、`.language-variant-link`を持つリンクのクリックイベントを監視していた。
+
+```javascript
+document.querySelectorAll('.language-variant-link').forEach(link => {
+    link.addEventListener('click', function(event) {
+
+        const message = this.dataset.confirmMessage;
+
+        if (!confirm(message)) {
+            event.preventDefault();
+        }
+    });
+});
+```
+
+修正後は、`.language-variant-form`を持つフォームの送信イベントを監視する。
+
+```javascript
+document.querySelectorAll('.language-variant-form').forEach(form => {
+    form.addEventListener('submit', function(event) {
+
+        const message = this.querySelector('button').dataset.confirmMessage;
+
+        if (!confirm(message)) {
+            event.preventDefault();
+        }
+    });
+});
+```
+
+変更後の処理は以下のとおり。
+
+- 言語切り替えボタンを押すと、フォームの`submit`イベントが発生する。
+- `data-confirm-message`から確認メッセージを取得する。
+- 「OK」が選択された場合はPOSTリクエストを送信する。
+- 「キャンセル」が選択された場合は`event.preventDefault()`で送信を中止する。
+
+これにより、従来の確認ダイアログを維持したまま、POST送信に対応した。
+
+### 3. `LanguageVariantController.java`の修正
+
+Controllerでは、言語切り替え後のリダイレクト先を`redirect`パラメータから取得している。
+
+しかし、ログには次のリクエストが記録されていた。
+
+```text
+GET /language-variant?languageVariant=MAINLAND&redirect=
+```
+
+この場合、`redirect`には`null`ではなく空文字列が渡される可能性がある。
+
+従来の実装では、以下のように`null`のみを判定していた。
+
+```java
+if (redirect != null) {
+    return "redirect:" + redirect;
+}
+```
+
+この条件では空文字列も有効なリダイレクト先として扱われてしまう。
+
+そこで、`isBlank()`を追加し、空文字列や空白のみの場合はトップ画面へ戻るように変更した。
+
+```java
+if (redirect != null && !redirect.isBlank()) {
+    return "redirect:" + redirect;
+}
+
+return "redirect:/";
+```
+
+また、現在の学習対象言語と変更先の言語が同じ場合についても、同様の判定を適用した。
+
+```java
+if (languageVariant == currentLanguageVariant) {
+    return redirect != null && !redirect.isBlank()
+            ? "redirect:" + redirect
+            : "redirect:/";
+}
+```
+
+これにより、リダイレクト先が未指定の場合でもトップ画面へ戻るようにした。
+
+## 修正後の処理の流れ
+
+```text
+ヘッダーで学習対象言語を選択
+    ↓
+header.js
+（確認ダイアログを表示）
+    ↓
+「OK」を選択
+    ↓
+HTMLフォームをPOST送信
+    ↓
+POST /language-variant
+    ↓
+LanguageVariantController
+    ↓
+現在の学習対象言語と比較
+    ↓
+変更が必要な場合
+    ├─ ログイン中ならDBの言語設定を更新
+    ├─ 中断中の通常学習データを削除
+    └─ SessionのlanguageVariantを更新
+    ↓
+リダイレクト先を判定
+    ├─ 有効なredirectあり → 指定された画面
+    └─ 未指定・空文字列 → トップ画面
+```
+
+## 修正結果
+
+今回の修正により、学習対象言語の切り替えをGETリクエストからPOSTリクエストへ変更し、Controller側の`@PostMapping`と一致する構成にした。
+
+また、確認ダイアログの処理をフォーム送信イベントへ変更し、従来の操作方法を維持した。
+
+さらに、`redirect`が空文字列の場合にも対応し、リダイレクト先が指定されていない場合はトップ画面へ戻るようにした。
+
+**学習対象言語の変更処理をPOSTに統一し、405エラーの原因となっていたHTTPメソッドの不一致を解消する構成に修正した。**
+
+※ 上記は実装変更の内容をまとめたものであり、修正後の動作確認結果については別途記録する。
