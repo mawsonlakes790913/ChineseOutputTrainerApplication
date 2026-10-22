@@ -1,7 +1,7 @@
-document.querySelectorAll('.language-variant-link').forEach(link => {
-    link.addEventListener('click', function(event) {
+document.querySelectorAll('.language-variant-form').forEach(form => {
+    form.addEventListener('submit', function(event) {
 
-        const message = this.dataset.confirmMessage;
+        const message = this.querySelector('button').dataset.confirmMessage;
 
         if (!confirm(message)) {
             event.preventDefault();

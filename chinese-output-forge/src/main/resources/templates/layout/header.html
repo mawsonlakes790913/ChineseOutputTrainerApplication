@@ -46,48 +46,64 @@
 					    <ul class="dropdown-menu dropdown-menu-end">
 					
 					        <!-- MAINLAND -->
-					        <li>
-					
-					            <span th:if="${session.languageVariant == null
-					                         || session.languageVariant.name() == 'MAINLAND'}"
-					                  class="dropdown-item disabled">
-					                ✓ 🇨🇳 普通话
-					            </span>
-					
-					            <a th:if="${session.languageVariant != null
-					                      && session.languageVariant.name() != 'MAINLAND'}"
-					               class="dropdown-item language-variant-link"
-					               th:href="@{/language-variant(
-					                   languageVariant='MAINLAND',
-					                   redirect=${languageVariantRedirect}
-					               )}"
-					               th:data-confirm-message="#{header.studyLanguage.confirmMainland}">
-					                🇨🇳 普通话
-					            </a>
-					
-					        </li>
+							<li>
+							    <span th:if="${session.languageVariant == null
+							                 || session.languageVariant.name() == 'MAINLAND'}"
+							          class="dropdown-item disabled">
+							        ✓ 🇨🇳 普通话
+							    </span>
+							
+							    <form th:if="${session.languageVariant != null
+							                  && session.languageVariant.name() != 'MAINLAND'}"
+							          th:action="@{/language-variant}"
+							          method="post"
+							          class="language-variant-form">
+							
+							        <input type="hidden"
+							               name="languageVariant"
+							               value="MAINLAND">
+							
+							        <input type="hidden"
+							               name="redirect"
+							               th:value="${languageVariantRedirect}">
+							
+							        <button type="submit"
+							                class="dropdown-item"
+							                th:data-confirm-message="#{header.studyLanguage.confirmMainland}">
+							            🇨🇳 普通话
+							        </button>
+							    </form>
+							</li>
 					
 					        <!-- TAIWAN -->
-					        <li>
-					
-					            <span th:if="${session.languageVariant != null
-					                         && session.languageVariant.name() == 'TAIWAN'}"
-					                  class="dropdown-item disabled">
-					                ✓ 🇹🇼 國語
-					            </span>
-					
-					            <a th:if="${session.languageVariant == null
-					                      || session.languageVariant.name() != 'TAIWAN'}"
-					               class="dropdown-item language-variant-link"
-					               th:href="@{/language-variant(
-					                   languageVariant='TAIWAN',
-					                   redirect=${languageVariantRedirect}
-					               )}"
-					               th:data-confirm-message="#{header.studyLanguage.confirmTaiwan}">
-					                🇹🇼 國語
-					            </a>
-					
-					        </li>
+							<li>
+							    <span th:if="${session.languageVariant != null
+							                 && session.languageVariant.name() == 'TAIWAN'}"
+							          class="dropdown-item disabled">
+							        ✓ 🇹🇼 國語
+							    </span>
+							
+							    <form th:if="${session.languageVariant == null
+							                  || session.languageVariant.name() != 'TAIWAN'}"
+							          th:action="@{/language-variant}"
+							          method="post"
+							          class="language-variant-form">
+							
+							        <input type="hidden"
+							               name="languageVariant"
+							               value="TAIWAN">
+							
+							        <input type="hidden"
+							               name="redirect"
+							               th:value="${languageVariantRedirect}">
+							
+							        <button type="submit"
+							                class="dropdown-item"
+							                th:data-confirm-message="#{header.studyLanguage.confirmTaiwan}">
+							            🇹🇼 國語
+							        </button>
+							    </form>
+							</li>
 					
 					    </ul>
 					
