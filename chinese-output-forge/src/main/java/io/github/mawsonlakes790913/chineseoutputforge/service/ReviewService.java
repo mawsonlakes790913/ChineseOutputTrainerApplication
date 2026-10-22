@@ -40,7 +40,7 @@ public class ReviewService {
 	 * @param structureIds 文法・構造IDの一覧
 	 * @return 復習条件に一致する問題数
 	 */
-	public long countReviewQuestions(Long userId, List<LanguageVariant> languageVariants,
+	public long countReviewQuestions(Long userId, LanguageVariant languageVariant,
 												  List<Evaluation> evaluations, 
 												  List<Difficulty> difficulties,
 												  FavoriteCondition favoriteCondition,
@@ -58,14 +58,13 @@ public class ReviewService {
 		}
 		
 		// 検索条件をRepository用の値に変換
-		List<String> convertedLanguageVariants = searchConditionConverter.convertLanguageVariant(languageVariants);
 		List<String> convertedDifficulties = searchConditionConverter.convertDifficulty(difficulties);
 		List<String> convertedEvaluations = searchConditionConverter.convertEvaluation(evaluations);
 		String convertedFavoriteCondition = searchConditionConverter.convertFavoriteCondition(favoriteCondition);
 		
 	    return studyHistoryRepository.countReviewQuestions(
 	    		userId,
-	    		convertedLanguageVariants,
+	    		languageVariant.name(),
 	    		convertedEvaluations,
 	    		convertedDifficulties,
 	    		convertedFavoriteCondition,
@@ -91,7 +90,7 @@ public class ReviewService {
 	 * @return 復習で使用する問題の一覧
 	 */
 	public List<Question> getQuestion(Long userId, 
-									  List<LanguageVariant> languageVariants,
+									  LanguageVariant languageVariant,
 									  List<Evaluation> evaluations, 
 									  List<Difficulty> difficulties,
 									  FavoriteCondition favoriteCondition,
@@ -116,8 +115,6 @@ public class ReviewService {
 	    }
 	    
 	    // 検索条件をRepository用の値に変換
-	    List<String> convertedLanguageVariants =
-	            searchConditionConverter.convertLanguageVariant(languageVariants);
 	    List<String> convertedEvaluations =
 	            searchConditionConverter.convertEvaluation(evaluations);
 	    List<String> convertedDifficulties =
@@ -132,7 +129,7 @@ public class ReviewService {
 	        extractedQuestions =
 	                studyHistoryRepository.findAllReviewQuestions(
 	                        userId,
-	                        convertedLanguageVariants,
+	                        languageVariant.name(),
 	                        convertedEvaluations,
 	                        convertedDifficulties,
 	                        convertedFavoriteCondition,
@@ -145,7 +142,7 @@ public class ReviewService {
 	        extractedQuestions =
 	                studyHistoryRepository.findReviewQuestions(
 	                        userId,
-	                        convertedLanguageVariants,
+	                        languageVariant.name(),
 	                        convertedEvaluations,
 	                        convertedDifficulties,
 	                        convertedFavoriteCondition,

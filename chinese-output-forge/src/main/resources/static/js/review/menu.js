@@ -6,7 +6,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 検索条件
 	const searchConditions = document.querySelectorAll(
-	    "input[name='languageVariants'], " +
 	    "input[name='evaluations'], " +
 	    "input[name='difficulties'], " +
 	    "input[name='favoriteCondition'], " +
@@ -21,14 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 件数取得
     async function updateCount() {
 
-        const params = new URLSearchParams();
-        
-		// 学習対象言語
-			document
-			    .querySelectorAll("input[name='languageVariants']:checked")
-			    .forEach(cb => {
-			        params.append("languageVariants", cb.value);
-			    });        
+        const params = new URLSearchParams();    
 
         // 理解度
         document

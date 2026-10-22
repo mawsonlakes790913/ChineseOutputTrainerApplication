@@ -60,19 +60,19 @@ public class ReviewController {
 	    // 言語切替後の戻り先を設定
 	    model.addAttribute("languageVariantRedirect", "/review/menu");
 
-	    // セッションから学習対象言語を取得
-	    LanguageVariant languageVariant =
-	            (LanguageVariant) session.getAttribute("languageVariant");
-
-	    // 未設定の場合は中国大陸向けを使用
-	    if (languageVariant == null) {
-	        languageVariant = LanguageVariant.MAINLAND;
-	    }
-
+//	    // セッションから学習対象言語を取得
+//	    LanguageVariant languageVariant =
+//	            (LanguageVariant) session.getAttribute("languageVariant");
+//
+//	    // 未設定の場合は中国大陸向けを使用
+//	    if (languageVariant == null) {
+//	        languageVariant = LanguageVariant.MAINLAND;
+//	    }
+	    
 	    // デフォルトの検索対象言語を画面へ渡す
-	    model.addAttribute(
-	            "selectedLanguageVariants",
-	            List.of(languageVariant));
+//	    model.addAttribute(
+//	            "selectedLanguageVariants",
+//	            List.of(languageVariant));
 
 	    // セッションから中断中の復習データを取得
 	    List<Question> questions =
@@ -103,7 +103,6 @@ public class ReviewController {
 	 * 指定された検索条件に一致する復習問題の件数を取得する。
 	 *
 	 * @param loginUser ログインユーザー情報
-	 * @param languageVariants 学習対象言語の検索条件
 	 * @param evaluations 理解度の検索条件
 	 * @param difficulties 難易度の検索条件
 	 * @param favoriteCondition お気に入りの検索条件
@@ -114,9 +113,8 @@ public class ReviewController {
 	@GetMapping("/review/count")
 	@ResponseBody
 	public long getReviewCount(
+			HttpSession session,
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam(name = "languageVariants", required = false)
-	        List<LanguageVariant> languageVariants,
 	        @RequestParam(name = "evaluations", required = false)
 	        List<Evaluation> evaluations,
 	        @RequestParam(name = "difficulties", required = false)
@@ -131,11 +129,15 @@ public class ReviewController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
+	    
+	    // セッションから学習対象言語を取得
+	    LanguageVariant languageVariant =
+	    		getReviewLanguageVariant(session);
 
 	    // 検索条件に一致する復習問題数を取得して返す
 	    return reviewService.countReviewQuestions(
 	            userId,
-	            languageVariants,
+	            languageVariant,
 	            evaluations,
 	            difficulties,
 	            favoriteCondition,
@@ -163,8 +165,6 @@ public class ReviewController {
 	public String getReviewStart(
 	        HttpSession session,
 	        @AuthenticationPrincipal UserDetails loginUser,
-	        @RequestParam(name = "languageVariants", required = false)
-	        List<LanguageVariant> languageVariants,
 	        @RequestParam(name = "evaluations", required = false)
 	        List<Evaluation> evaluations,
 	        @RequestParam(name = "difficulties", required = false)
@@ -186,12 +186,16 @@ public class ReviewController {
 	    // ログインユーザーを取得
 	    Users user = getLoginUser(loginUser);
 	    Long userId = user.getId();
+	    
+	    // セッションから学習対象言語を取得
+	    LanguageVariant languageVariant =
+	    		getReviewLanguageVariant(session);
 
 	    // 検索条件に一致する復習問題を取得
 	    List<Question> questions =
 	            reviewService.getQuestion(
 	                    userId,
-	                    languageVariants,
+	                    languageVariant,
 	                    evaluations,
 	                    difficulties,
 	                    favoriteCondition,
@@ -401,6 +405,25 @@ public class ReviewController {
 	 */
 	private Users getLoginUser(UserDetails loginUser) {
 		return userAccountService.getUserOne(loginUser.getUsername());
+	}
+	
+
+	/**
+	 * セッションから復習対象言語を取得する。
+	 *
+	 * @param session セッション情報
+	 * @return 復習対象言語
+	 */
+	private LanguageVariant getReviewLanguageVariant(HttpSession session) {
+
+	    LanguageVariant languageVariant =
+	            (LanguageVariant) session.getAttribute("languageVariant");
+
+	    if (languageVariant == null) {
+	        languageVariant = LanguageVariant.MAINLAND;
+	    }
+
+	    return languageVariant;
 	}
 
 }
