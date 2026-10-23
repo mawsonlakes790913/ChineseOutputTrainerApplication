@@ -988,13 +988,15 @@ CSRFトークンを手動で明示する場合は以下のように記述でき�
 git commit -m "fix: restore user session preferences after remember-me authentication"
 ```
 
-前述の実装では、Remember MeのCookieを利用することで、HTTPセッションの有効期限が切れた後もログイン状態が維持されることを確認した。
+前述の実装では、Remember MeのCookieを利用することで、HTTPセッションの有効期限が切れた後もログイン状態を維持できるようにした。
 
 しかし、その後の動作確認で、**Remember Meによる自動認証後に、一部のユーザー設定が正しく復元されない問題**が見つかった。
 
-今回は、この問題を解消するため、Spring SecurityのFilterチェーンに独自Filterを追加する。
+具体的には、ログイン状態は維持されているにもかかわらず、学習対象言語が國語から普通話に戻り、問題数も正しく表示されなくなるという現象である。
 
-また、Filterを自作するのは今回が初めてのため、Spring BootにおけるFilterの仕組みについても整理する。
+今回は、この問題の原因を調査し、Spring SecurityのFilterチェーンに独自Filterを追加して対応した。
+
+また、Filterを自作するのは今回が初めてだったため、Servlet Filterの基本的な仕組みや、Spring SecurityにおけるFilterの実行順序についても整理する。
 
 #### 1. 発生した問題
 
@@ -1003,9 +1005,9 @@ git commit -m "fix: restore user session preferences after remember-me authentic
 - `languageVariant`：学習対象言語（普通話／國語）
 - `pronunciationType`：発音表記（ピンイン／注音符号）
 
-これらの設定は、データベースの`users`テーブルに保存するとともに、HTTPセッションにも格納している。
+これらの設定はデータベースの`users`テーブルに保存しており、通常のフォームログイン時には、`LoginSuccessHandler`で取得してHTTPセッションにも格納している。
 
-通常のフォームログイン時には、独自の`LoginSuccessHandler`がデータベースから設定を取得し、セッションに保存する。
+該当する処理は以下のとおりである。
 
 ```java
 Users user = userAccountService.getUserOne(authentication.getName());
@@ -1019,26 +1021,34 @@ session.setAttribute(
         "pronunciationType", user.getPronunciationType());
 ```
 
+通常のログイン直後は、この処理によってユーザー設定がセッションに保存されるため、画面にも正しく反映される。
+
 しかし、Remember Meを有効にしてログインし、30分以上操作せずにページを更新すると、以下の現象が発生した。
 
 - ログイン状態は維持されている。
-- 学習対象言語が國語から普通話に戻っている。
+- 学習対象言語が國語（TAIWAN）から普通話（MAINLAND）に戻っている。
 - AI生成問題数が0問と表示される。
 - 通常のフォームログインをやり直すと、元の設定に戻る。
 
-つまり、**Remember Meによる認証は成功しているにもかかわらず、ユーザー設定が正しく取得されていない**状態だった。
+つまり、**Remember Meによる認証自体は成功しているにもかかわらず、ユーザー設定が正しく復元されていない**状態だった。
 
-#### 2. 原因：Remember Meはセッション属性を復元しない
+#### 2. 原因：Remember MeはHTTPセッションの属性を復元しない
 
 今回の問題を理解するには、HTTPセッションとRemember Meの役割を区別する必要がある。
+
+##### HTTPセッションとRemember Meの違い
 
 HTTPセッションは、サーバー側でユーザーごとの情報を保持する仕組みである。
 
 一方、Remember Meは、HTTPセッションが失われた後でも、Cookieを利用してユーザーを再認証できるようにする仕組みである。
 
-本アプリケーションでは、HTTPセッションの有効期限はデフォルトの30分、Remember Meの有効期限は7日間としている。
+[Spring Security 使い方メモ Remember-Me（Qiita）](https://qiita.com/opengl-8080/items/7c34053c74448d39e8f5)では、`JSESSIONID`を削除した後も、Remember MeのCookieを利用して認証状態が復元されることを検証している。
 
-そのため、一定時間操作しなかった場合、次のような状態になる。
+このことから、HTTPセッションとRemember MeのCookieは別々の役割を持つことが分かる。
+
+本アプリケーションでは、修正前のHTTPセッションのタイムアウトは30分、Remember Meの有効期限は7日間としていた。
+
+そのため、一定時間操作しなかった場合、以下の状態になる。
 
 | 項目 | 状態 |
 |---|---|
@@ -1048,9 +1058,13 @@ HTTPセッションは、サーバー側でユーザーごとの情報を保持�
 | `languageVariant` | 以前のセッション属性は失われている |
 | `pronunciationType` | 以前のセッション属性は失われている |
 
-Remember Meは認証状態を復元する仕組みであり、以前のHTTPセッションに保存していた任意の属性まで復元するわけではない。
+重要なのは、**Remember Meが復元するのは認証状態であり、以前のHTTPセッションに保存されていた任意の属性まで復元するわけではない**という点である。
 
-また、通常のフォームログインとRemember Meでは、認証処理の経路が異なる。
+今回のケースでは、Remember Meによってログイン状態は復元されるものの、以前のセッションに保存していた`languageVariant`と`pronunciationType`は失われていた。
+
+##### LoginSuccessHandlerが実行されない
+
+さらに、通常のフォームログインとRemember Meでは、認証処理の経路が異なる。
 
 通常のフォームログインでは、`SecurityConfig`に設定した`LoginSuccessHandler`が実行される。
 
@@ -1063,34 +1077,61 @@ Remember Meは認証状態を復元する仕組みであり、以前のHTTPセ�
 )
 ```
 
-しかし、Remember Meによる自動認証では、このフォームログイン用の`LoginSuccessHandler`は実行されない。
+しかし、Remember Meによる自動認証では、フォームログイン用の`LoginSuccessHandler`は実行されない。
 
-そのため、**認証状態だけが復元され、`LoginSuccessHandler`が担当していたセッション属性の初期化処理が実行されていなかった**ことが原因と考えられる。
+そのため、フォームログイン時に行っていたセッション属性の初期化処理も実行されない。
 
-本アプリケーションでは、`languageVariant`が取得できない場合、普通話を初期値として扱う処理があるため、画面上の学習対象言語も変わってしまった。
+今回の現象を整理すると、以下の流れになる。
 
-なお、AI生成問題数が0問になる現象については、言語設定が変わったことによる抽出条件の不一致が考えられるが、原因を個別に追跡して確定したものではない。
+```text
+通常のフォームログイン
+    ↓
+LoginSuccessHandlerが実行される
+    ↓
+DBからユーザー設定を取得
+    ↓
+HTTPセッションに保存
+    ↓
+正常に画面へ反映
 
-**参考文献**
+一定時間操作しない
+    ↓
+HTTPセッションの有効期限切れ
+    ↓
+セッション属性が失われる
+    ↓
+Remember Meによる自動認証
+    ↓
+ログイン状態は復元される
+    ↓
+LoginSuccessHandlerは実行されない
+    ↓
+languageVariantなどが復元されない
+    ↓
+画面の表示に問題が発生
+```
 
-- [Spring Security 使い方メモ Remember-Me（Qiita）](https://qiita.com/opengl-8080/items/7c34053c74448d39e8f5)
+本アプリケーションでは、`languageVariant`を取得できない場合に普通話を初期値として扱う処理があるため、学習対象言語も変わってしまった。
 
-この記事では、`JSESSIONID`を削除した後も、Remember MeのCookieによって認証状態が復元されることが検証されている。
+また、AI生成問題数が0問になる現象については、言語設定が変わったことで抽出条件が一致しなくなった可能性がある。ただし、この表示については原因を個別に追跡して確定したものではない。
 
-#### 3. 対策：セッション情報を復元する独自Filterを追加する
+以上から、今回の問題はRemember Meの認証失敗ではなく、**再認証後にアプリケーション独自のセッション属性を復元する処理が存在しなかったこと**にあると判断した。
 
-今回の対策では、Remember Meによる自動認証後、セッションに必要なユーザー設定が存在しない場合に、データベースから設定を復元する。
+#### 3. 対策：独自Filterでセッション属性を復元する
+
+今回の対策では、Remember Meによる自動認証後に、必要なセッション属性が存在しない場合、データベースからユーザー設定を取得して復元する。
 
 ただし、Remember Me専用の処理にはせず、認証済みユーザーのセッション属性が欠けている場合に復元する仕組みとする。
 
-全体の処理の流れは次のとおりである。
+処理の流れは以下のとおりである。
 
 ```text
 HTTPリクエスト
     ↓
-Spring Securityの認証処理
+Spring Securityによる認証処理
     ↓
-Remember Meによる自動認証（必要な場合）
+Remember Meによる自動認証
+（必要な場合）
     ↓
 独自Filter
     ↓
@@ -1098,11 +1139,16 @@ Remember Meによる自動認証（必要な場合）
     ↓
 セッション情報を確認
     ↓
-必要な情報が存在する
-    ├── Yes → 復元処理をスキップ
-    └── No  → DBからユーザー設定を取得
-                  ↓
-              セッションへ保存
+必要な属性が存在するか？
+    ├── Yes
+    │     ↓
+    │   復元処理をスキップ
+    │
+    └── No
+          ↓
+        DBからユーザー設定を取得
+          ↓
+        セッションに保存
     ↓
 後続のFilterへ処理を渡す
     ↓
@@ -1111,7 +1157,7 @@ Controller
 
 この処理を実現するため、`UserSessionRestorationFilter`というクラスを新規作成する。
 
-ただし、実装に入る前に、Spring BootのFilterの仕組みを確認する。
+ただし、今回初めて独自Filterを作成するため、先にFilterの仕組みを整理する。
 
 #### 4. Spring BootのFilterとは
 
@@ -1119,7 +1165,9 @@ Filterとは、HTTPリクエストがServletやControllerに到達する前、�
 
 FilterはSpring Boot独自の機能ではなく、Jakarta Servletの仕様に基づいている。
 
-主に以下のような用途で使用される。
+[Spring Securityについて理解する①（DelegatingFilterProxy、FilterChainProxy、SecurityFilterChain）（Qiita）](https://qiita.com/devtkms/items/6b78a354f82a5874f1bc)では、Spring Securityの処理がServlet Filterの仕組みを利用して実行されることや、複数のFilterを組み合わせる構成について解説されている。
+
+Filterの主な用途には、以下のようなものがある。
 
 - HTTPリクエストやレスポンスのログ出力
 - 文字エンコーディングの設定
@@ -1127,7 +1175,7 @@ FilterはSpring Boot独自の機能ではなく、Jakarta Servletの仕様に基
 - セキュリティ対策
 - リクエストやレスポンスの加工
 
-通常のSpring MVCアプリケーションでは、HTTPリクエストは次のような流れで処理される。
+Spring MVCアプリケーションでは、HTTPリクエストは概念的に次のような流れで処理される。
 
 ```text
 ブラウザ
@@ -1149,10 +1197,9 @@ Repository
 
 FilterはControllerより前の段階で共通処理を実行できるため、複数のControllerにまたがる処理を実装する場合に利用できる。
 
-**参考文献**
+今回のケースでは、Controllerが`languageVariant`などのセッション属性を参照する前に、それらを復元する必要がある。
 
-- [Spring Securityについて理解する①（DelegatingFilterProxy、FilterChainProxy、SecurityFilterChain）（Qiita）](https://qiita.com/devtkms/items/6b78a354f82a5874f1bc)
-- [（Spring）Filterとは？（Zenn）](https://zenn.dev/fujishiro/scraps/29f84c5781ca66)
+そのため、各Controllerに復元処理を追加するのではなく、Controllerより前に実行されるFilterを利用することにした。
 
 #### 5. Spring Securityでは多くのFilterが標準で動作している
 
@@ -1160,7 +1207,9 @@ Spring Securityを利用する場合、開発者がすべてのFilterを作成�
 
 Spring Securityには、認証・認可・CSRF対策などを担当するFilterが標準で用意されている。
 
-例えば、以下のようなFilterがある。
+[Hello World で学ぶ Spring Security の仕組み（Qiita）](https://qiita.com/opengl-8080/items/d4971ec4d2365c85ff99)では、Spring Securityが複数のFilterを組み合わせて認証やアクセス制御を実現する仕組みが説明されている。
+
+代表的なFilterには、以下のようなものがある。
 
 | Filter | 役割 |
 |---|---|
@@ -1168,12 +1217,12 @@ Spring Securityには、認証・認可・CSRF対策などを担当するFilter�
 | `CsrfFilter` | CSRF対策 |
 | `UsernamePasswordAuthenticationFilter` | フォームログインの認証処理 |
 | `RememberMeAuthenticationFilter` | Remember Meによる自動認証 |
-| `AnonymousAuthenticationFilter` | 未認証ユーザーに匿名認証情報を設定 |
+| `AnonymousAuthenticationFilter` | 匿名認証情報の設定 |
 | `AuthorizationFilter` | アクセス権限の確認 |
 
 実際に登録されるFilterは、Spring Securityの設定によって異なる。
 
-本アプリケーションでは、`SecurityConfig`に次の設定を記述している。
+本アプリケーションでは、`SecurityConfig`にフォームログインとRemember Meの設定を記述している。
 
 ```java
 .formLogin(login -> login
@@ -1189,46 +1238,67 @@ Spring Securityには、認証・認可・CSRF対策などを担当するFilter�
 )
 ```
 
-これらの設定に基づいて、Spring SecurityがフォームログインやRemember Meに必要なFilterを構成する。
+これらの設定に基づいて、Spring Securityが必要なFilterを構成する。
 
 つまり、開発者が`RememberMeAuthenticationFilter`などを直接生成する必要はない。
 
-Spring Securityでは、主に以下のクラスによってFilterチェーンが管理される。
+##### Spring SecurityのFilterチェーンを管理するクラス
+
+前述の[Spring Securityについて理解する①（Qiita）](https://qiita.com/devtkms/items/6b78a354f82a5874f1bc)では、`DelegatingFilterProxy`、`FilterChainProxy`、`SecurityFilterChain`の関係が整理されている。
+
+それぞれの役割は以下のとおりである。
 
 | クラス | 役割 |
 |---|---|
 | `DelegatingFilterProxy` | ServletコンテナとSpring管理のFilterを橋渡しする |
 | `FilterChainProxy` | Spring SecurityのFilterチェーンを実行する |
-| `SecurityFilterChain` | 適用対象とFilterの一覧を保持する |
+| `SecurityFilterChain` | リクエストに適用するFilterの一覧などを保持する |
+
+これらの関係を簡略化すると、次のようになる。
+
+```text
+HTTPリクエスト
+    ↓
+DelegatingFilterProxy
+    ↓
+FilterChainProxy
+    ↓
+SecurityFilterChain
+    ├── SecurityContextHolderFilter
+    ├── CsrfFilter
+    ├── ...
+    ├── RememberMeAuthenticationFilter
+    ├── AnonymousAuthenticationFilter
+    └── AuthorizationFilter
+    ↓
+DispatcherServlet
+    ↓
+Controller
+```
+
+※ 実際のFilter構成や順序は設定によって異なる。上記は説明のため一部を省略している。
 
 `SecurityConfig`で使用している`HttpSecurity`は、この`SecurityFilterChain`を構築するための設定を行う。
 
-**参考文献**
+今回のセッション属性復元処理は、Spring Securityが標準で提供する認証処理とは別の、アプリケーション固有の処理である。
 
-- [Hello World で学ぶ Spring Security の仕組み（Qiita）](https://qiita.com/opengl-8080/items/d4971ec4d2365c85ff99)
-- [Spring Security の SecurityFilterChain / @EnableWebSecurity を深掘りする（Qiita）](https://qiita.com/ham-nao/items/4440ba5d27e9e6ded3d6)
-- [Spring Securityについて理解する①（DelegatingFilterProxy、FilterChainProxy、SecurityFilterChain）（Qiita）](https://qiita.com/devtkms/items/6b78a354f82a5874f1bc)
+そのため、独自Filterを作成し、Spring SecurityのFilterチェーンへ追加する必要がある。
 
 #### 6. OncePerRequestFilterとは
 
 今回の独自Filterでは、Spring Frameworkが提供する`OncePerRequestFilter`を継承する。
 
+[Servlet Filter の概要とカスタマイズ方法について（Spring Security 6.0）（Qiita）](https://qiita.com/3087KT/items/a37ba6372211a4a6791e)では、`OncePerRequestFilter`を継承して独自Filterを作成する方法が紹介されている。
+
 `OncePerRequestFilter`は、Servlet Filterを実装するための抽象クラスである。
 
 名前のとおり、同一リクエストのディスパッチ内で、Filterの処理が重複して実行されないように管理する仕組みを持っている。
 
-ただし、非同期処理やエラー処理では別のディスパッチが発生するため、あらゆる状況でHTTPリクエスト全体を通じて絶対に1回だけ実行されるという意味ではない。
+ただし、非同期処理やエラー処理では別のディスパッチが発生する場合があるため、HTTPリクエスト全体を通じて絶対に一度だけ実行されるという意味ではない。
+
+この点は、[Spring FrameworkのOncePerRequestFilter Javadoc](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)でも説明されている。
 
 今回のように、HTTPリクエストごとに共通処理を実行したい場合に利用できる。
-
-**参考文献**
-
-- [Servlet Filter の概要とカスタマイズ方法について（Spring Security 6.0）（Qiita）](https://qiita.com/3087KT/items/a37ba6372211a4a6791e)
-- [3層ログ設計（アクセス/アプリ/エラー）とMDCによるリクエスト追跡（Qiita）](https://qiita.com/ham-nao/items/66432b7c1c9d5a026279)
-
-補足資料：
-
-- [OncePerRequestFilter（Spring Framework Javadoc）](https://spring.pleiades.io/spring-framework/docs/current/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)
 
 ##### doFilterInternal()とは
 
@@ -1248,9 +1318,11 @@ protected void doFilterInternal(
 }
 ```
 
+前述のQiitaの記事でも、`OncePerRequestFilter`を継承したクラスで`doFilterInternal()`をオーバーライドする実装方法が紹介されている。
+
 `doFilterInternal()`は、`OncePerRequestFilter`で宣言されている抽象メソッドである。
 
-開発者は、このメソッドをオーバーライドして、Filterで実行したい処理を記述する。
+開発者は、このメソッドにFilterで実行したい処理を記述する。
 
 実行時には、親クラスの`doFilter()`が実行済み判定などを担当し、必要に応じて`doFilterInternal()`を呼び出す。
 
@@ -1266,9 +1338,7 @@ UserSessionRestorationFilter.doFilterInternal()
 独自のセッション復元処理
 ```
 
-**参考文献**
-
-- [Servlet Filter の概要とカスタマイズ方法について（Spring Security 6.0）（Qiita）](https://qiita.com/3087KT/items/a37ba6372211a4a6791e)
+今回のケースでは、この`doFilterInternal()`に、認証情報の取得、HTTPセッションの確認、データベースからのユーザー設定取得、セッション属性の復元を記述する。
 
 ##### filterChain.doFilter()とは
 
@@ -1278,7 +1348,9 @@ UserSessionRestorationFilter.doFilterInternal()
 filterChain.doFilter(request, response);
 ```
 
-後続のFilterが存在する場合は次のFilterが実行され、最後まで進むと通常はServletへ処理が渡される。
+前述の[Servlet Filter の概要とカスタマイズ方法について（Qiita）](https://qiita.com/3087KT/items/a37ba6372211a4a6791e)でも、独自Filter内で`filterChain.doFilter()`を呼び出し、後続の処理へリクエストを渡す実装が紹介されている。
+
+後続のFilterが存在する場合は次のFilterが実行され、Filterチェーンを通過すると通常はServletへ処理が渡される。
 
 Spring MVCでは、その先で`DispatcherServlet`やControllerが処理を担当する。
 
@@ -1294,11 +1366,9 @@ DispatcherServlet
 Controller
 ```
 
-今回の目的はControllerの実行前にセッション情報を復元することであるため、復元処理を`filterChain.doFilter()`より前に記述する。
+今回の目的は、Controllerの実行前にセッション情報を復元することである。
 
-**参考文献**
-
-- [3層ログ設計（アクセス/アプリ/エラー）とMDCによるリクエスト追跡（Qiita）](https://qiita.com/ham-nao/items/66432b7c1c9d5a026279)
+そのため、復元処理を`filterChain.doFilter()`より前に記述する。
 
 #### 7. UserSessionRestorationFilterを作成
 
@@ -1381,14 +1451,22 @@ public class UserSessionRestorationFilter extends OncePerRequestFilter {
 }
 ```
 
-##### 認証情報の取得
+以下、各処理について説明する。
+
+##### 7.1. 認証情報の取得
+
+まず、`SecurityContextHolder`から現在の認証情報を取得する。
 
 ```java
 Authentication authentication =
         SecurityContextHolder.getContext().getAuthentication();
 ```
 
-`SecurityContextHolder`から、現在のリクエストで使用する認証情報を取得する。
+`SecurityContextHolder`は、Spring Securityで現在の処理に関連する`SecurityContext`を取得するためのクラスである。
+
+`SecurityContext`には、認証情報を表す`Authentication`が格納される。
+
+今回のケースでは、この認証情報からユーザーのログインIDを取得し、データベースに保存されている設定を検索する。
 
 続いて、以下の条件で処理対象を限定する。
 
@@ -1406,9 +1484,13 @@ if (authentication != null
 
 Spring Securityでは、匿名ユーザーにも`AnonymousAuthenticationToken`が設定される場合がある。
 
+この仕組みは、後述する`AnonymousAuthenticationFilter`によって実現される。
+
 そのため、`isAuthenticated()`だけでログイン済みユーザーかどうかを判断せず、匿名認証を明示的に除外する。
 
-##### セッション情報の確認
+##### 7.2. セッション情報の確認
+
+次に、現在のHTTPセッションを取得する。
 
 ```java
 HttpSession session = request.getSession(false);
@@ -1426,18 +1508,26 @@ if (session == null
         || session.getAttribute("pronunciationType") == null) {
 ```
 
-セッション自体が存在しない場合、またはどちらかの属性が存在しない場合に、復元処理を実行する。
+ここでは、以下のいずれかに該当する場合に復元処理を実行する。
 
-両方の属性が存在する場合は、データベースへの問い合わせを行わない。
+- HTTPセッション自体が存在しない。
+- `languageVariant`が存在しない。
+- `pronunciationType`が存在しない。
 
-##### データベースから設定を復元
+反対に、両方の属性が存在する場合は復元処理をスキップする。
+
+これにより、通常のリクエストでは不要なデータベースへの問い合わせを避けられる。
+
+##### 7.3. データベースから設定を復元
+
+セッション属性が存在しない場合は、データベースからユーザー情報を取得する。
 
 ```java
 Users user = userAccountService.getUserOne(
         authentication.getName());
 ```
 
-認証済みユーザーのログインIDを使用して、データベースからユーザー情報を取得する。
+`authentication.getName()`から認証済みユーザーのログインIDを取得し、`UserAccountService`を通じてユーザー情報を検索する。
 
 続いて、HTTPセッションを取得する。
 
@@ -1446,6 +1536,17 @@ session = request.getSession(true);
 ```
 
 `getSession(true)`は、有効なセッションが存在すればそれを返し、存在しなければ新しいセッションを作成する。
+
+最初に使用した`getSession(false)`との違いは以下のとおりである。
+
+| メソッド | セッションが存在しない場合 |
+|---|---|
+| `getSession(false)` | `null`を返す |
+| `getSession(true)` | 新しいセッションを作成する |
+
+今回、最初に`getSession(false)`を使用するのは、セッションの有無を確認するだけで新しいセッションを作成しないためである。
+
+一方、復元処理を実行する段階ではセッションが必要になるため、`getSession(true)`を使用する。
 
 最後に、取得した設定をセッションへ保存する。
 
@@ -1459,17 +1560,23 @@ session.setAttribute(
 
 これにより、Remember Meによる再認証後でも、データベースに保存されたユーザー設定を復元できる。
 
-##### 後続のFilterへ処理を渡す
+##### 7.4. 後続のFilterへ処理を渡す
+
+最後に、後続のFilterへ処理を渡す。
 
 ```java
 filterChain.doFilter(request, response);
 ```
 
-最後に、後続のFilterへ元のHTTPリクエストを渡す。
+第6節で説明したとおり、`filterChain.doFilter()`は後続のFilterやServletへ処理を進めるためのメソッドである。
 
-今回は`sendRedirect()`を使用しないため、GETリクエストはGETのまま、POSTリクエストはPOSTのまま処理を続行できる。
+今回のFilterは、認証済みユーザーのセッション属性を復元することが目的であり、HTTPリクエスト自体を終了させるものではない。
 
-ただし、セッション期限切れに伴うCSRFトークンの失効は別の問題であり、このFilterだけで解決できるものではない。
+そのため、復元処理が必要な場合も不要な場合も、最後に`filterChain.doFilter()`を呼び出して処理を続行する。
+
+また、今回のFilterでは`sendRedirect()`を使用していないため、GETリクエストはGETのまま、POSTリクエストはPOSTのまま処理を続行できる。
+
+ただし、セッション期限切れによるCSRFトークンの失効は別の問題であり、このFilterだけで解決できるものではない。
 
 #### 8. SecurityConfigに独自Filterを登録
 
@@ -1484,7 +1591,13 @@ http.addFilterAfter(
 );
 ```
 
-`addFilterAfter()`は、指定したFilterを、基準となるFilterの後に配置するためのメソッドである。
+##### 8.1. addFilterAfter()とは
+
+[Spring Security で JWT を使用し認可の判定を行う（Zenn）](https://zenn.dev/kiyotatakeshi/articles/d12a850f232d71)では、Spring SecurityのFilterチェーンに独自Filterを追加する際、既存のFilterを基準に実行位置を指定する方法が紹介されている。
+
+この記事ではJWT認証を扱っているが、**既存のFilterを基準に独自Filterの実行位置を指定する**という仕組みは今回も同じである。
+
+`addFilterAfter()`は、指定したFilterを基準となるFilterの後に配置するためのメソッドである。
 
 基本的な構文は以下のとおりである。
 
@@ -1519,29 +1632,41 @@ private final UserAccountService userAccountService;
 
 そのインスタンスを独自Filterへ渡している。
 
-**参考文献**
-
-- [Spring Security の SecurityFilterChain / @EnableWebSecurity を深掘りする（Qiita）](https://qiita.com/ham-nao/items/4440ba5d27e9e6ded3d6)
-
-##### RememberMeAuthenticationFilterとは
+##### 8.2. RememberMeAuthenticationFilterとは
 
 `RememberMeAuthenticationFilter`は、Remember Meによる自動認証を担当するFilterである。
 
-現在の認証情報が存在しない場合に、Remember MeのCookieを利用して認証を試みる。
+[Spring Security 使い方メモ Remember-Me（Qiita）](https://qiita.com/opengl-8080/items/7c34053c74448d39e8f5)では、Remember Meの認証処理が`RememberMeAuthenticationFilter`から開始され、Remember Me関連のサービスへ処理が委譲される仕組みが解説されている。
+
+このFilterは、現在の認証情報が存在しない場合に、Remember MeのCookieを利用して認証を試みる。
 
 認証に成功すると、Spring Securityが現在のリクエストで使用する認証情報を設定する。
 
-##### AnonymousAuthenticationFilterとは
+今回のケースでは、このFilterによってRemember Meの認証が完了した後に、独自Filterでユーザー設定を復元する必要がある。
+
+##### 8.3. AnonymousAuthenticationFilterとは
 
 `AnonymousAuthenticationFilter`は、認証情報が存在しない場合に、匿名ユーザーとしての認証情報を設定するFilterである。
 
-すでに認証済みのユーザーに対して、認証情報を匿名ユーザーのものへ置き換えるわけではない。
+前述の[Spring SecurityでJWTを使用し認可の判定を行う（Zenn）](https://zenn.dev/kiyotatakeshi/articles/d12a850f232d71)では、`AnonymousAuthenticationFilter`を含むFilterチェーンの動作が説明されている。
 
-##### AuthorizationFilterとは
+このFilterは、すでに認証済みのユーザーに対して、認証情報を匿名ユーザーのものへ置き換えるわけではない。
+
+今回の独自Filterでは、以下の条件によって匿名ユーザーを処理対象から除外している。
+
+```java
+!(authentication instanceof AnonymousAuthenticationToken)
+```
+
+そのため、`AnonymousAuthenticationFilter`によって匿名認証情報が設定される仕組みを理解しておく必要がある。
+
+##### 8.4. AuthorizationFilterとは
 
 `AuthorizationFilter`は、HTTPリクエストに対するアクセス権限を確認するFilterである。
 
 認証が「誰であるかを確認すること」であるのに対して、認可は「そのユーザーが対象の操作やリソースへアクセスできるか判断すること」である。
+
+前述のZennの記事でも、`AuthorizationFilter`がアクセス権限の判定を行う仕組みについて説明されている。
 
 本アプリケーションでは、例えば以下の設定が認可に関係する。
 
@@ -1552,7 +1677,9 @@ private final UserAccountService userAccountService;
 
 `/admin/**`へのアクセスにはADMINロールが必要となる。
 
-##### なぜAnonymousAuthenticationFilterの後に配置するのか
+今回のセッション復元Filterは、こうしたアクセス権限の判定とは別の役割を持つ。
+
+##### 8.5. なぜAnonymousAuthenticationFilterの後に配置するのか
 
 今回のFilterは、Spring Securityが設定した認証情報を取得して、ログイン済みユーザーかどうかを確認する。
 
@@ -1562,6 +1689,8 @@ Authentication authentication =
 ```
 
 そのため、認証情報が設定された後に実行する必要がある。
+
+[Spring Security公式ドキュメントのServlet Architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html)では、Spring SecurityのFilterチェーンの構成やFilterの実行順序について説明されている。
 
 Spring Securityの標準的なFilterの実行順序では、今回関係する部分は次のようになる。
 
@@ -1591,19 +1720,35 @@ Controller
 
 今回の本質的な要件は、Remember Meによる認証が終わった後、かつControllerでセッション属性を参照する前に復元処理を実行することである。
 
-なお、今回と同じセッション復元処理について、`AnonymousAuthenticationFilter`の直後への配置を明示的に推奨する個人記事は見つからなかった。
+つまり、今回の配置は、Spring SecurityのFilterの役割と実行順序を踏まえた**本アプリケーション固有の設計判断**である。
 
-この配置は、Spring SecurityのFilterの役割と実行順序を踏まえた、今回のアプリケーション固有の設計判断である。
+なお、今回のFilterは`AuthorizationFilter`より前に実行されるため、アクセス権限のないリクエストでも、条件によってはユーザー情報の取得処理が実行される可能性がある。
 
-補足資料：
+この点は、必要に応じて今後の改善事項として検討する。
 
-- [Spring Security公式 — Servlet Architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html)
+##### 8.6. @Componentを付けない理由
+
+今回の`UserSessionRestorationFilter`には、`@Component`を付与していない。
+
+Servlet Filterには、`@Component`や`FilterRegistrationBean`などを利用してServletコンテナ側に登録する方法もある。
+
+しかし、今回はSpring Securityの認証処理との実行順序が重要であるため、`http.addFilterAfter()`でSpring SecurityのFilterチェーンへ明示的に登録している。
+
+`@Component`を付けてServlet Filterとしても自動登録されると、Spring Security側の登録と重複し、意図しない順序で実行される可能性がある。
+
+この点については、[Spring Security公式ドキュメントのServlet Architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html)でも、FilterをSpring Beanとして登録した場合に、Servletコンテナ側にも登録されてしまう可能性があることが説明されている。
+
+今回のケースでは、Servletコンテナ側にFilterを追加する必要はなく、Spring SecurityのFilterチェーン内でのみ実行したい。
+
+そのため、`@Component`を付けず、`SecurityConfig`から登録する方式とした。
 
 #### 9. 動作確認
 
-修正後、ローカル環境でRemember Meを有効にしてログインした。
+修正後、ローカル環境でRemember Meを有効にしてログインし、HTTPセッションの有効期限が切れた後に、ユーザー設定が復元されるか確認した。
 
-14:45にログインし、HTTPセッションの有効期限である30分を超える15:20にページを更新する方法で検証する。
+検証時点ではHTTPセッションのタイムアウトは30分としていた。
+
+14:45にログインし、30分以上経過した15:20にページを更新する方法で検証した。
 
 初期状態は以下のとおりである。
 
@@ -1615,14 +1760,23 @@ Controller
 | 中級問題数 | 116問 |
 | 上級問題数 | 115問 |
 
-確認する項目は以下のとおりである。
+確認する項目は以下の4点である。
 
 1. Remember Meによってログイン状態が維持されていること。
 2. 学習対象言語が國語のままになっていること。
 3. 問題数が更新前と一致すること。
 4. セッション復元処理が実行されたことをログで確認できること。
 
-セッション復元処理が実行されると、以下のINFOログが出力される。
+##### 検証結果：成功
+
+15:20にページを更新し、以下の項目がすべて正常であることを確認した。
+
+- Remember Meによってログイン状態が維持されている。
+- 学習対象言語が國語（TAIWAN）のまま維持されている。
+- 問題数が更新前と変わらず、初級118問・中級116問・上級115問と表示されている。
+- コンソールにセッション復元処理のINFOログが出力されている。
+
+コンソールには、以下のログが出力された。
 
 ```text
 User session preferences restored: mawsonlakes_admin
@@ -1635,57 +1789,75 @@ log.info("User session preferences restored: {}",
         authentication.getName());
 ```
 
-**検証結果：成功**
-
-15:20にページを更新し、以下の項目がすべて正常であることを確認した。
-
-- Remember Meによってログイン状態が維持されている。
-- 学習対象言語が國語（TAIWAN）のまま維持されている。
-- 問題数が更新前と変わらず、初級118問・中級116問・上級115問と表示されている。
-- コンソールに以下のINFOログが出力され、`UserSessionRestorationFilter`によるセッション情報の復元が実行されたことを確認した。
-
-```text
-User session preferences restored: mawsonlakes_admin
-```
-
 これにより、HTTPセッションの有効期限が切れた後でも、Remember Meによる自動認証とともに、データベースに保存されたユーザー設定がセッションへ復元されることを確認できた。
 
 **今回の不具合は解消された。**
 
-#### 10. まとめ
+#### 10. application.ymlでセッションのタイムアウトを60分に変更
 
-今回の問題は、Remember Meによる認証が失敗していたのではなく、認証成功後にアプリケーション独自のセッション情報が復元されていなかったことが原因と考えられる。
+今回の不具合は独自Filterの追加によって解消されたが、HTTPセッションのタイムアウトについても見直すことにした。
 
-この問題への対処を通じて、HTTPセッションとRemember Meの役割の違いを理解できた。
+本アプリケーションは中国語の瞬間作文を行う学習アプリケーションであり、ユーザーが問題を読んだり、中国語の文章を考えたりしている間は、サーバーへ新しいリクエストが送信されない場合がある。
 
-また、Spring Securityでは、認証・認可などの処理が複数のFilterによって実行されており、開発者が明示的に作成しなくても内部で動作するFilterが存在することも確認できた。
+HTTPセッションのタイムアウトは、基本的に最後にサーバーへアクセスしてからの経過時間で判定される。
 
-今回は`OncePerRequestFilter`を継承して独自Filterを作成し、`SecurityConfig`の`addFilterAfter()`でSpring SecurityのFilterチェーンに登録した。
+そのため、30分間操作がないだけでセッションが失われる設定では、長時間考えている途中にセッションが切れる可能性がある。
 
-これにより、認証済みユーザーのセッション属性が存在しない場合に、データベースからユーザー設定を復元する処理を追加できた。
+今回のFilterによって`languageVariant`と`pronunciationType`は復元できるようになったが、通常学習の進行状況など、HTTPセッションにのみ保存されている情報まで復元できるわけではない。
+
+そこで、セッション切れが発生する頻度を減らすため、`application.yml`に以下の設定を追加した。
+
+```yaml
+server:
+  servlet:
+    session:
+      timeout: 60m
+```
+
+`server.servlet.session.timeout`は、Spring BootでHTTPセッションのタイムアウトを指定するための設定である。
+
+`60m`は60分を意味する。
+
+これにより、HTTPセッションのタイムアウトを30分から60分に延長した。
+
+Remember Meの有効期限は引き続き7日間としている。
+
+| 項目 | 変更前 | 変更後 |
+|---|---|---|
+| HTTPセッション | 30分 | 60分 |
+| Remember Me | 7日間 | 7日間 |
+| セッション属性の復元 | なし | 独自Filterで実行 |
+
+なお、セッションの保持時間が長くなると、共用端末などでログイン状態が残る時間も長くなるため、利便性とセキュリティのバランスを考慮する必要がある。
+
+今回は、学習アプリケーションとしての使いやすさを優先し、60分とした。
+
+**Commit**
+
+```bash
+git commit -m "config: extend session timeout to 60 minutes"
+```
+
+#### 11. まとめ
+
+今回の問題は、Remember Meによる認証が失敗していたのではなく、認証成功後にアプリケーション独自のセッション情報が復元されていなかったことが原因だった。
+
+Remember Meは、HTTPセッションの有効期限が切れた後でも認証状態を復元する仕組みである。しかし、以前のHTTPセッションに保存されていた任意の属性まで復元するものではない。
+
+また、Remember Meによる自動認証では、フォームログイン用の`LoginSuccessHandler`が実行されないため、通常のログイン時に行っていたセッション属性の初期化処理も実行されない。
+
+この問題を解消するため、`OncePerRequestFilter`を継承した`UserSessionRestorationFilter`を作成した。
+
+さらに、`SecurityConfig`の`addFilterAfter()`を使用して、`AnonymousAuthenticationFilter`の後に独自Filterを配置した。
+
+これにより、認証済みユーザーのセッション属性が存在しない場合に、データベースからユーザー設定を取得して復元する処理を追加できた。
 
 また、セッション属性がすでに存在する場合はデータベースへの問い合わせを行わないため、通常のリクエストで不要なDBアクセスが発生しない構成としている。
 
-ただし、今回のFilterは認可判定より前に配置されているため、アクセス権限のないリクエストでも、条件によってはユーザー情報の取得処理が実行される可能性がある。
+動作確認では、HTTPセッションの有効期限が切れた後でも、Remember Meによってログイン状態が維持され、学習対象言語や問題数が正常に表示されることを確認できた。
 
-この点は、必要に応じて今後の改善事項として検討する。
+さらに、学習中のセッション切れを減らすため、`application.yml`でセッションのタイムアウトを60分に延長した。
 
-今回の修正によって、Remember Meによる認証と、アプリケーション固有のセッション管理を区別して設計する重要性を学んだ。
+今回の修正を通じて、HTTPセッションとRemember Meの役割の違いに加え、Spring SecurityのFilterチェーンの仕組みや、独自Filterの作成・登録方法について理解を深めることができた。
 
----
-
-### 参考文献
-
-- [Spring Securityについて理解する①（DelegatingFilterProxy、FilterChainProxy、SecurityFilterChain）— Qiita](https://qiita.com/devtkms/items/6b78a354f82a5874f1bc)
-- [Servlet Filter の概要とカスタマイズ方法について（Spring Security 6.0）— Qiita](https://qiita.com/3087KT/items/a37ba6372211a4a6791e)
-- [Spring Security の SecurityFilterChain / @EnableWebSecurity を深掘りする — Qiita](https://qiita.com/ham-nao/items/4440ba5d27e9e6ded3d6)
-- [Spring Security 使い方メモ Remember-Me — Qiita](https://qiita.com/opengl-8080/items/7c34053c74448d39e8f5)
-- [Hello World で学ぶ Spring Security の仕組み — Qiita](https://qiita.com/opengl-8080/items/d4971ec4d2365c85ff99)
-- [3層ログ設計（アクセス/アプリ/エラー）とMDCによるリクエスト追跡 — Qiita](https://qiita.com/ham-nao/items/66432b7c1c9d5a026279)
-- [（Spring）Filterとは？ — Zenn](https://zenn.dev/fujishiro/scraps/29f84c5781ca66)
-
-**補足資料（公式ドキュメント）**
-
-- [Spring Framework — OncePerRequestFilter Javadoc](https://spring.pleiades.io/spring-framework/docs/current/javadoc-api/org/springframework/web/filter/OncePerRequestFilter.html)
-- [Spring Security — Servlet Architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html)
-
+特に、**Spring Securityが管理する認証状態と、アプリケーションが独自に管理するセッション属性は別のものである**という点は、今後のセッション管理を設計するうえでも重要な知識となった。
