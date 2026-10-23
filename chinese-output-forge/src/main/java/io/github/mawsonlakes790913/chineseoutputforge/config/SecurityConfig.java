@@ -11,11 +11,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
 import io.github.mawsonlakes790913.chineseoutputforge.security.CustomAccessDeniedHandler;
 import io.github.mawsonlakes790913.chineseoutputforge.security.LoginSuccessHandler;
+import io.github.mawsonlakes790913.chineseoutputforge.security.UserSessionRestorationFilter;
+import io.github.mawsonlakes790913.chineseoutputforge.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -30,6 +33,7 @@ public class SecurityConfig {
 	
 	private final LoginSuccessHandler loginSuccessHandler;
 	private final CustomAccessDeniedHandler customAccessDeniedHandler;
+	private final UserAccountService userAccountService;
 	
 	/**
 	 * Spring Securityのセキュリティ設定を構築する。
@@ -130,6 +134,11 @@ public class SecurityConfig {
 	        .exceptionHandling(exception -> exception
 	            .accessDeniedHandler(customAccessDeniedHandler)
 	        );
+	    
+		    http.addFilterAfter(
+		            new UserSessionRestorationFilter(userAccountService),
+		            AnonymousAuthenticationFilter.class
+		    );
 	    
 	    return http.build();
 	}
