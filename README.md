@@ -114,7 +114,17 @@ CloudWatchとSNSで監視・アラーム通知を行い、アプリケーショ�
 
 **2つの図は移行前後の構成を示したものであり、同時に稼働している環境ではありません。**
 
-詳しい構築手順と検証内容は、[高可用性版の開発ログ](docs/development-log/implements/031aws-deployment-high-availability.md)、[低コスト版の開発ログ](docs/development-log/implements/032aws-low-cost-deployment-development-log.md)、[Amazon SES導入の開発ログ](docs/development-log/implements/033amazon-ses-spring-boot-development-log.md)に記録しています。
+詳しい構築手順と検証内容は、[高可用性版の開発ログ](docs/development-log/implements/031aws-deployment-high-availability.md)、[低コスト版の開発ログ](docs/development-log/implements/032aws-low-cost-deployment-development-log.md)に記録しています。
+
+Amazon SESの導入から本番デプロイまでの過程は、以下の実装ログに記録しています。
+
+- [① 独自ドメインとDNSの設定](docs/development-log/implements/033-01-amazon-ses-domain-dns-development-log.md)
+- [② DMARCと本番アクセス申請](docs/development-log/implements/033-02-amazon-ses-dmarc-production-access-development-log-references.md)
+- [③ Spring BootとAWS SDKによるメール送信](docs/development-log/implements/033-03-amazon-ses-spring-boot-sdk-mailservice-development-log-references.md)
+- [④ IAM権限の設定と送信テスト](docs/development-log/implements/033-04-amazon-ses-iam-send-test-development-log-references.md)
+- [⑤ nginxのHTTPS設定とデプロイ時の設定維持](docs/development-log/implements/033-05-nginx-https-config-persistence-development-log-references.md)
+- [⑥ メール送信エラーへの対応](docs/development-log/implements/033-06-amazon-ses-mail-error-message-development-log.md)
+- [⑦ AWS本番デプロイの総括](docs/development-log/implements/033-07-aws-production-deployment-summary-development-log.md)
 
 ## 設計・実装上の工夫
 
