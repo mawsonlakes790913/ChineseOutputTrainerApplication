@@ -1,8 +1,8 @@
-# 026 Security Review and Hardening - Learning Log
+# 026 セキュリティ設定の見直しと強化 — 学習ログ
 
-## 1. URL単位のアクセス制御
+今回の見直しでは、Spring Securityによる認証・認可、ユーザー所有データへのアクセス制御、CSRF保護、アクセス拒否後のエラー処理について理解を整理した。単に設定を追加するだけでなく、「何を、どの層で防ぐのか」を意識した。
 
-### 実装したこと
+## 1. URL単位とメソッド単位のアクセス制御
 
 `SecurityConfig`を確認したところ、`/admin/**`に対するROLEの制限が設定されていなかった。
 
@@ -10,31 +10,23 @@ HTMLではADMIN以外に管理者画面へのリンクを表示しないよう�
 
 そこで、
 
-```java id="y0m39f"
+```java
 .requestMatchers("/admin/**").hasRole("ADMIN")
 ```
 
 を追加し、`/admin/**`を管理者のみアクセス可能にした。
 
-### 工夫・判断したこと
-
 画面上でリンクやボタンを非表示にしていても、URLを直接入力してアクセスできればセキュリティ上の問題になるため、`SecurityConfig`側でアクセスを制限した。
 
-### 勉強になったこと
-
-```java id="v7yhcg"
+```java
 .hasRole("ADMIN")
 ```
 
 と指定すると、Spring Security側では通常`ROLE_ADMIN`というAuthorityをチェックする。
 
-## 2. `@PreAuthorize`によるメソッド単位の認証
-
-### 実装したこと
-
 `/practice/**`は、
 
-```java id="mpvg78"
+```java
 .requestMatchers("/practice/**").permitAll()
 ```
 
@@ -42,14 +34,14 @@ HTMLではADMIN以外に管理者画面へのリンクを表示しないよう�
 
 その中でログインユーザーを前提としている処理を確認し、
 
-```text id="7mr7x9"
+```text
 /practice/new/start
 /practice/evaluation
 ```
 
 に、
 
-```java id="r0b3qj"
+```java
 @PreAuthorize("isAuthenticated()")
 ```
 
@@ -57,21 +49,20 @@ HTMLではADMIN以外に管理者画面へのリンクを表示しないよう�
 
 `/practice/count`にはすでに同じ設定が存在していたため、そのままとした。
 
-### 工夫・判断したこと
-
 `/practice/**`には未ログインユーザーも利用できる処理があるため、URL全体を認証必須にはせず、ユーザー固有のデータを必要とする処理だけをメソッド単位で認証必須にした。
-
-### 勉強になったこと
 
 `SecurityConfig`で`/practice/**`が`permitAll()`になっていても、`@PreAuthorize("isAuthenticated()")`を使用することで、特定のメソッドだけを認証済みユーザーに制限できる。
 
-## 3. ユーザー所有データの認可
+URL単位の制限は広い範囲に適用し、未ログイン利用を許すURL群の中では必要なメソッドにだけ認証条件を追加する、という使い分けになった。なお、`@PreAuthorize`を機能させるにはメソッドセキュリティを有効化する必要があり、今回の`SecurityConfig`には`@EnableMethodSecurity`が既に設定されていた。
 
-### 実装したこと
+
+---
+
+## 2. ユーザー所有データの認可
 
 `EvaluationService`では、
 
-```java id="zm2rx7"
+```java
 key.setUserId(user.getId());
 key.setQuestionId(questionId);
 ```
@@ -80,7 +71,7 @@ key.setQuestionId(questionId);
 
 しかし、`questionId`がログインユーザーからアクセス可能な問題かは確認していなかったため、
 
-```text id="e01xmd"
+```text
 userId = 自分
 questionId = 他人所有のAI生成由来問題
 ```
@@ -91,7 +82,7 @@ questionId = 他人所有のAI生成由来問題
 
 そこで`QuestionRepository`に、
 
-```java id="7ldlrr"
+```java
 @Query("""
         SELECT COUNT(q) > 0
         FROM Question q
@@ -110,11 +101,9 @@ boolean existsAccessibleQuestion(
 
 `EvaluationService`と`FavoriteService`では、処理前にこのメソッドを使用してアクセス可能な問題か確認するようにした。
 
-### 工夫・判断したこと
-
 既存の通常学習では、
 
-```text id="bd2o6j"
+```text
 q.ai_generated = false
 OR
 (q.ai_generated = true AND owner_user_id = :userId)
@@ -124,7 +113,7 @@ OR
 
 今回も同じ考え方を使用し、
 
-```text id="1aw0ta"
+```text
 通常問題
 → 操作可能
 
@@ -140,15 +129,13 @@ OR
 
 となるようにした。
 
-### 勉強になったこと
-
 「ログインしているか」と「そのデータを操作する権限があるか」は別の問題である。
 
 画面上で他人の問題が見えないだけではなく、リクエストの`questionId`を改ざんして直接処理を呼び出した場合でも防げるようにする必要がある。
 
 そのため、ユーザー固有データでは、
 
-```text id="8t6bdg"
+```text
 questionId = 操作対象
 AND
 userId / owner = ログインユーザー
@@ -156,13 +143,13 @@ userId / owner = ログインユーザー
 
 のように、操作対象とログインユーザーを結び付けて確認する必要がある。
 
-## 4. CSRFと状態変更処理のPOST化
+---
 
-### 実装したこと
+## 3. CSRF保護と状態変更処理のPOST化
 
 `SecurityConfig`では、
 
-```java id="x0y8jf"
+```java
 // http.csrf(csrf -> csrf.disable());
 ```
 
@@ -170,7 +157,7 @@ userId / owner = ログインユーザー
 
 一方、
 
-```text id="mcfjzz"
+```text
 /language-variant
 /pronunciation-type
 ```
@@ -181,33 +168,32 @@ userId / owner = ログインユーザー
 
 また、`user/settings.html`で使用していた`<a>`もPOSTフォームへ変更した。
 
-### 工夫・判断したこと
-
 データの登録・更新・削除について確認し、状態を変更する処理をPOSTに統一した。
 
 ログアウトについても確認したが、既存実装ですでに、
 
-```html id="hz0rya"
+```html
 <form th:action="@{/logout}" method="post">
 ```
 
 となっていたため、追加修正は行わなかった。
 
-### 勉強になったこと
-
 Spring SecurityではCSRF対策がデフォルトで有効になっているため、明示的に無効化していなければCSRF保護が働く。
 
 また、DBやSessionなどの状態を変更する処理について、GETではなくPOSTを使用する構成にする必要があることを確認した。
 
-## 5. Security固有ログの追加
+ここで区別すべきなのは、**GETで状態変更しないこと**と、**CSRFトークンによって不正なリクエストを検証すること**は別の対策だという点である。POSTに変更しただけでCSRF対策が完了するわけではない。今回のThymeleafフォームはSpring SecurityのCSRF保護が有効な構成で使用する。
 
-### 実装したこと
+
+---
+
+## 4. Security固有ログの設計
 
 ログイン成功・ログイン失敗・アカウント凍結によるログイン失敗についてSecurity固有のログを追加した。
 
 ログイン成功時は、
 
-```java id="lmtfqo"
+```java
 log.info(
         "Login succeeded: loginId={}",
         authentication.getName());
@@ -217,7 +203,7 @@ log.info(
 
 通常のログイン失敗は、
 
-```java id="y0p3ql"
+```java
 log.warn(
         "Login failed: loginId={}",
         loginId);
@@ -225,15 +211,13 @@ log.warn(
 
 アカウント凍結によるログイン失敗は、
 
-```java id="9pvph3"
+```java
 log.warn(
         "Login failed because account is locked: loginId={}",
         loginId);
 ```
 
 とした。
-
-### 工夫・判断したこと
 
 ログイン成功は正常な認証イベントなのでINFOとした。
 
@@ -243,11 +227,9 @@ log.warn(
 
 ログには`loginId`だけを記録し、パスワードやSession IDは出力しないようにした。
 
-### 勉強になったこと
-
 Security関連ログについて、
 
-```text id="wd4vab"
+```text
 ログイン成功
 → INFO
 
@@ -260,13 +242,13 @@ Security関連ログについて、
 
 というログレベルの使い分けを整理できた。
 
-## 6. `AccessDeniedHandler`によるアクセス拒否処理
+---
 
-### 実装したこと
+## 5. AccessDeniedHandlerと認証情報の取得
 
 `ROLE_USER`で`/admin/menu`へアクセスするとSpring Securityによって403 Forbiddenにはなっていたが、
 
-```text id="t5es4p"
+```text
 403 Forbidden
 ↓
 Whitelabel Error Page
@@ -278,7 +260,7 @@ Whitelabel Error Page
 
 Handlerでは、
 
-```java id="a4g41n"
+```java
 log.warn(
         "Access denied: loginId={}, uri={}",
         loginId,
@@ -287,18 +269,16 @@ log.warn(
 
 としてアクセス拒否をWARNログへ記録し、
 
-```java id="mb28qe"
+```java
 response.sendError(
         HttpServletResponse.SC_FORBIDDEN);
 ```
 
 によって403エラーを返すようにした。
 
-### 工夫・判断したこと
-
 `SecurityConfig`には、
 
-```java id="p4jvps"
+```java
 .exceptionHandling(exception -> exception
         .accessDeniedHandler(customAccessDeniedHandler)
 )
@@ -306,11 +286,9 @@ response.sendError(
 
 を追加し、Spring Securityによるアクセス拒否時に作成したHandlerが実行されるようにした。
 
-### 勉強になったこと
-
 `AccessDeniedHandler`はアクセスを許可するかどうかを判断するものではない。
 
-```text id="6yd6ar"
+```text
 /admin/**にはROLE_ADMINが必要
 ↓
 Spring Securityがアクセス可否を判断
@@ -324,13 +302,9 @@ AccessDeniedHandler
 
 また、`AccessDeniedHandler`はSpring Securityが用意しているインターフェースで、アクセス拒否時に呼ばれる`handle()`をオーバーライドして独自処理を実装する。
 
-## 7. `SecurityContextHolder`から認証情報を取得
-
-### 実装したこと
-
 `CustomAccessDeniedHandler`でアクセス拒否されたユーザーの`loginId`を取得するため、
 
-```java id="uqb7fq"
+```java
 Authentication authentication =
         SecurityContextHolder
                 .getContext()
@@ -341,17 +315,15 @@ Authentication authentication =
 
 取得した`Authentication`から、
 
-```java id="zqegks"
+```java
 authentication.getName()
 ```
 
 を使用して`loginId`を取得した。
 
-### 工夫・判断したこと
-
 認証情報を取得できなかった場合でもログを残せるように、
 
-```java id="gts84b"
+```java
 String loginId = authentication != null
         ? authentication.getName()
         : "anonymous";
@@ -359,11 +331,9 @@ String loginId = authentication != null
 
 とした。
 
-### 勉強になったこと
-
 今回の実装を通して、
 
-```text id="j9uk8c"
+```text
 SecurityContextHolder
 ↓ getContext()
 SecurityContext
@@ -375,7 +345,7 @@ Authentication
 
 それぞれ、
 
-```text id="ctjlr2"
+```text
 SecurityContextHolder
 → 現在のユーザーのセキュリティ情報へアクセスするための入口
 
@@ -390,13 +360,16 @@ Authentication
 
 `SecurityContextHolder.getContext()`は現在の処理に紐づく`SecurityContext`を取得するstaticメソッドであり、`SecurityContext.getAuthentication()`によって、その中に保持されている`Authentication`を取得できる。
 
-## 8. Spring Boot標準のエラー処理によるエラーページ表示
+補足として、`Authentication`が`null`ではない場合でも、匿名認証を表すオブジェクトである可能性がある。したがって、`null`でないことだけを根拠に「ログイン済み」と判断することはできない。今回のコードはアクセス拒否ログの識別名を取得するためのものであり、認可判定自体はSpring Securityが行う。
 
-### 実装したこと
+
+---
+
+## 6. Spring Boot標準のエラー処理
 
 Whitelabel Error Pageの代わりに、
 
-```text id="yfqycg"
+```text
 templates/error.html
 templates/error/403.html
 ```
@@ -407,7 +380,7 @@ templates/error/403.html
 
 共通エラー画面では、
 
-```html id="mfrdmt"
+```html
 <h1 th:text="${status} + ' ' + ${error}">
     Error
 </h1>
@@ -417,13 +390,11 @@ templates/error/403.html
 
 `${message}`についてはそのまま表示せず、`messages.properties`で管理するユーザー向けメッセージを表示するようにした。
 
-### 工夫・判断したこと
-
 `${message}`にはエラーの内容によってユーザーに見せる必要のない内部情報が含まれる可能性があるため、そのまま表示しないようにした。
 
 代わりに、
 
-```html id="8jtmfj"
+```html
 <p th:text="#{error.common.message}">
     エラーが発生しました。
 </p>
@@ -431,11 +402,9 @@ templates/error/403.html
 
 として共通メッセージを使用した。
 
-### 勉強になったこと
-
 通常のThymeleaf画面では、
 
-```text id="37y8og"
+```text
 /about
 ↓
 @GetMapping("/about")
@@ -449,7 +418,7 @@ about.html
 
 一方、今回の403では独自の`@GetMapping`を作成しなくても、
 
-```text id="d0zjmy"
+```text
 Spring Securityがアクセスを拒否
 ↓
 CustomAccessDeniedHandler
@@ -469,7 +438,7 @@ templates/error/403.html
 
 開発者が書いたコード上にはこの途中の処理が表面化しないため、
 
-```text id="62njia"
+```text
 自分で書いていない処理
 =
 処理そのものが存在しない
@@ -478,3 +447,13 @@ templates/error/403.html
 と考えないことが重要である。
 
 Spring Bootでは、開発者が書くべき部分の間をフレームワークが自動的につないでくれることがあり、今回のエラーページ表示はその典型的な例である。
+
+---
+
+## 7. 今回の学習で理解したこと
+
+今回の実装を通して、セキュリティ対策は一か所の設定だけでは完結しないことが分かった。`/admin/**`のようなURL単位の認可、`@PreAuthorize`によるメソッド単位の認証、`questionId`に対する所有者チェックは、それぞれ防ぐ対象が異なる。
+
+また、アクセス拒否が起きた後のログ記録とエラー画面の表示は、アクセス可否の判定とは別の責務である。`AccessDeniedHandler`から`sendError(403)`を呼び出した後も、ServletとSpring Bootの標準エラー処理が続いていることを確認できた。
+
+今後も、画面に表示されないことをアクセス制御の代わりにせず、リクエストを直接送られた場合を考慮してServiceやSecurity設定で確認することが重要だと理解した。

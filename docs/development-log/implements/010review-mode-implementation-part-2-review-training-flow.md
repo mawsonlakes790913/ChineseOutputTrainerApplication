@@ -1,14 +1,16 @@
 # 010 復習モードの実装 その2 - 出題機能の実装
 
-復習メニューで指定した条件から問題セットを取得し、復習の開始・問題表示・理解度更新・中断・再開・終了までの一連の処理を実装する。
+## 概要
 
-基本的なトレーニングの流れは通常学習と同じだが、復習では学習履歴をもとに問題を取得するため、問題セット取得処理が異なる。
+009で作成した検索条件を使い、復習問題の取得、開始・問題表示・理解度更新・中断・再開・終了・完了までを実装した。基本的な画面遷移は通常学習と共通するが、復習問題はログインユーザーの`study_history`を基準に抽出する。
+
+この章では当初の実装を記録し、後日の難易度表示追加（8月31日）と出題数制限（9月21日）は末尾に分けて記録する。
 
 ## 1. 復習問題の取得
 
-### StudyHistoryRepository
+### `StudyHistoryRepository`
 
-復習メニューで指定した理解度・難易度・お気に入り状態から、実際に出題する問題を取得する `findReviewQuestions()` を追加する。
+009の件数取得クエリと同じ結合・検索条件を使い、`COUNT(*)`の代わりに`q.*`を取得する。`study_history`に記録のある問題を対象とし、お気に入り未登録の問題も扱えるよう`favorite`を`LEFT JOIN`する。
 
 ```java
 @Query(value = """
@@ -42,13 +44,9 @@ List<Question> findReviewQuestions(
 );
 ```
 
-仕組みは復習メニューで実装した問題数取得クエリと同じである。
+### `ReviewService`
 
-問題数取得では `COUNT(*)` を使用していたが、今回は実際に出題する問題が必要なため `q.*` を取得する。:contentReference[oaicite:1]{index=1}
-
-### ReviewService
-
-取得した検索条件を変換してRepositoryへ渡し、問題一覧を取得する。
+Enumで受け取った理解度・難易度・お気に入り条件を`SearchConditionConverter`でDB用文字列に変換してRepositoryへ渡す。当初はランダム出題を選択した場合、取得後のリストを`Collections.shuffle()`で並べ替えていた。
 
 ```java
 // 問題取得
@@ -76,17 +74,9 @@ public List<Question> getQuestion(
 }
 ```
 
-`Evaluation`、`Difficulty`、`FavoriteCondition` は `SearchConditionConverter` で文字列へ変換してからRepositoryへ渡す。
-
-ランダム出題が選択されている場合は、取得した問題一覧を `Collections.shuffle()` でシャッフルする。
-
----
-
 ## 2. 復習開始処理
 
-### ReviewController#getReviewStart
-
-`/review/start` では、復習メニューで指定された検索条件から新しい問題セットを作成する。
+`GET /review/start`で既存の復習セッションをクリアし、指定条件に一致する問題を取得する。該当問題が0件ならメニューへ戻し、取得できた場合は`reviewQuestions`と`reviewCurrentPage`を保存して先頭へ遷移する。
 
 ```java
 @GetMapping("/review/start")
@@ -133,22 +123,9 @@ public String getReviewStart(
 }
 ```
 
-新しい復習を開始するときは既存の復習状態を削除し、
-
-```text
-reviewQuestions
-reviewCurrentPage
-```
-
-を新しくSessionへ保存する。
-
----
-
 ## 3. 問題表示
 
-### ReviewController#getReviewQuestion
-
-`/review/question` では、Sessionに保存した問題セットから指定されたページの問題を取得する。
+`GET /review/question`ではセッション内の問題リストから指定ページを表示する。セッションがない場合やページ番号が範囲外の場合はメニューへ戻す。`QuestionModelUtil`で画面表示用データを設定し、ログインユーザーのお気に入り状態も渡す。
 
 ```java
 @GetMapping("/review/question")
@@ -200,90 +177,18 @@ public String getReviewQuestion(
 }
 ```
 
-問題一覧がSessionに存在しない場合や、不正なページ番号が指定された場合は復習メニューへ戻す。
-
-また、
-
-```java
-session.setAttribute("reviewCurrentPage", page);
-```
-
-によって現在位置をSessionへ保存する。
-
----
-
 ## 4. 中断・再開・終了・完了
 
-### 復習再開
+通常学習と同じ考え方で、復習状態を`HttpSession`に保持する。
 
-Sessionに残っている `reviewCurrentPage` を取得し、中断した問題へ戻す。
+| 操作 | URL | セッションの扱い |
+|---|---|---|
+| 再開 | `/review/resume` | `reviewCurrentPage`から再開（問題リストがなければメニューへ） |
+| 中断 | `/review/suspend` | 現在ページを保存してトップへ戻る |
+| 終了 | `/review/quit` | 問題リストとページを削除してトップへ戻る |
+| 完了 | `/review/complete` | 問題リストとページを削除して完了画面へ |
 
-```java
-@GetMapping("/review/resume")
-public String getReviewResume(
-        Model model,
-        HttpSession session) {
-
-    // 中断していないならmenuに戻す
-    if (session.getAttribute("reviewQuestions") == null) {
-        return "redirect:/review/menu";
-    }
-
-    // 中断時のページ情報を取得
-    Integer page =
-            (Integer) session.getAttribute("reviewCurrentPage");
-
-    return "redirect:/review/question?page=" + page;
-}
-```
-
-### 復習完了
-
-最後まで終了した場合は復習Sessionを削除する。
-
-```java
-@GetMapping("/review/complete")
-public String getReviewComplete(HttpSession session) {
-
-    clearReviewSession(session);
-
-    return "redirect:/complete";
-}
-```
-
-### 復習中断
-
-中断する場合は現在ページをSessionへ保存したままトップへ戻る。
-
-```java
-@GetMapping("/review/suspend")
-public String getReviewSuspend(
-        @RequestParam int page,
-        HttpSession session) {
-
-    log.info("getReviewSuspend reached");
-
-    session.setAttribute("reviewCurrentPage", page);
-
-    return "redirect:/";
-}
-```
-
-### 復習終了
-
-復習をやめる場合は問題セットとページ情報を削除する。
-
-```java
-@GetMapping("/review/quit")
-public String getReviewQuit(HttpSession session) {
-
-    clearReviewSession(session);
-
-    return "redirect:/";
-}
-```
-
-### Session削除
+セッション削除処理は`clearReviewSession()`に集約した。
 
 ```java
 private void clearReviewSession(HttpSession session) {
@@ -293,13 +198,11 @@ private void clearReviewSession(HttpSession session) {
 }
 ```
 
-中断の場合だけSessionを残し、完了・終了の場合はSessionを削除する。
+再開処理ではセッションの`reviewQuestions`の存在を確認し、`reviewCurrentPage`を使って`/review/question?page=...`へリダイレクトする。中断はセッションを保持する点で、終了・完了とは異なる。
 
----
+## 5. 理解度の更新
 
-## 5. 復習中の理解度更新
-
-復習画面でも `HARD`、`GOOD`、`EASY` を選択して理解度を更新できるようにする。
+`POST /review/evaluation`で選択された`HARD`・`GOOD`・`EASY`を、通常学習と共通の`EvaluationService#updateEvaluation()`で保存する。保存後は次の問題へ進み、最終問題であれば`/review/complete`へ遷移する。
 
 ```java
 @PostMapping("/review/evaluation")
@@ -334,15 +237,13 @@ public String postEvaluation(
 }
 ```
 
-理解度更新後は次の問題へ移動し、最後の問題であれば復習を完了する。
+## 6. 復習問題画面の作成
 
----
+`review/question.html`は`practice/question.html`を参考に作成した。問題番号、日本語問題文、お気に入りボタン、条件（`condition`）、解答・別解、理解度ボタン、前後移動、中断・終了を配置する。
 
-## 6. /review/question.htmlの作成
+### 問題文とお気に入り
 
-通常学習の `/practice/question.html` を参考に、復習用の問題画面を作成する。
-
-### 問題・お気に入り表示
+お気に入り登録状態に応じてハートアイコンを切り替える。
 
 ```html
 <!-- 現在の問題番号 -->
@@ -379,9 +280,9 @@ public String postEvaluation(
 </div>
 ```
 
-### condition表示
+### `condition`と解答表示
 
-conditionは検索条件ではなく、問題を解く際のヒントとして表示する。
+009で検索条件から外した`condition`は、ここでは問題画面の補助情報として表示した。実装時点のHTMLでは`condition`が存在する場合に表示される構成であり、任意の操作でヒントを開く仕組みではない。
 
 ```html
 <div style="min-height:40px;">
@@ -401,7 +302,7 @@ conditionは検索条件ではなく、問題を解く際のヒントとして�
 </div>
 ```
 
-### 解答表示
+解答表示領域は高さを確保して画面のずれを抑え、発音表記・正解・別解を表示する。別解は`alternativeAnswer != null`の場合だけ表示する。
 
 ```html
 <div style="min-height:150px;">
@@ -471,154 +372,39 @@ conditionは検索条件ではなく、問題を解く際のヒントとして�
 </div>
 ```
 
-### 理解度
+### 理解度と画面操作
+
+理解度は`/review/evaluation`へのPOSTフォーム3つで送信する。各フォームに`questionId`、`evaluation`、`page`を含める。以下は`HARD`の例で、`GOOD`と`EASY`は`evaluation`の値とボタン表示を変える。
 
 ```html
-<div id="evaluationArea"
-     sec:authorize="isAuthenticated()"
-     class="mt-1 d-flex justify-content-center gap-5"
-     style="display:none;">
-
-    <!-- HARD -->
-    <form th:action="@{/review/evaluation}" method="post">
-
-        <input type="hidden"
-               name="questionId"
-               th:value="${question.questionId}">
-
-        <input type="hidden"
-               name="evaluation"
-               value="HARD">
-
-        <input type="hidden"
-               name="page"
-               th:value="${nextPageIndex - 1}">
-
-        <button type="submit"
-                class="btn btn-danger btn-lg"
-                th:text="#{review.question.evaluation.hard}">
-            Hard（難しかった）
-        </button>
-
-    </form>
-
-    <!-- GOOD -->
-    <form th:action="@{/review/evaluation}" method="post">
-
-        <input type="hidden"
-               name="questionId"
-               th:value="${question.questionId}">
-
-        <input type="hidden"
-               name="evaluation"
-               value="GOOD">
-
-        <input type="hidden"
-               name="page"
-               th:value="${nextPageIndex - 1}">
-
-        <button type="submit"
-                class="btn btn-primary btn-lg"
-                th:text="#{review.question.evaluation.good}">
-            Good（少し考えた）
-        </button>
-
-    </form>
-
-    <!-- EASY -->
-    <form th:action="@{/review/evaluation}" method="post">
-
-        <input type="hidden"
-               name="questionId"
-               th:value="${question.questionId}">
-
-        <input type="hidden"
-               name="evaluation"
-               value="EASY">
-
-        <input type="hidden"
-               name="page"
-               th:value="${nextPageIndex - 1}">
-
-        <button type="submit"
-                class="btn btn-success btn-lg"
-                th:text="#{review.question.evaluation.easy}">
-            Easy（余裕だった）
-        </button>
-
-    </form>
-
-</div>
+<form th:action="@{/review/evaluation}" method="post">
+    <input type="hidden" name="questionId" th:value="${question.questionId}">
+    <input type="hidden" name="evaluation" value="HARD">
+    <input type="hidden" name="page" th:value="${nextPageIndex - 1}">
+    <button type="submit" class="btn btn-danger btn-lg"
+            th:text="#{review.question.evaluation.hard}">Hard（難しかった）</button>
+</form>
 ```
 
-### 前へ・次へ・完了
+前へ・次へ・完了のリンクは`hasPrevious`・`hasNext`で切り替える。中断・終了は確認ダイアログを表示し、それぞれ`/review/suspend`・`/review/quit`へ遷移する。
 
 ```html
-<div class="mb-5 d-flex justify-content-center gap-4"
-     style="margin-top:60px;">
-
-    <a th:if="${hasPrevious}"
-       th:href="@{/review/question(page=${nextPageIndex - 2})}"
-       class="btn btn-outline-primary"
-       th:text="#{review.question.previous}">
-        前の問題へ
-    </a>
-
-    <a th:if="${hasNext}"
-       th:href="@{/review/question(page=${nextPageIndex})}"
-       class="btn btn-outline-primary"
-       th:text="#{review.question.next}">
-        次の問題へ
-    </a>
-
-    <a th:if="${!hasNext}"
-       th:href="@{/review/complete}"
-       class="btn btn-info"
-       th:text="#{review.question.complete}">
-        完了
-    </a>
-
-</div>
+<a th:if="${hasPrevious}" th:href="@{/review/question(page=${nextPageIndex - 2})}">前の問題へ</a>
+<a th:if="${hasNext}" th:href="@{/review/question(page=${nextPageIndex})}">次の問題へ</a>
+<a th:if="${!hasNext}" th:href="@{/review/complete}">完了</a>
+<a th:href="@{/review/suspend(page=${nextPageIndex - 1})}">中断する</a>
+<a th:href="@{/review/quit}">やめる</a>
 ```
 
-### 中断・終了
-
-```html
-<div class="d-flex justify-content-center gap-3"
-     style="margin-top:40px;">
-
-    <a th:href="@{/review/suspend(page=${nextPageIndex - 1})}"
-       th:attr="onclick=|return confirm('#{review.question.suspend.confirm}');|"
-       class="btn btn-outline-danger btn-sm"
-       style="width:100px;"
-       th:text="#{review.question.suspend}">
-        中断する
-    </a>
-
-    <a th:href="@{/review/quit}"
-       th:attr="onclick=|return confirm('#{review.question.quit.confirm}');|"
-       class="btn btn-outline-danger btn-sm"
-       style="width:100px;"
-       th:text="#{review.question.quit}">
-        やめる
-    </a>
-
-</div>
-```
-
-問題画面全体では、通常学習と同じ `practice.js` を使用する。
+解答表示とお気に入り操作は通常学習で使用していた`practice.js`を共用した。これらの処理は通常学習固有のURLに依存していなかったため、復習画面でも利用できた。
 
 ```html
 <script th:src="@{/js/practice.js}" defer></script>
 ```
 
-`practice.js` の解答表示とお気に入り登録・解除処理は通常学習固有のURLに依存していないため、復習画面でも共用する。
+## 7. 多言語メッセージの追加
 
----
-
-## 7. messages.propertiesの追加
-
-`/review/question.html` で使用するメッセージを追加する。
+`messages.properties`に復習問題画面用のキーを追加した。画面タイトル、条件、解答、別解、理解度、前後移動、完了、中断・終了の確認文言を管理し、繁体字・簡体字のファイルにも同じキーを追加した。
 
 ```properties
 # ==============================
@@ -654,162 +440,45 @@ review.question.quit=やめる
 review.question.quit.confirm=トレーニングを終了しますか？
 ```
 
-繁体字・簡体字のメッセージファイルについても同じキーを追加する。
+## 8. `QuestionModelUtil`の重複処理を整理
 
----
-
-## 8. QuestionModelUtilの修正
-
-`QuestionModelUtil#setQuestionModel()` を確認したところ、発音表記を設定する `switch` が二重に記述されていた。
-
-別解の発音表記対応後の `switch` だけで、
+発音表記を設定する`switch`が二重になっていたため、古い処理を削除した。`PINYIN`・`ZHUYIN`・`NONE`の分岐で`pronunciation`と`alternativePronunciation`を一度に設定する。機能追加ではなく重複処理の整理である。
 
 ```text
 pronunciation
 alternativePronunciation
 ```
 
-の両方を設定できるため、古い `switch` を削除した。
+## 9. 出題順序のパラメータを統一
 
-修正後は以下の処理のみとする。
-
-```java
-switch (pronunciationType) {
-
-case PINYIN -> {
-    model.addAttribute(
-            "pronunciation",
-            question.getPinyin()
-    );
-
-    model.addAttribute(
-            "alternativePronunciation",
-            question.getAlternativeAnswerPinyin()
-    );
-}
-
-case ZHUYIN -> {
-    model.addAttribute(
-            "pronunciation",
-            question.getZhuyin()
-    );
-
-    model.addAttribute(
-            "alternativePronunciation",
-            question.getAlternativeAnswerZhuyin()
-    );
-}
-
-case NONE -> {
-    model.addAttribute("pronunciation", null);
-    model.addAttribute("alternativePronunciation", null);
-}
-
-}
-```
-
-機能変更ではなく、重複処理の整理である。
-
----
-
-## 9. /review/menu.htmlの出題方法を修正
-
-復習メニューでは当初、出題方法を、
-
-```text
-order=SEQUENTIAL
-order=RANDOM
-```
-
-としていた。
-
-通常学習では `boolean random` を使用しているため、復習でも同じ方式へ統一する。
-
-変更後は以下とする。
+`review/menu.html`の出題方法を`order=SEQUENTIAL`／`order=RANDOM`から、通常学習と同じ`random=false`／`random=true`へ変更した。これによりControllerで`boolean random`として受け取れる。
 
 ```html
 <label class="form-check">
-
-    <input class="form-check-input"
-           type="radio"
-           name="random"
-           value="false"
-           checked>
-
-    <span class="form-check-label"
-          th:text="#{review.menu.order.sequential}">
-        順番に出題
-    </span>
-
+  <input type="radio" name="random" value="false" checked>
+  <span th:text="#{review.menu.order.sequential}">順番に出題</span>
 </label>
-
 <label class="form-check">
-
-    <input class="form-check-input"
-           type="radio"
-           name="random"
-           value="true">
-
-    <span class="form-check-label"
-          th:text="#{review.menu.order.random}">
-        ランダムに出題
-    </span>
-
+  <input type="radio" name="random" value="true">
+  <span th:text="#{review.menu.order.random}">ランダムに出題</span>
 </label>
 ```
-
-これにより、
-
-```text
-順番に出題
-→ random=false
-
-ランダムに出題
-→ random=true
-```
-
-となり、Controllerでは、
-
-```java
-@RequestParam(name = "random", required = false)
-boolean random
-```
-
-としてそのまま受け取れるようになった。
-
----
 
 ## 10. 実行確認
 
-`/review/menu` にアクセスし、任意の条件を指定して出題を開始する。
+`/review/menu`から条件を指定し、問題セットが作成されて`/review/question`へ遷移することを確認した。
 
-```text
-http://localhost:8080/review/menu
-```
-
-指定した条件から復習問題セットが作成され、`/review/question` へ遷移してトレーニングが開始されることを確認した。
-
-![](../../images/0010-01.png)
+![復習問題画面](../../images/0010-01.png)
 
 ---
 
-# 追加修正 8月31日
+## 11. 追加修正（8月31日）：難易度の表示
 
 ```bash
 git commit -m "feat: display question difficulty on review page"
 ```
 
-通常学習モードと同様に、復習モードの問題ページにも現在出題されている問題の難易度を表示するようにする。
-
-復習モードでは複数の難易度を選択して問題セットを作成できるため、異なる難易度の問題が混在して出題されることがある。
-
-その場合、現在表示されている問題の難易度が分かる方がユーザーにとって分かりやすいため、問題文の上部に難易度を表示する。
-
-## 1. 問題の難易度を表示する
-
-### `/review/question.html`
-
-問題文の上部に、現在の問題の難易度を表示するバッジを追加する。
+複数難易度を選択すると異なる難易度の問題が混在するため、現在の問題の難易度を問題文の上に表示するようにした。`question.difficulty`に応じて表示文言とBootstrapの背景色を切り替える。
 
 ```html
 <!-- 問題の難易度 -->
@@ -822,385 +491,83 @@ git commit -m "feat: display question difficulty on review page"
 </span>
 ```
 
-`question.difficulty`の値によって、表示する難易度とバッジの背景色を切り替える。
-
-| `Difficulty`   | 表示 | Bootstrapクラス |
-| -------------- | -- | ------------ |
-| `BEGINNER`     | 初級 | `bg-danger`  |
+| 難易度 | 表示 | 背景色 |
+|---|---|---|
+| `BEGINNER` | 初級 | `bg-danger` |
 | `INTERMEDIATE` | 中級 | `bg-primary` |
-| `ADVANCED`     | 上級 | `bg-success` |
+| `ADVANCED` | 上級 | `bg-success` |
 
-難易度名については`messages.properties`から取得する。
+難易度名は`messages.properties`から取得する。表示を確認した。
 
-## 2. 実行
-
-任意の条件で復習モードを開始し、
-
-```text
-http://localhost:8080/review/question
-```
-
-にアクセスする。
-
-問題文の上部に、現在出題されている問題の難易度が表示されることを確認した。
-
-![](../../images/0010-02.png)
+![難易度表示](../../images/0010-02.png)
 
 ---
 
-# 追加修正 9月21日
+## 12. 追加修正（9月21日）：最大出題数の設定
 
-```text
+```bash
 git commit -m "feat: add review question limit option"
 ```
 
-## 復習問題の最大出題数を設定する
+従来は条件に一致する問題をすべて取得していたため、問題数が増えると一度の復習が長くなる。そこで、**最大50問（デフォルト）**と**対象問題をすべて出題**を選べるようにした。
 
-これまでの復習処理では、検索条件に一致する問題をすべて取得していた。
+### `StudyHistoryRepository`
 
-問題数が増えると一度の復習で大量の問題が出題される可能性があるため、復習メニューから以下の出題数を選択できるようにする。
+既存の`findReviewQuestions()`はランダムに最大50問取得する処理に変更し、すべて取得する`findAllReviewQuestions()`を追加した。両者は検索条件を共通とし、取得件数の制限で区別する。
 
-- 検索条件に一致する問題からランダムに最大50問出題
-- 検索条件に一致する問題をすべて出題
+```sql
+-- 最大50問の取得クエリ末尾
+ORDER BY RANDOM()
+LIMIT 50
+```
 
-通常は最大50問を出題し、必要な場合のみ対象問題をすべて復習できる構成とする。
-
-### StudyHistoryRepository
-
-既存の`findReviewQuestions()`を、検索条件に一致する問題からランダムに最大50問取得する処理へ変更する。
-
-クエリの最後に以下を追加する。
+この時点のSQLには、当初の理解度・難易度・お気に入り条件に加え、言語、問題の出題元、構文による絞り込みも含まれている。以下は追加修正時点のクエリであり、冒頭の当初実装とは検索条件が異なる。
 
 ```sql
 ORDER BY RANDOM()
 LIMIT 50
 ```
 
-```java
-// 復習条件に一致する問題をランダムに最大50件取得
-@Query(value = """
-        SELECT q.*
-        FROM study_history sh
-        JOIN question q
-          ON sh.question_id = q.question_id
-        LEFT JOIN favorite f
-          ON sh.user_id = f.user_id
-         AND sh.question_id = f.question_id
-        WHERE sh.user_id = :userId
-          AND q.language_variant IN (:languageVariants)
-          AND sh.evaluation IN (:evaluations)
-          AND q.difficulty IN (:difficulties)
-          AND (
-              :favoriteCondition = 'ALL'
-              OR (
-                  :favoriteCondition = 'FAVORITED'
-                  AND f.question_id IS NOT NULL
-              )
-              OR (
-                  :favoriteCondition = 'NOT_FAVORITED'
-                  AND f.question_id IS NULL
-              )
-          )
-          AND (
-              (:sourceCondition = 'ALL'
-                  AND (
-                      q.owner_user_id IS NULL
-                      OR q.owner_user_id = :userId
-                  )
-              )
-              OR (
-                  :sourceCondition = 'ORIGINAL_ONLY'
-                  AND q.ai_generated = false
-                  AND (
-                      q.owner_user_id IS NULL
-                      OR q.owner_user_id = :userId
-                  )
-              )
-              OR (
-                  :sourceCondition = 'GENERATED_ONLY'
-                  AND q.ai_generated = true
-                  AND q.owner_user_id = :userId
-              )
-          )
-          AND q.structure_id IN (:structureIds)
-        ORDER BY RANDOM()
-        LIMIT 50
-        """, nativeQuery = true)
-List<Question> findReviewQuestions(
-        @Param("userId") Long userId,
-        @Param("languageVariants") List<String> languageVariants,
-        @Param("evaluations") List<String> evaluations,
-        @Param("difficulties") List<String> difficulties,
-        @Param("favoriteCondition") String favoriteCondition,
-        @Param("sourceCondition") String sourceCondition,
-        @Param("structureIds") List<Long> structureIds
-);
-```
+`findAllReviewQuestions()`は同じWHERE条件を使用し、上記の`ORDER BY RANDOM()`と`LIMIT 50`を付けない。
 
-また、検索条件に一致する問題をすべて取得するため、`findAllReviewQuestions()`を追加する。
+### `ReviewQuestionLimit`と`ReviewService`
 
-クエリの検索条件は`findReviewQuestions()`と同じだが、`ORDER BY RANDOM()`と`LIMIT 50`は設定しない。
+出題数を表すEnumを追加した。
 
 ```java
-// 復習条件に一致する問題をすべて取得
-@Query(value = """
-        SELECT q.*
-        FROM study_history sh
-        JOIN question q
-          ON sh.question_id = q.question_id
-        LEFT JOIN favorite f
-          ON sh.user_id = f.user_id
-         AND sh.question_id = f.question_id
-        WHERE sh.user_id = :userId
-          AND q.language_variant IN (:languageVariants)
-          AND sh.evaluation IN (:evaluations)
-          AND q.difficulty IN (:difficulties)
-          AND (
-              :favoriteCondition = 'ALL'
-              OR (
-                  :favoriteCondition = 'FAVORITED'
-                  AND f.question_id IS NOT NULL
-              )
-              OR (
-                  :favoriteCondition = 'NOT_FAVORITED'
-                  AND f.question_id IS NULL
-              )
-          )
-          AND (
-              (:sourceCondition = 'ALL'
-                  AND (
-                      q.owner_user_id IS NULL
-                      OR q.owner_user_id = :userId
-                  )
-              )
-              OR (
-                  :sourceCondition = 'ORIGINAL_ONLY'
-                  AND q.ai_generated = false
-                  AND (
-                      q.owner_user_id IS NULL
-                      OR q.owner_user_id = :userId
-                  )
-              )
-              OR (
-                  :sourceCondition = 'GENERATED_ONLY'
-                  AND q.ai_generated = true
-                  AND q.owner_user_id = :userId
-              )
-          )
-          AND q.structure_id IN (:structureIds)
-        """, nativeQuery = true)
-List<Question> findAllReviewQuestions(
-        @Param("userId") Long userId,
-        @Param("languageVariants") List<String> languageVariants,
-        @Param("evaluations") List<String> evaluations,
-        @Param("difficulties") List<String> difficulties,
-        @Param("favoriteCondition") String favoriteCondition,
-        @Param("sourceCondition") String sourceCondition,
-        @Param("structureIds") List<Long> structureIds
-);
-```
-
-これにより、Repositoryでは以下のように役割を分ける。
-
-```text
-findReviewQuestions()
-    → 条件に一致する問題からランダムに最大50問取得
-
-findAllReviewQuestions()
-    → 条件に一致する問題をすべて取得
-```
-
-### ReviewQuestionLimit
-
-復習時の出題数を管理するEnumを追加する。
-
-```java
-package io.github.mawsonlakes790913.chineseoutputforge.constant;
-
 public enum ReviewQuestionLimit {
-
     LIMIT_50,
     ALL
 }
 ```
 
-- `LIMIT_50`：最大50問
-- `ALL`：対象問題をすべて出題
-
-### ReviewService
-
-`getQuestion()`に`ReviewQuestionLimit`を追加し、選択された出題数によってRepositoryの取得処理を切り替える。
+`ReviewService#getQuestion()`で`questionLimit`が未指定なら`LIMIT_50`を設定し、`ALL`なら`findAllReviewQuestions()`、それ以外は`findReviewQuestions()`を呼び出す。この時点では取得後に`random`がtrueなら`Collections.shuffle()`する処理も残っていた。
 
 ```java
-public List<Question> getQuestion(
-        Long userId,
-        List<LanguageVariant> languageVariants,
-        List<Evaluation> evaluations,
-        List<Difficulty> difficulties,
-        FavoriteCondition favoriteCondition,
-        QuestionSourceCondition sourceCondition,
-        List<Long> structureIds,
-        ReviewQuestionLimit questionLimit,
-        boolean random) {
+if (questionLimit == null) {
+    questionLimit = ReviewQuestionLimit.LIMIT_50;
+}
 
-    // 文法・構造が未指定の場合はすべて
-    if (structureIds == null || structureIds.isEmpty()) {
-        structureIds = structureRepository.findAllStructureIds();
-    }
-
-    // 出題元が未指定の場合はすべて
-    if (sourceCondition == null) {
-        sourceCondition = QuestionSourceCondition.ALL;
-    }
-
-    // 出題数が未指定の場合は最大50問
-    if (questionLimit == null) {
-        questionLimit = ReviewQuestionLimit.LIMIT_50;
-    }
-
-    List<String> convertedLanguageVariants =
-            searchConditionConverter.convertLanguageVariant(languageVariants);
-
-    List<String> convertedEvaluations =
-            searchConditionConverter.convertEvaluation(evaluations);
-
-    List<String> convertedDifficulties =
-            searchConditionConverter.convertDifficulty(difficulties);
-
-    String convertedFavoriteCondition =
-            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
-
-    List<Question> extractedQuestions;
-
-    // 出題数によって取得方法を切り替える
-    if (questionLimit == ReviewQuestionLimit.ALL) {
-
-        extractedQuestions =
-                studyHistoryRepository.findAllReviewQuestions(
-                        userId,
-                        convertedLanguageVariants,
-                        convertedEvaluations,
-                        convertedDifficulties,
-                        convertedFavoriteCondition,
-                        sourceCondition.name(),
-                        structureIds);
-
-    } else {
-
-        extractedQuestions =
-                studyHistoryRepository.findReviewQuestions(
-                        userId,
-                        convertedLanguageVariants,
-                        convertedEvaluations,
-                        convertedDifficulties,
-                        convertedFavoriteCondition,
-                        sourceCondition.name(),
-                        structureIds);
-    }
-
-    // 必要に応じて取得した問題をシャッフル
-    if (random) {
-        Collections.shuffle(extractedQuestions);
-    }
-
-    return extractedQuestions;
+List<Question> extractedQuestions;
+if (questionLimit == ReviewQuestionLimit.ALL) {
+    extractedQuestions = studyHistoryRepository.findAllReviewQuestions(
+            userId, convertedLanguageVariants, convertedEvaluations,
+            convertedDifficulties, convertedFavoriteCondition,
+            sourceCondition.name(), structureIds);
+} else {
+    extractedQuestions = studyHistoryRepository.findReviewQuestions(
+            userId, convertedLanguageVariants, convertedEvaluations,
+            convertedDifficulties, convertedFavoriteCondition,
+            sourceCondition.name(), structureIds);
+}
+if (random) {
+    Collections.shuffle(extractedQuestions);
 }
 ```
 
-`questionLimit`が未指定の場合は`LIMIT_50`とし、最大50問をデフォルトにする。
+### Controller・メニュー画面
 
-### ReviewController
-
-`/review/start`で`questionLimit`を受け取り、`ReviewService`へ渡す。
-
-```java
-@RequestParam(name = "questionLimit", required = false)
-        ReviewQuestionLimit questionLimit,
-```
-
-`getQuestion()`の呼び出しにも`questionLimit`を追加する。
-
-```java
-List<Question> questions = reviewService.getQuestion(
-        userId,
-        languageVariants,
-        evaluations,
-        difficulties,
-        favoriteCondition,
-        sourceCondition,
-        structureIds,
-        questionLimit,
-        random);
-```
-
-これにより、復習メニューから送信された、
-
-```text
-questionLimit=LIMIT_50
-```
-
-または、
-
-```text
-questionLimit=ALL
-```
-
-によって出題数を切り替えられる。
-
-### review/menu.html
-
-復習メニューに最大出題数の選択欄を追加する。
-
-```html
-<!-- ============================= -->
-<!-- 最大出題数 -->
-<!-- ============================= -->
-<div class="col-md-3 mb-4">
-    <div class="card h-100">
-        <div class="card-header"
-             th:text="#{review.menu.questionLimit.title}">
-            最大出題数
-        </div>
-
-        <div class="card-body">
-
-            <!-- 最大50問 -->
-            <label class="form-check mb-2">
-                <input class="form-check-input"
-                       type="radio"
-                       name="questionLimit"
-                       value="LIMIT_50"
-                       checked>
-
-                <span class="form-check-label"
-                      th:text="#{review.menu.questionLimit.limit50}">
-                    最大50問
-                </span>
-            </label>
-
-            <!-- すべて -->
-            <label class="form-check">
-                <input class="form-check-input"
-                       type="radio"
-                       name="questionLimit"
-                       value="ALL">
-
-                <span class="form-check-label"
-                      th:text="#{review.menu.questionLimit.all}">
-                    対象の問題をすべて出題
-                </span>
-            </label>
-
-        </div>
-    </div>
-</div>
-```
-
-デフォルトでは`LIMIT_50`を選択状態とする。
-
-### messages.properties
-
-最大出題数の表示に使用するメッセージを追加する。
+`/review/start`で`ReviewQuestionLimit questionLimit`を受け取り、Serviceに渡す。`review/menu.html`には`questionLimit=LIMIT_50`と`questionLimit=ALL`のラジオボタンを追加し、前者を初期選択とした。`messages.properties`にも表示用のキーを追加した。
 
 ```properties
 review.menu.questionLimit.title=最大出題数
@@ -1208,22 +575,29 @@ review.menu.questionLimit.limit50=最大50問
 review.menu.questionLimit.all=対象の問題をすべて出題
 ```
 
-### 実行
+### 実行確認
 
-`http://localhost:8080/review/menu`にアクセスすると、最大出題数を選択できるようになっている。
+メニューで最大出題数を選択できることを確認した。
 
-![](../../images/0010-03.png)
+![最大出題数の選択欄](../../images/0010-03.png)
 
-「最大50問」を選択して復習を開始する。
+「最大50問」を選択した場合は、問題セットが50問となった。
 
-![](../../images/0010-04.png)
+![最大50問を選択](../../images/0010-04.png)
 
-問題セットが50問になっていることを確認できる。
+![50問の出題を確認](../../images/0010-05.png)
 
-![](../../images/0010-05.png)
+「対象の問題をすべて出題」を選択した場合は、当時の対象124問が出題された。
 
-「対象の問題をすべて出題」を選択した場合は、復習対象となる124問すべてが問題セットとして出題される。
+![全124問の出題を確認](../../images/0010-06.png)
 
-![](../../images/0010-06.png)
+**補足：** この追加修正時点の`findReviewQuestions()`は`ORDER BY RANDOM()`を固定しているため、「順番に出題」を選んでも最大50問の抽出自体はランダムになる。後日の出題順序制御の修正については009の実装ログ末尾に別途記録している。
 
-これにより、通常の復習では問題数を最大50問に抑えつつ、必要に応じて検索条件に一致する問題をすべて復習できるようになった。
+---
+
+## 13. 実装を終えて
+
+009で作成した検索条件と件数取得処理を、実際の復習トレーニングへつなげた。問題の抽出は学習履歴を基準とし、画面表示・理解度保存・中断再開は通常学習の仕組みを再利用できた。
+
+後日の修正では、難易度の可視化と出題数の上限設定を追加した。特に出題数制限では、Repositoryで取得する問題数と出題順序の関係が重要になることが分かり、順序制御の修正へつながった。
+

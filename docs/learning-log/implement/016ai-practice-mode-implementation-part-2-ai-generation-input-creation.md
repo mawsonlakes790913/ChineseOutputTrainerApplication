@@ -1,6 +1,6 @@
-# 016 AI問題生成モードの実装その2 AI生成した問題セットを取得する①プロンプトの作成
+# 016 AI問題生成モードの実装その2 — AI生成用入力の作成｜学習ログ
 
-## 1. AI生成元問題の取得
+## 1. AI生成元問題の取得と最大50問への制限
 
 AI問題生成メニューでユーザーが指定した、
 
@@ -53,16 +53,7 @@ List<Question> sourceQuestions
 
 前チャプターで実装したAI生成対象問題の件数取得と同じ検索条件を利用し、実際にAIへ送信する`Question`を取得するRepositoryを実装した。
 
-特に、AIへ送信する問題数を最大50問に制限するため、
-
-```sql
-ORDER BY RANDOM()
-LIMIT 50
-```
-
-を追加した。
-
-これにより、条件に一致するすべての問題をJava側へ取得してから50問へ絞るのではなく、DBから取得する時点でランダムな50問へ絞ることができる。
+条件に一致する問題をJava側へすべて読み込んでから絞るのではなく、DBでランダムに最大50問へ制限することで、取得件数を抑えた。
 
 また、構文が指定されていない場合は、
 
@@ -76,7 +67,7 @@ if (structureIds == null || structureIds.isEmpty()) {
 
 ---
 
-## 2. AIとのデータ受け渡しに使用するDTOの設計
+## 2. 送信・受信・アプリ内利用でDTOを分ける理由
 
 AI問題生成では、
 
@@ -190,7 +181,7 @@ EntityとAPI用DTOを分離することで、それぞれが必要とする情�
 
 ---
 
-## 3. `sourceIndex`による生成元Questionとの紐付け
+## 3. `sourceIndex`でAI生成結果と元のQuestionを対応付ける
 
 今回は最大50問の生成元問題を1回のAPIリクエストでAIへ送信する。
 
@@ -266,7 +257,7 @@ Java
 
 ---
 
-## 4. 共通プロンプトと言語別Language Profileの分離
+## 4. 共通プロンプトと言語別Language Profileの責務分離
 
 AI問題生成で使用するプロンプトを、
 
@@ -331,7 +322,7 @@ AIを利用するアプリケーションでは、プロンプト自体もアプ
 
 ---
 
-## 5. `ClassPathResource`によるプロンプトファイルの読み込み
+## 5. `ClassPathResource`・`InputStream`によるファイル読み込み
 
 `resources/prompts`配下へ保存したプロンプトをJavaから読み込むため、`AiPromptService`で`ClassPathResource`を使用した。
 
@@ -456,7 +447,7 @@ String
 
 ---
 
-## 6. `ObjectMapper`による生成元問題のJSON変換
+## 6. `ObjectMapper`によるJavaオブジェクトのJSON文字列化
 
 `sourceQuestions`から作成した、
 
@@ -508,21 +499,9 @@ List<AiGenerationSourceDto>
 
 を渡せば、各DTOのフィールドを基にJSONへ変換される。
 
-また、ここで生成されるJSONはJava上では、
+ここで生成されるJSONは、Java上では`String generationSourcesJson`として保持する。
 
-```java
-String generationSourcesJson;
-```
-
-である。
-
-つまり、JavaにJSONという専用の型があるわけではなく、
-
-```text
-JSONの形式で記述されたString
-```
-
-として扱っていることを理解した。
+つまり、JSONはここでは専用のJava型ではなく、**JSON形式で記述された`String`**として扱っていることを理解した。
 
 ### 苦戦した点
 
@@ -564,7 +543,7 @@ DTOを作るだけではAPIへ送信できる状態にはならず、さらに�
 
 ---
 
-## 7. AIへ送信する`input`の作成
+## 7. 共通ルール・言語別ルール・JSONから`input`を構築
 
 最後に、
 
@@ -643,7 +622,7 @@ AI APIを利用する処理も、いきなりAPIを呼び出すのではなく�
 
 ---
 
-## 8. このチャプター全体を通して
+## 8. 振り返り：API連携前に学んだこと
 
 ### 苦戦した点
 

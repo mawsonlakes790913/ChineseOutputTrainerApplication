@@ -1,28 +1,16 @@
-# 009 復習モードの実装 その1
+# 009 復習モードの実装 その1｜検索条件と対象問題数の表示
 
 ## 概要
 
-復習モードの実装を開始した。
+`study_history`に学習履歴がある問題を対象に、ログインユーザーが難易度・理解度・お気に入り状態で絞り込み、該当する復習問題数を`/review/menu`で確認できるようにした。
 
-復習モードでは、`study_history` に学習履歴が保存されている問題を対象として、ユーザーが指定した条件に該当する問題を出題する。
-
-今回は出題処理そのものではなく、`/review/menu` で検索条件を指定し、その条件に該当する復習問題数を表示するところまで実装した。
-
-通常学習ではメニュー表示時点で問題範囲と問題数を表示しているが、復習モードではユーザーが検索条件を変更するたびに対象問題数を再取得する構成とした。:contentReference[oaicite:0]{index=0}
-
-今回使用する検索条件は以下の3種類。
-
-- 難易度
-- 理解度
-- お気に入り状態
+今回は**検索条件の指定と件数表示まで**を実装する。問題の取得・出題開始は「復習モードの実装 その2」で扱う。検索条件の変更時にはJavaScriptから`/review/count`を呼び出し、ページ遷移なしで件数を更新する。
 
 ---
 
-# 1. お気に入り検索条件を追加
+## 1. お気に入り検索条件を定義
 
-## FavoriteCondition.java
-
-お気に入り状態による絞り込みに使用するEnumを作成した。
+`FavoriteCondition.java`を追加した。
 
 ```java
 public enum FavoriteCondition {
@@ -32,473 +20,204 @@ public enum FavoriteCondition {
 }
 ```
 
-それぞれ以下の意味で使用する。
-
-| 値 | 内容 |
-|---|---|
-| `ALL` | お気に入り登録の有無に関係なく出題 |
-| `FAVORITED` | お気に入り登録済みの問題のみ出題 |
-| `NOT_FAVORITED` | お気に入り未登録の問題のみ出題 |
+`ALL`はお気に入り状態を問わず、`FAVORITED`は登録済み、`NOT_FAVORITED`は未登録の問題を対象とする。
 
 ---
 
-# 2. 復習対象問題数を取得するクエリを追加
+## 2. 復習対象問題数を取得するRepository
 
-## StudyHistoryRepository.java
-
-復習対象となる問題数を取得する `countReviewQuestions()` を追加した。
-
-難易度と理解度については複数選択に対応するため、`IN` を使用する。
-
-```sql
-sh.evaluation IN (:evaluations)
-q.difficulty IN (:difficulties)
-```
-
-お気に入りについては、`study_history` と `favorite` を `LEFT JOIN` する。
-
-```sql
-LEFT JOIN favorite f
-  ON sh.user_id = f.user_id
- AND sh.question_id = f.question_id
-```
-
-これにより、
-
-- お気に入り登録済み → `f.question_id IS NOT NULL`
-- お気に入り未登録 → `f.question_id IS NULL`
-
-として判定できる。:contentReference[oaicite:1]{index=1}
-
-実装したクエリは以下。
+`StudyHistoryRepository#countReviewQuestions()`を追加した。学習履歴を起点に`question`と結合し、対象ユーザー・理解度・難易度・お気に入り状態で絞り込む。
 
 ```java
 @Query(value = """
         SELECT COUNT(*)
         FROM study_history sh
         JOIN question q
-        ON sh.question_id = q.question_id
+          ON sh.question_id = q.question_id
         LEFT JOIN favorite f
-        ON sh.user_id = f.user_id
-        AND sh.question_id = f.question_id
+          ON sh.user_id = f.user_id
+         AND sh.question_id = f.question_id
         WHERE sh.user_id = :userId
-        AND sh.evaluation IN (:evaluations)
-        AND q.difficulty IN (:difficulties)
-        AND (:favoriteCondition = 'ALL'
-            OR (:favoriteCondition = 'FAVORITED'
-                AND f.question_id IS NOT NULL)
-            OR (:favoriteCondition = 'NOT_FAVORITED'
-                AND f.question_id IS NULL)
-        )
+          AND sh.evaluation IN (:evaluations)
+          AND q.difficulty IN (:difficulties)
+          AND (:favoriteCondition = 'ALL'
+               OR (:favoriteCondition = 'FAVORITED'
+                   AND f.question_id IS NOT NULL)
+               OR (:favoriteCondition = 'NOT_FAVORITED'
+                   AND f.question_id IS NULL))
         """, nativeQuery = true)
 long countReviewQuestions(
         @Param("userId") Long userId,
         @Param("evaluations") List<String> evaluations,
         @Param("difficulties") List<String> difficulties,
-        @Param("favoriteCondition") String favoriteCondition
-);
+        @Param("favoriteCondition") String favoriteCondition);
 ```
 
-`ALL` の場合はお気に入り状態による絞り込みを行わず、`FAVORITED` と `NOT_FAVORITED` の場合のみ `favorite` のレコードの有無を判定する。:contentReference[oaicite:2]{index=2}
+理解度と難易度は複数選択できるため`IN`を使用する。お気に入りは`LEFT JOIN`した`favorite`の有無を`IS NULL` / `IS NOT NULL`で判定する。結合条件には`user_id`と`question_id`の両方を指定し、別ユーザーのお気に入りを参照しないようにした。
 
 ---
 
-# 3. 検索条件をStringへ変換
+## 3. 検索条件をRepository向けに変換
 
-## SearchConditionConverter.java
-
-RepositoryではネイティブクエリへDB上の値を渡すため、画面から受け取ったEnumをStringへ変換する。
-
-既存の難易度変換に加えて、理解度とお気に入り条件の変換処理を追加した。
-
-### 理解度
+既存の`SearchConditionConverter`に、理解度とお気に入り条件の変換を追加した。ネイティブSQLへ渡すEnumは`name()`でDB保存値と同じ文字列にする。
 
 ```java
 public List<String> convertEvaluation(List<Evaluation> evaluations) {
-
-    List<String> evaluationList;
-
     if (evaluations == null || evaluations.isEmpty()) {
-
-        evaluationList = List.of(
-                Evaluation.HARD.name(),
-                Evaluation.GOOD.name(),
-                Evaluation.EASY.name());
-
-    } else {
-
-        evaluationList = new ArrayList<>();
-
-        for (Evaluation evaluation : evaluations) {
-            evaluationList.add(evaluation.name());
-        }
+        return List.of("HARD", "GOOD", "EASY");
     }
+    return evaluations.stream().map(Enum::name).toList();
+}
 
-    return evaluationList;
+public String convertFavoriteCondition(FavoriteCondition favoriteCondition) {
+    return favoriteCondition == null
+            ? FavoriteCondition.ALL.name()
+            : favoriteCondition.name();
 }
 ```
 
-何も選択されていない場合は、`HARD`、`GOOD`、`EASY` のすべてを検索対象とする。
+上記は**処理の要約例**。当初の実装では`ArrayList`と`for`文を使用していた。理解度が未指定なら3種類すべて、お気に入り条件が未指定なら`ALL`を指定する。難易度は既存の`convertDifficulty()`を再利用する。
 
-### お気に入り
+---
+
+## 4. ReviewServiceで条件を受け渡す
+
+`ReviewService#countReviewQuestions()`を追加し、Controllerから受け取った`List<Evaluation>`・`List<Difficulty>`・`FavoriteCondition`を変換してRepositoryへ渡した。
 
 ```java
-public String convertFavoriteCondition(
+public long countReviewQuestions(
+        Long userId,
+        List<Evaluation> evaluations,
+        List<Difficulty> difficulties,
         FavoriteCondition favoriteCondition) {
 
-    String convertedFavoriteCondition;
+    List<String> convertedDifficulties =
+            searchConditionConverter.convertDifficulty(difficulties);
+    List<String> convertedEvaluations =
+            searchConditionConverter.convertEvaluation(evaluations);
+    String convertedFavoriteCondition =
+            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
 
-    if (favoriteCondition == null) {
-
-        convertedFavoriteCondition =
-                FavoriteCondition.ALL.name();
-
-    } else {
-
-        convertedFavoriteCondition =
-                favoriteCondition.name();
-    }
-
-    return convertedFavoriteCondition;
+    return studyHistoryRepository.countReviewQuestions(
+            userId,
+            convertedEvaluations,
+            convertedDifficulties,
+            convertedFavoriteCondition);
 }
 ```
-
-お気に入り条件が指定されていない場合は `ALL` として扱う。:contentReference[oaicite:3]{index=3}
 
 ---
 
-# 4. 復習対象問題数を取得するServiceを追加
+## 5. ReviewControllerを実装
 
-## ReviewService.java
+`/review/menu`は復習メニューを返す。セッションの`reviewQuestions`と`reviewCurrentPage`が存在する場合は、中断中の復習を再開できるよう、`canResume`・`currentPage`・`totalCount`をModelに設定する。
 
-`ReviewService` に復習対象問題数を取得する処理を追加した。
-
-```java
-@Service
-@RequiredArgsConstructor
-public class ReviewService {
-
-    private final StudyHistoryRepository studyHistoryRepository;
-    private final SearchConditionConverter searchConditionConverter;
-
-    // 復習出題数取得
-    public long countReviewQuestions(
-            Long userId,
-            List<Evaluation> evaluations,
-            List<Difficulty> difficulties,
-            FavoriteCondition favoriteCondition) {
-
-        List<String> convertedDifficulties =
-                searchConditionConverter
-                        .convertDifficulty(difficulties);
-
-        List<String> convertedEvaluations =
-                searchConditionConverter
-                        .convertEvaluation(evaluations);
-
-        String convertedFavoriteCondition =
-                searchConditionConverter
-                        .convertFavoriteCondition(favoriteCondition);
-
-        return studyHistoryRepository.countReviewQuestions(
-                userId,
-                convertedEvaluations,
-                convertedDifficulties,
-                convertedFavoriteCondition
-        );
-    }
-}
-```
-
-Controllerから受け取ったEnumを `SearchConditionConverter` で変換し、Repositoryへ渡す。:contentReference[oaicite:4]{index=4}
-
----
-
-# 5. 復習メニュー用Controllerを実装
-
-## ReviewController.java
-
-`ReviewController` では、復習メニューを表示する処理と、検索条件に応じた問題数を返す処理を用意する。
-
-### `/review/menu`
-
-```java
-@GetMapping("/review/menu")
-public String getReviewMenu(
-        HttpSession session,
-        Model model) {
-
-    List<Question> questions =
-            (List<Question>) session.getAttribute(
-                    "reviewQuestions");
-
-    Integer currentPage =
-            (Integer) session.getAttribute(
-                    "reviewCurrentPage");
-
-    boolean canResume =
-            questions != null && currentPage != null;
-
-    model.addAttribute("canResume", canResume);
-
-    if (canResume) {
-
-        model.addAttribute(
-                "currentPage",
-                currentPage);
-
-        model.addAttribute(
-                "totalCount",
-                questions.size());
-    }
-
-    return "review/menu";
-}
-```
-
-中断中の復習データがSessionに残っている場合は、現在のページと総問題数を画面へ渡す。
-
-### `/review/count`
-
-検索条件に該当する問題数を返すため、`@ResponseBody` を使用したGET処理を追加する。
+`/review/count`は検索条件を受け取り、該当する問題数を数値で返す。
 
 ```java
 @GetMapping("/review/count")
 @ResponseBody
 public long getReviewCount(
         @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam(
-                name = "evaluations",
-                required = false)
+        @RequestParam(name = "evaluations", required = false)
         List<Evaluation> evaluations,
-        @RequestParam(
-                name = "difficulties",
-                required = false)
+        @RequestParam(name = "difficulties", required = false)
         List<Difficulty> difficulties,
-        @RequestParam(
-                name = "favoriteCondition",
-                required = false)
+        @RequestParam(name = "favoriteCondition", required = false)
         FavoriteCondition favoriteCondition) {
 
     Users user = getLoginUser(loginUser);
-    Long userId = user.getId();
-
     return reviewService.countReviewQuestions(
-            userId,
-            evaluations,
-            difficulties,
-            favoriteCondition);
+            user.getId(), evaluations, difficulties, favoriteCondition);
 }
 ```
 
-`/review/menu` は画面そのものを返し、`/review/count` はJavaScriptから呼び出して問題数だけを返す構成とした。
+`@ResponseBody`により、画面テンプレートではなく件数をレスポンスとして返す。
 
 ---
 
-# 6. 復習メニュー画面を作成
+## 6. 復習メニュー画面を作成
 
-## `/review/menu.html`
+`review/menu.html`に次の項目を用意した。
 
-復習メニューでは以下の項目を選択できるようにした。
+- 出題順序：順番／ランダム（今回の件数取得条件には含めない）
+- 理解度：`HARD`／`GOOD`／`EASY`（複数選択）
+- 難易度：`BEGINNER`／`INTERMEDIATE`／`ADVANCED`（複数選択）
+- お気に入り：`ALL`／`FAVORITED`／`NOT_FAVORITED`（単一選択、初期値`ALL`）
 
-### 出題方法
-
-- 順番に出題
-- ランダムに出題
-
-### 理解度
-
-- `HARD`
-- `GOOD`
-- `EASY`
-
-### 問題難易度
-
-- `BEGINNER`
-- `INTERMEDIATE`
-- `ADVANCED`
-
-### お気に入り
-
-- お気に入り登録した問題のみ
-- お気に入り登録していない問題のみ
-- どちらも出題
-
-お気に入りの初期値は `ALL` とする。
-
-```html
-<label class="form-check">
-
-    <input class="form-check-input"
-           type="radio"
-           name="favoriteCondition"
-           value="ALL"
-           checked>
-
-    <span class="form-check-label"
-          th:text="#{review.menu.favorite.all}">
-        どちらも出題する
-    </span>
-
-</label>
-```
-
-出題方法、理解度、難易度、お気に入りの選択肢には `label` を使用し、チェックボックスやラジオボタンだけでなくテキスト部分をクリックしても選択できるようにした。:contentReference[oaicite:5]{index=5} :contentReference[oaicite:6]{index=6}
-
-画面下部には現在の検索条件に該当する問題数を表示する領域を用意する。
+チェックボックス・ラジオボタンを`label`で囲み、テキスト部分のクリックでも選択できるようにした。件数表示領域には`id="countReviewQuestions"`を設定した。表示文言は`messages.properties`で管理する。
 
 ```html
 <div class="text-center mb-4">
-
-    <div class="text-secondary mb-2"
-         th:text="#{review.menu.count}">
+    <div class="text-secondary mb-2" th:text="#{review.menu.count}">
         出題数
     </div>
-
-    <h2 class="fw-bold"
-        id="countReviewQuestions">
-        -
-    </h2>
-
+    <h2 class="fw-bold" id="countReviewQuestions">-</h2>
 </div>
 ```
 
-表示テキストは `messages.properties` で管理し、多言語表示に対応させた。
-
 ---
 
-# 7. 検索条件変更時に問題数を更新
+## 7. JavaScriptで検索条件変更時に件数を更新
 
-## `/js/review.js`
-
-検索条件を変更するたびに `/review/count` を呼び出し、現在の条件に該当する問題数を表示する。
+`review.js`に`updateCount()`を実装した。チェック済みの理解度・難易度と、お気に入りの選択値を`URLSearchParams`に追加して`/review/count`へGETする。
 
 ```javascript
-document.addEventListener("DOMContentLoaded", () => {
+async function updateCount() {
+    const params = new URLSearchParams();
 
-    // 検索条件
-    const searchConditions = document.querySelectorAll(
-        "input[name='evaluations'], " +
-        "input[name='difficulties'], " +
-        "input[name='favoriteCondition']"
-    );
+    document.querySelectorAll("input[name='evaluations']:checked")
+        .forEach(cb => params.append("evaluations", cb.value));
 
-    // 出題数表示
-    const countArea =
-        document.getElementById("countReviewQuestions");
+    document.querySelectorAll("input[name='difficulties']:checked")
+        .forEach(cb => params.append("difficulties", cb.value));
 
-    // 件数取得
-    async function updateCount() {
+    params.append(
+        "favoriteCondition",
+        document.querySelector(
+            "input[name='favoriteCondition']:checked").value);
 
-        const params = new URLSearchParams();
-
-        // 理解度
-        document
-            .querySelectorAll(
-                "input[name='evaluations']:checked")
-            .forEach(cb => {
-                params.append(
-                    "evaluations",
-                    cb.value);
-            });
-
-        // 難易度
-        document
-            .querySelectorAll(
-                "input[name='difficulties']:checked")
-            .forEach(cb => {
-                params.append(
-                    "difficulties",
-                    cb.value);
-            });
-
-        // お気に入り条件
-        params.append(
-            "favoriteCondition",
-            document.querySelector(
-                "input[name='favoriteCondition']:checked"
-            ).value
-        );
-
-        const response =
-            await fetch("/review/count?" + params);
-
-        const count =
-            await response.text();
-
-        countArea.textContent =
-            count + "問";
-    }
-
-    // 検索条件変更時
-    searchConditions.forEach(input => {
-        input.addEventListener(
-            "change",
-            updateCount);
-    });
-
-    // 初回表示時にも全復習対象問題数を取得
-    updateCount();
-});
+    const response = await fetch("/review/count?" + params);
+    const count = await response.text();
+    document.getElementById("countReviewQuestions").textContent = count + "問";
+}
 ```
 
-画面を最初に表示したときにも `updateCount()` を実行する。
-
-この時点では理解度・難易度が未選択、お気に入りが `ALL` となっているため、全復習対象問題数が表示される。
-
-その後、理解度・難易度・お気に入り状態を変更するたびに `/review/count` を再度呼び出し、表示する問題数を更新する。:contentReference[oaicite:7]{index=7}
+実装では`DOMContentLoaded`時に各検索入力の`change`イベントへ`updateCount`を登録し、初回表示時にも呼び出した。理解度・難易度が未選択なら全種類を対象とするため、初期表示では全復習対象問題数を表示する。
 
 ---
 
-# 8. 実行確認
+## 8. 動作確認
 
-`/review/menu` にアクセスし、復習メニューが表示されることを確認した。
-
-初回表示時には全復習対象問題数が表示される。
+`/review/menu`で初回表示時に全復習対象問題数が表示されることを確認した。
 
 ![復習メニュー初期表示](../../images/0009-01.png)
 
-検索条件を変更すると、選択内容に応じて出題数が変更されることを確認した。:contentReference[oaicite:8]{index=8}
+検索条件を変更すると、該当する問題数が更新されることを確認した。
 
 ![検索条件変更後](../../images/0009-02.png)
 
----
-
-# 今回の実装範囲
-
-今回は復習モードのうち、以下まで実装した。
+### 今回の実装範囲
 
 ```text
-/review/menu
-    ↓
-検索条件を選択
-    ↓
-review.js
-    ↓
-/review/count
-    ↓
-ReviewController
-    ↓
-ReviewService
-    ↓
-StudyHistoryRepository
-    ↓
-対象問題数を取得
-    ↓
-/review/menuへ表示
+/review/menu → review.js → /review/count
+             → ReviewController → ReviewService
+             → StudyHistoryRepository → 件数を画面へ反映
 ```
 
-復習問題そのものを取得して出題する処理は、次の「復習モードの実装 その2」で実装する。
+ここまでで、検索条件に一致する問題数の表示を実装した。実際の復習問題取得・出題処理は次の「復習モードの実装 その2」で扱う。
 
 ---
 
-### 復習モードの出題順序制御の修正 
+> 以下は、復習モードの出題処理が実装された**後日**の修正記録。009の当初の実装範囲とは区別する。
+
+## 9. 後日修正：復習モードの出題順序制御 
 
 ```text
 git commit -m "fix: correct review question ordering and update development log"
 ```
 
-#### 修正の背景
+### 修正の背景
 
 復習モードでは、出題順序として「順番」と「ランダム」を選択できるが、従来の実装ではRepositoryのSQLに`ORDER BY RANDOM()`が固定で指定されていた。
 
@@ -506,7 +225,7 @@ git commit -m "fix: correct review question ordering and update development log"
 
 また、すべての問題を取得するクエリには`ORDER BY`が指定されておらず、取得順序が保証されていなかった。
 
-#### 修正内容
+### 修正内容
 
 **1. `StudyHistoryRepository.java`の修正**
 
@@ -541,7 +260,7 @@ if (random) {
 
 これにより、出題順序の制御をRepositoryに集約した。
 
-#### 修正後の動作
+### 修正後の動作
 
 | 出題数 | 出題順序 | 動作 |
 |---|---|---|
@@ -550,7 +269,7 @@ if (random) {
 | すべて | 順番 | 条件に一致するすべての問題を問題IDの昇順で取得 |
 | すべて | ランダム | 条件に一致するすべての問題をランダム順で取得 |
 
-#### 修正結果
+### 修正結果
 
 出題数と出題順序の組み合わせに応じて、適切な順序で問題を取得できる構成に変更した。
 
@@ -560,15 +279,13 @@ if (random) {
 
 ---
 
----
-
-### 復習対象言語の選択方法を変更
+## 10. 後日修正：復習対象言語をセッションに統一
 
 ```text
 git commit -m "refactor: use session language variant for review questions"
 ```
 
-#### 修正の背景
+### 修正の背景
 
 従来の復習モードでは、復習メニュー上で学習対象言語を複数選択できる構成としていた。
 
@@ -578,7 +295,7 @@ git commit -m "refactor: use session language variant for review questions"
 
 そこで、復習対象言語はヘッダーで選択した言語に統一し、復習メニューから言語選択機能を削除することにした。
 
-#### 修正内容
+### 修正内容
 
 **1. `review/menu.html`の修正**
 
@@ -658,7 +375,7 @@ AND q.language_variant = :languageVariant
 
 これにより、セッションで選択されている単一の学習対象言語に一致する問題だけを検索する構成とした。
 
-#### 修正後の処理の流れ
+### 修正後の処理の流れ
 
 ```text
 ヘッダーで学習対象言語を選択
@@ -684,7 +401,7 @@ StudyHistoryRepository
 選択中の言語に一致する復習問題を検索
 ```
 
-#### 修正結果
+### 修正結果
 
 復習メニューで学習対象言語を個別に選択する必要がなくなり、ヘッダーで選択した言語が復習モードにも適用される構成となった。
 

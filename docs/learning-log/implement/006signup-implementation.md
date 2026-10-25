@@ -123,7 +123,7 @@ ADMIN
 
 ## 2. `userId`ではなく`loginId`とした理由
 
-ブラウザ上ではユーザーに分かりやすいように「ユーザーID」と表示しているが、バックエンドでは、
+006実装当時、ブラウザ上ではユーザーに分かりやすいように「ユーザーID」と表示していたが、バックエンドでは、
 
 ```java
 private String loginId;
@@ -153,7 +153,7 @@ loginId
 
 ログイン用のIDまで `userId` とすると、コード上で「DB上のID」と「ユーザーがログインに使用するID」のどちらを指しているのか分かりにくくなる。
 
-そのため、画面上では「ユーザーID」と表示しつつ、バックエンドでは役割が明確になる `loginId` という名前を使用した。
+そのため、当時の画面上では「ユーザーID」と表示しつつ、バックエンドでは役割が明確になる `loginId` という名前を使用した。
 
 **画面上の表示名とJava側の変数名は必ずしも一致させる必要はなく、バックエンドではそのデータの役割が分かる名前を付ける。**
 
@@ -229,7 +229,9 @@ hasErrors()
 
 つまり、**FormにValidationアノテーションを書くだけでは不十分で、Controller側でValidationを実行し、その結果を確認する必要がある**。
 
-また、`BindingResult` にはValidationによって発生したエラーだけでなく、Controllerからエラーを追加することもできる。
+また、`BindingResult` にはValidationによって発生したエラーだけでなく、フォームへのデータバインディング時に発生したエラーも格納される。Controllerから独自のエラーを追加することもできる。
+
+Controllerの引数では、検証対象の `SignupForm` の直後に `BindingResult` を配置する必要がある。
 
 今回のログインID重複チェックでは、
 
@@ -501,6 +503,16 @@ public class PasswordMatchValidator
 }
 ```
 
+なお、上記は006当時の実装コードである。`isValid()` に渡される検証対象の `value` 自体が `null` の場合も想定するなら、`BeanWrapperImpl` を生成する前に次のガードを置く方法がある。
+
+```java
+if (value == null) {
+    return true;
+}
+```
+
+これは当時のコードに存在した処理ではなく、追加で考えられる改善点である。検証対象のオブジェクトそのものが存在するかどうかと、2つのパスワードが一致するかどうかは別の責務として扱う。
+
 ### `ConstraintValidator`
 
 ```java
@@ -688,6 +700,13 @@ public class PasswordMatchValidator
             SignupForm form,
             ConstraintValidatorContext context) {
 
+        if (form == null) {
+            return true;
+        }
+        if (form.getPassword() == null
+                || form.getPasswordConfirm() == null) {
+            return true;
+        }
         return form.getPassword()
                    .equals(form.getPasswordConfirm());
     }
@@ -696,7 +715,7 @@ public class PasswordMatchValidator
 
 と書ける。
 
-こちらの方が実装自体は簡単。
+こちらの方が、比較対象のプロパティを直接参照できるため実装自体は単純になる。なお、上記は説明のための比較例であり、006当時に採用したコードではない。
 
 しかし、
 
@@ -789,6 +808,8 @@ BeanWrapperを使う
 という違いがある。
 
 今回 `BeanWrapper` を使用した一番の理由は、**汎用的な「2つのパスワードフィールドを比較するValidator」にするため**である。
+
+ただし、`BeanWrapper` を使用する方法にもトレードオフがある。比較対象のプロパティ名を文字列で指定するため、名前のタイプミスやプロパティ名の変更をコンパイル時に検出できない。汎用性が高い一方で、設定したプロパティが実際に存在するかを実行時に確認する必要がある。
 
 ---
 

@@ -1,276 +1,16 @@
-# 029 リスト機能
+# 029-02 問題リスト機能②｜JavaScriptによる操作と機能拡張【学習ログ】
 
 ## 概要
 
-今回は、ユーザーが任意のリストを作成し、問題を好きなリストへ登録して管理できるリスト機能を実装した。
+029-01では、問題リストと問題の多対多の関係、中間テーブル、複合主キー、表示用DTO、更新日時の扱いについて整理した。
 
-これまで問題を保存する仕組みとして「お気に入り」があったが、お気に入りは基本的に、
+029-02では、**ユーザーが所有するリストと問題の登録状態を画面へ反映し、JavaScriptから一括更新する方法**を中心に、SQLのJOIN条件、チェックボックスの動的生成、`URLSearchParams`、`fetch()`、Bootstrap Modalの操作を振り返る。
 
-```text
-登録されている
-登録されていない
-```
-
-という1つのON/OFF状態しか持たない。
-
-一方、今回のリスト機能では、
-
-```text
-HSK6
-苦手問題
-旅行で使いたい表現
-後で復習
-```
-
-のようにユーザー自身が複数のリストを作成し、1つの問題を複数のリストへ登録できるようにした。
-
-今回の実装を通して、中間テーブルと複合主キーによる多対多の関係、`@EmbeddedId`と`@MapsId`、複数テーブルの情報をDTOへまとめる方法、`LEFT JOIN`の条件の置き方、チェックボックスの状態を利用した一括更新、`fetch()`による非同期処理などを学習した。
+さらに、学習中のリスト新規作成、AI生成問題との連携、並び順の統一、JavaScriptファイルの責務整理、多言語対応についても扱う。問題リスト詳細画面をSpring MVC・Thymeleafで再設計した内容は029-03で整理する。
 
 ---
 
-## 1. 中間テーブルを使ったリストと問題の関係
-
-最初に理解する必要があったのが、リストと問題の関係だった。
-
-1つのリストには複数の問題を登録できる。
-
-同時に、1つの問題についても、
-
-```text
-問題A
- ├─ HSK6
- ├─ 苦手問題
- └─ 後で復習
-```
-
-のように複数のリストへ登録できる。
-
-そのため、
-
-```text
-QUESTION_LIST
-      1
-      |
-      N
-QUESTION_LIST_ITEM
-      N
-      |
-      1
-QUESTION
-```
-
-という中間テーブルを利用する構成にした。
-
-`question_list_item`では、
-
-```text
-list_id
-question_id
-```
-
-を組み合わせた複合主キーとした。
-
-これによって、
-
-```text
-list_id = 1
-question_id = 100
-```
-
-という組み合わせは1行しか存在できない。
-
-つまり、同じ問題を同じリストへ二重登録できないことをDB側でも保証できる。
-
-今回の実装から、**多対多の関係では単純にどちらか一方へ外部キーを持たせるのではなく、両方のIDを持つ中間テーブルによって関係そのものを保存できる**ことを確認できた。
-
----
-
-## 2. `@EmbeddedId`と`@MapsId`
-
-`question_list_item`は、
-
-```text
-list_id + question_id
-```
-
-を主キーとするため、Entityでも通常の単一`@Id`ではなく複合主キーを扱う必要があった。
-
-そこで、
-
-```java
-@EmbeddedId
-private QuestionListItemKey id;
-```
-
-として、`QuestionListItemKey`に、
-
-```java
-private Long listId;
-private Long questionId;
-```
-
-を持たせた。
-
-ただし、これだけではJPA上で、
-
-```text
-listId
-    → QuestionList
-
-questionId
-    → Question
-```
-
-というEntity同士の関連までは表現できない。
-
-そこで、
-
-```java
-@ManyToOne
-@MapsId("listId")
-@JoinColumn(name = "list_id")
-private QuestionList questionList;
-
-@ManyToOne
-@MapsId("questionId")
-@JoinColumn(name = "question_id")
-private Question question;
-```
-
-とした。
-
-ここで`@MapsId("listId")`は、
-
-```text
-QuestionListItemKey.listId
-        ↕
-QuestionList.listId
-```
-
-を対応付ける役割を持つ。
-
-同じように、
-
-```text
-QuestionListItemKey.questionId
-        ↕
-Question.questionId
-```
-
-も対応付ける。
-
-今回の実装で、**`@EmbeddedId`は複合主キーそのものを表し、`@MapsId`はその主キーの値と関連Entityを結び付けるために利用できる**ことを学んだ。
-
----
-
-## 3. Entityをそのまま画面へ返さずDTOへまとめる
-
-リスト機能の最初の段階では、リストに登録されている問題を`List<Question>`として取得していた。
-
-しかし、実際の問題リスト画面では、
-
-```text
-中国語
-日本語
-難易度
-理解度
-お気に入り
-生成元
-ピンイン
-注音
-別解
-構文
-```
-
-などを表示する。
-
-ここで問題になったのが、これらすべての情報を`Question`が持っているわけではないことだった。
-
-例えば、
-
-```text
-Question
-    → 問題本文、難易度、発音、生成元など
-
-StudyHistory
-    → 理解度
-
-Favorite
-    → お気に入り登録状態
-
-Structure
-    → 構文名
-```
-
-というように情報が複数のテーブルへ分かれている。
-
-そこで`QuestionListItemDto`を作成し、RepositoryのSQLで必要な情報をまとめて取得するようにした。
-
-```java
-public interface QuestionListItemDto {
-
-    Long getQuestionId();
-
-    String getChineseText();
-
-    String getJapaneseText();
-
-    Difficulty getDifficulty();
-
-    Evaluation getEvaluation();
-
-    boolean isFavorite();
-
-    boolean isAiGenerated();
-
-    String getPinyin();
-
-    String getZhuyin();
-
-    String getAlternativeAnswer();
-
-    String getStructureName();
-}
-```
-
-SQLでは、
-
-```sql
-FROM question_list_item qli
-
-JOIN question q
-    ON qli.question_id = q.question_id
-
-JOIN structure s
-    ON q.structure_id = s.structure_id
-
-LEFT JOIN study_history sh
-    ON q.question_id = sh.question_id
-    AND sh.user_id = :userId
-
-LEFT JOIN favorite f
-    ON q.question_id = f.question_id
-    AND f.user_id = :userId
-```
-
-のように複数のテーブルをJOINする。
-
-これによって、画面側ではデータがどのテーブルから来たのかを意識せず、
-
-```javascript
-question.chineseText
-question.evaluation
-question.favorite
-question.structureName
-```
-
-のように1つのDTOとして扱える。
-
-今回の実装から、**画面が必要とするデータとEntityの構造は必ずしも一致しないため、複数のEntityにまたがる表示用データはDTOへまとめる方法がある**ことを確認できた。
-
----
-
-## 4. `LEFT JOIN`の`ON`と`WHERE`の違い
+## 1. `LEFT JOIN`の`ON`と`WHERE`の違い
 
 今回特にSQLで重要だったのが、問題をリストへ追加するモーダルの登録状態を取得する処理だった。
 
@@ -365,7 +105,9 @@ NULL
 
 ---
 
-## 5. DBの状態をチェックボックスとして表現する
+---
+
+## 2. DBの状態をチェックボックスとして表現する
 
 今回のリスト追加モーダルでは、チェックボックスを単なる入力フォームとして使うのではなく、現在のDB状態そのものを表現するようにした。
 
@@ -432,7 +174,9 @@ checkbox.checked =
 
 ---
 
-## 6. 複数のチェック状態を一括更新する
+---
+
+## 3. 複数のチェック状態を一括更新する
 
 お気に入り機能では、
 
@@ -526,7 +270,9 @@ List<Long> selectedListIds
 
 ---
 
-## 7. `URLSearchParams`とSpringの`List`パラメータ
+---
+
+## 4. `URLSearchParams`とSpringの`List`パラメータ
 
 今回初めて意識したのが、同じパラメータ名を複数回送信する方法だった。
 
@@ -567,7 +313,9 @@ List<Long> selectedListIds
 
 ---
 
-## 8. `fetch()`を利用して画面遷移せずDBを更新する
+---
+
+## 5. `fetch()`を利用して画面遷移せずDBを更新する
 
 リスト登録状態の更新には`fetch()`を利用した。
 
@@ -632,7 +380,9 @@ const csrfHeader =
 
 ---
 
-## 9. Bootstrap ModalをJavaScriptから操作する
+---
+
+## 6. Bootstrap ModalをJavaScriptから操作する
 
 リスト登録が完了した後はページ遷移せず、現在開いているモーダルだけを閉じる。
 
@@ -674,7 +424,9 @@ modal.hide();
 
 ---
 
-## 10. モーダル内でリストを新規作成した後に再取得する
+---
+
+## 7. モーダル内でリストを新規作成した後に再取得する
 
 最初の実装では、リスト選択モーダルには既存リストだけを表示していた。
 
@@ -741,7 +493,9 @@ function loadQuestionLists() {
 
 ---
 
-## 11. AI生成問題は保存されるまで`questionId`を持たない
+---
+
+## 8. AI生成問題は保存されるまで`questionId`を持たない
 
 通常学習や復習では、表示している問題はすでに`question`テーブルに存在するため、最初から`questionId`を利用できる。
 
@@ -796,54 +550,9 @@ questionId取得
 
 ---
 
-## 12. `@UpdateTimestamp`は関連テーブルの変更では更新されない
-
-リストを更新日時の降順で表示するため、`QuestionList`には、
-
-```java
-@UpdateTimestamp
-private LocalDateTime updatedAt;
-```
-
-を設定していた。
-
-しかし、問題をリストへ追加・削除しても`updatedAt`が更新されなかった。
-
-原因は、問題の追加・削除で変更されているのは、
-
-```text
-question_list_item
-```
-
-であって、
-
-```text
-question_list
-```
-
-そのものではないためだった。
-
-つまり、
-
-```text
-question_listのlist_name変更
-    → QuestionList UPDATE
-    → @UpdateTimestampが更新される
-
-question_list_itemへ問題追加
-    → QuestionList自体はUPDATEされない
-    → @UpdateTimestampは更新されない
-```
-
-という違いがある。
-
-そこで問題を追加・削除した際には、リスト側についても更新されたことが分かるように`updatedAt`を更新する処理を追加した。
-
-今回の実装から、**`@UpdateTimestamp`は関連するデータが何か変更されたら自動的に更新される仕組みではなく、そのEntity自身がUPDATEされた場合に働くもの**だと理解できた。
-
 ---
 
-## 13. 「最近使ったリスト」の並び順は取得箇所すべてで統一する
+## 9. 「最近使ったリスト」の並び順は取得箇所すべてで統一する
 
 リスト管理画面を、
 
@@ -872,7 +581,9 @@ updated_at DESC
 
 ---
 
-## 14. JavaScriptのファイル名と責務を一致させる
+---
+
+## 10. JavaScriptのファイル名と責務を一致させる
 
 リスト機能を追加したことで、各question画面のJavaScriptが増え、既存のファイル構成の問題が分かりやすくなった。
 
@@ -933,7 +644,9 @@ ai-practice/question.html
 
 ---
 
-## 15. 外部JavaScriptへ`messages.properties`の値を渡す
+---
+
+## 11. 外部JavaScriptへ`messages.properties`の値を渡す
 
 問題リスト画面やリスト選択モーダルでは、日本語・簡体字・繁体字の多言語対応が必要になる。
 
@@ -987,31 +700,14 @@ HTMLのdata-*属性
 
 ---
 
+---
+
 ## まとめ
 
-今回の実装では、単純に「問題をリストへ保存する」だけでなく、リストと問題の関係をDBでどのように表現し、それをバックエンドとフロントエンドでどのように扱うかを学習した。
+今回の学習では、DBに保存された「問題とリストの関係」を、チェックボックスの状態として表示し、ユーザーが変更した結果をバックエンドへ送信するまでの流れを確認できた。
 
-特に、
+特に、`LEFT JOIN`の条件を`ON`へ置くことで未登録のリストも表示できること、複数のチェック状態を同名パラメータで送信できること、送信された最終状態とDBの現在状態との差分だけを更新できることが重要だった。
 
-* 多対多の関係を中間テーブルで表現する
-* 複合主キーを`@EmbeddedId`で扱う
-* `@MapsId`で複合主キーと関連Entityを対応付ける
-* 複数テーブルの情報を表示用DTOへまとめる
-* `LEFT JOIN`では`ON`と`WHERE`で条件の意味が変わる
-* DBの登録状態をチェックボックスのON/OFFとして表現する
-* `URLSearchParams`で同名パラメータを複数送信し、Springで`List`として受け取る
-* 現在状態と選択後の状態を比較して差分だけを更新する
-* `fetch()`によって画面遷移せずDBを更新する
-* Bootstrap ModalをJavaScriptから操作する
-* イベント処理を関数化することで副作用を避けて再利用する
-* AI生成問題ではDB保存後に初めて`questionId`を利用できる
-* `@UpdateTimestamp`は関連テーブルの変更だけでは更新されない
-* 同じデータを取得する複数の経路では仕様を統一する必要がある
-* JavaScriptのファイル名と実際の責務を一致させる
-* 外部JavaScriptへ多言語メッセージを渡す
+また、`fetch()`とBootstrap Modalを組み合わせることで学習画面を維持したまま登録状態を変更でき、モーダル内でのリスト作成やAI生成問題の保存後の連携にも対応できた。実装が広がるにつれて、リストの並び順、JavaScriptファイルの責務、多言語メッセージの受け渡しを複数画面で揃える必要があることも分かった。
 
-という点を確認できた。
-
-お気に入り機能では「1つの問題に対するON/OFF」という比較的単純な状態管理だったが、今回のリスト機能では「1つの問題と複数のリストの関係」を扱う必要があった。
-
-そのため、DBでは中間テーブル、バックエンドではDTOや差分更新、フロントエンドでは動的なチェックボックス生成と非同期更新というように、**DB・Spring Boot・JavaScriptをまたいで1つの状態を管理する仕組み**を実装することになり、それぞれの層がどのようにつながっているかをより具体的に理解できた。
+029-03では、JavaScript主体だった問題リスト詳細表示を、Spring MVC・Thymeleafによる独立ページへ再設計した過程から得られた学びを整理する。

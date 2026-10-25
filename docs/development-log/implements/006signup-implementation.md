@@ -2,6 +2,8 @@
 
 ## 1. サインアップ機能の実装
 
+> このログは実装当時の変更履歴を記録したものです。初期段階のコードは、その後の章で変更・拡張されています。
+
 ユーザーがログインIDとパスワードを入力し、新規ユーザーとして登録できるサインアップ機能を実装する。
 
 処理は以下の流れで行う。
@@ -75,7 +77,7 @@ public class Users {
 }
 ```
 
-`loginId` には一意制約を設定する。パスワードにはハッシュ化後の値を保存し、ユーザー権限は `Role` Enumを文字列として保存する。
+`loginId`には一意制約を設け、同じログインIDを持つユーザーを登録できないようにする。`password`には平文ではなくハッシュ化後の値を保存し、`role`は`EnumType.STRING`によってEnum名を文字列として保持する。
 
 ### Role.java
 
@@ -114,7 +116,7 @@ public class SignupForm {
 }
 ```
 
-この段階ではバリデーションの条件のみを定義し、Controller側での実行処理は後から追加する。
+この段階の`SignupForm`には入力条件を定義したが、Controllerではまだバリデーションを実行していない。また、ログインID・パスワードを半角英数字のみに制限する正規表現は初期仕様であり、第5章で見直す。
 
 ### UserRepository.java
 
@@ -190,11 +192,13 @@ public class SignupService {
 }
 ```
 
-ログインIDが重複している場合は `DuplicateKeyException` を送出し、Controller側でエラーとして処理する。
+`existsByLoginId()`で重複を事前確認し、該当する場合は`DuplicateKeyException`を送出する。登録可能な場合は一般ユーザーの権限を設定し、BCryptでパスワードをハッシュ化して保存する。なお、事前の存在確認だけでは同時登録による競合を完全には防げないため、DB側の一意制約も必要となる。
 
 ### SignupController.java
 
-サインアップ画面の表示と登録処理を実装する。
+サインアップ画面の表示と登録処理を実装する。画面表示用の`GET /signup`と登録用の`POST /signup`は同じパスだが、HTTPメソッドによって処理が分かれる。
+
+以下は006実装時点の構成であり、後の開発で登録処理や例外処理は変更されている。
 
 ```java
 @Controller
@@ -204,7 +208,7 @@ public class SignupController {
 	
     private final SignupService signupService;
 	
-    @GetMapping("/signup/signup")
+    @GetMapping("/signup")
     public String getSignup(
             @ModelAttribute SignupForm form) {
 
@@ -353,7 +357,7 @@ POSTされた `SignupForm` の値を `Users` へ設定して `SignupService` に
 
 ### 実行確認
 
-`http://localhost:8080/signup` にアクセスし、サインアップ画面が表示されることを確認する。
+`http://localhost:8080/signup`へアクセスし、サインアップ画面が表示されることを確認した。画面表示には`GET /signup`、登録処理には`POST /signup`を使用する。
 
 ![](../../images/0006-01.png)
 
@@ -547,31 +551,7 @@ if (password == null || passwordConfirm == null) {
 
 ### SignupForm.java
 
-作成した `@PasswordMatch` を `SignupForm` に設定する。
-
-```java
-@Data
-@PasswordMatch(
-    passwordFieldName = "password",
-    passwordConfirmFieldName = "passwordConfirm"
-)
-public class SignupForm {
-
-    ...
-}
-```
-
-これにより、通常のフィールド単位のバリデーションに加えて、
-
-```text
-password
-passwordConfirm
-```
-
-の一致チェックが実行される。
-### SignupForm.java
-
-作成した `@PasswordMatch` をクラスに追加する。
+`@PasswordMatch`は2つのプロパティを比較するため、フィールドではなく`SignupForm`クラスに付与する。ここでは比較対象の名前を指定し、既存のフィールド単位の制約と組み合わせる。
 
 ```java
 @Data
@@ -596,7 +576,7 @@ public class SignupForm {
 }
 ```
 
-これにより、通常のフィールド単位のバリデーションに加えて、`password` と `passwordConfirm` の一致チェックが行われる。
+`@NotBlank`などは各フィールドの入力条件を検証し、`@PasswordMatch`は`password`と`passwordConfirm`の一致を検証する。ただし、実際に検証を走らせるにはController側で`@Validated`を指定する必要がある。
 
 ### SignupController.java
 
@@ -642,7 +622,7 @@ public String postSignup(
 }
 ```
 
-`@Validated` によって `SignupForm` のバリデーションが実行され、その結果が `BindingResult` に格納される。
+`@Validated`によって`SignupForm`に設定された制約を検証し、その結果を直後の`BindingResult`で受け取る。入力に問題がある場合はServiceを呼び出さず、フォームへ戻す。
 
 エラーが存在する場合は登録処理を行わず、サインアップ画面へ差し戻す。
 
@@ -847,6 +827,8 @@ feat: add signup form placeholders
 
 ## 5. ユーザーIDとパスワードのバリデーション変更
 
+第1〜4章で使用した「半角英数字のみ」の制約は初期実装であり、この章で最終的に変更した。変更後の許可文字は、ログインIDが半角英数字とアンダースコア、パスワードがASCIIの表示可能文字（空白を除く）となる。
+
 ユーザーIDでは半角英数字に加えてアンダースコアを使用可能にし、パスワードでは半角英数字と半角記号を使用可能にする。
 
 ### SignupForm.java
@@ -873,7 +855,7 @@ private String loginId;
 private String password;
 ```
 
-`[\x21-\x7E]` はASCIIコードの16進数 `21` から `7E` までを対象とし、半角英数字と以下の半角記号を使用できる。
+`[\x21-\x7E]` はASCIIコードの16進数 `21` から `7E` までを対象とする。半角英数字と以下の半角記号を含む一方、半角スペースは含まれない。
 
 ```text
 ! " # $ % & ' ( ) * + , - . /
@@ -933,6 +915,12 @@ feat: expand allowed characters for signup credentials
 - エラーメッセージの多言語管理
 - 入力条件のplaceholder表示
 - ユーザーID・パスワードの使用可能文字の拡張
+
+## 後続の実装との関係
+
+現在の`SignupController`でも画面表示用のマッピングは`@GetMapping("/signup")`である。一方、006当時のControllerで行っていた`Users`への値の詰め替えは、後に`signupService.signup(form, locale)`へ変更された。また、重複登録時の例外は`DuplicateSignupException`、完了メッセージは`MessageSource`による多言語対応となり、登録完了メールの送信と`/login`へのリダイレクトも追加されている。これらは006以降の変更であるため、本ログの当時のコードには混在させない。
+
+---
 
 ## 次回の実装
 

@@ -1,39 +1,61 @@
 # 004 通常学習の実装 その1
 
-通常学習機能の実装を開始する。
+> このログは実装・変更を時系列で記録したものです。途中のコードや仕様は、その後の開発によって変更されている場合があります。現在の実装はソースコードを参照してください。
 
-通常学習は English Output Trainer の仕組みを踏襲し、DBに登録されている問題を使用して中国語のアウトプットトレーニングを行う。
+## 概要
 
-主な仕様は以下。
+English Output Trainerの仕組みを参考に、PostgreSQLに登録した問題を使う中国語の通常学習機能を実装した。
 
-### 学習メニュー
+- 学習対象言語：普通話（`MAINLAND`）／國語（`TAIWAN`）
+- 難易度：初級・中級・上級
+- 出題範囲の選択と順番／ランダム出題
+- 日本語の問題文・条件・中国語の解答・別解の表示
+- 前後の問題への移動、学習の中断・再開・終了・完了
 
-- 学習対象言語（普通話 / 國語）ごとに問題を取得する
-- 難易度を初級・中級・上級に分ける
-- 問題を一定数ごとの問題セットに分割する
-- 出題範囲を選択できる
-- 順番 / ランダムを選択できる
-- 中断した問題セットを再開できる
+当初はログイン機能が未実装だったため、非ログイン状態で利用できる範囲を対象とした。
 
-### 出題画面
+---
 
-- 日本語文を表示する
-- 必要に応じて条件を表示する
-- 「解答を見る」を押すと中国語の解答・別解を表示する
-- 前後の問題へ移動できる
-- 問題セットを中断・終了できる
-- 最後まで終了すると完了画面へ遷移する
+## 1. 通常学習の基本機能を実装
 
-ログイン機能はまだ実装していないため、今回はログインしていなくても利用できる機能まで実装する。
+**関連コミット：** `feat: set up question data for practice`、`feat: add question set retrieval for practice`、`feat: add question range retrieval for practice`、`feat: add practice flow controller`、`feat: add practice completion controller`、`feat: add practice menu`、`feat: add practice question page`、`feat: add practice completion page`
 
+### 1.1 目的
 
-# 1. DBの準備
+DBから学習対象の問題を抽出し、学習メニューから問題の表示、移動、中断・再開、完了までを操作できるようにする。
 
-## application.yml
+### 1.2 追加・変更内容
 
-これまではDBを使用していなかったため、`DataSourceAutoConfiguration` を無効化していた。
+| 対象 | 内容 |
+| --- | --- |
+| `application.yml` | `DataSourceAutoConfiguration`の除外を解除し、開発用に`spring.jpa.hibernate.ddl-auto: update`を設定 |
+| `Question` | 問題文、解答、難易度、言語種別、条件、別解などを保持するEntityを追加 |
+| Enum | `Difficulty`を追加 |
+| `QuestionRepository` | 問題セット抽出と難易度別件数取得のメソッドを追加 |
+| `PracticeService` | 問題抽出、ランダム化、問題数・出題範囲の生成を実装 |
+| `PracticeMenuDto`、`Range` | メニュー表示用の問題数と出題範囲を保持 |
+| `PracticeController` | メニュー、開始、問題表示、中断、再開、終了、完了を制御 |
+| `QuestionModelUtil` | 問題画面に必要なModel属性を設定 |
+| `CompleteController` | 完了画面への遷移を実装 |
+| Thymeleaf・JavaScript | 学習メニュー、問題画面、完了画面、解答表示を実装 |
+| `messages*.properties` | 通常学習画面の表示文言を多言語化 |
 
-今後はPostgreSQLを使用するため、以下を削除する。
+### 1.3 実装内容・設計上の判断
+
+#### DB・問題データ
+
+- `Question`に`languageVariant`、`japaneseText`、`chineseText`、`alternativeAnswer`、`condition`、`difficulty`、`allowAiVariation`、`template`などを定義した。
+- 開発中のテーブル更新を容易にするため、当時は`ddl-auto: update`を採用した。
+- 普通話と國語を各1問登録し、DBへの保存とJPAからの取得を確認した。
+- その後、各言語について初級・中級・上級を各10問、合計60問の動作確認用データを登録した。
+
+初期データの確認：
+
+![](../../images/0004-01.png)
+
+**主要コード：DB設定・Entity・Enum**
+
+従来はDB接続の自動設定を除外していたため、この設定を削除してPostgreSQLを利用できるようにした。以下は削除対象の設定。
 
 ```yaml
 spring:
@@ -42,7 +64,7 @@ spring:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 ```
 
-また、開発中はEntityの定義をもとにHibernateがテーブル構造を更新できるようにする。
+開発段階ではEntityの変更をテーブルへ反映するため、`ddl-auto`を`update`に設定した。
 
 ```yaml
 spring:
@@ -51,12 +73,7 @@ spring:
       ddl-auto: update
 ```
 
-現段階では、開発中のテーブル作成・変更を簡単にするため `update` を使用する。
-
-
-# 2. Question Entityの準備
-
-通常学習で使用する問題データを管理するため、`Question` Entityと関連するEnumを作成する。
+問題データを扱うEntityと、採用した分類用Enumを以下に示す。初期案に含まれていた未採用のフィールドは、読みやすさのため省略している。
 
 ```text
 io.github.mawsonlakes790913.chineseoutputforge
@@ -65,12 +82,10 @@ io.github.mawsonlakes790913.chineseoutputforge
 │
 └── constant
     ├── LanguageVariant.java
-    ├── Difficulty.java
-    ├── SubjectType.java
-    └── VerbVariation.java
+    └── Difficulty.java
 ```
 
-## Difficulty.java
+難易度は`BEGINNER`・`INTERMEDIATE`・`ADVANCED`の3段階とし、問題の分類とメニューでの選択条件に共通して使用する。
 
 ```java
 public enum Difficulty {
@@ -81,28 +96,7 @@ public enum Difficulty {
 }
 ```
 
-## SubjectType.java
-
-```java
-public enum SubjectType {
-
-    PRONOUN,
-    NON_PRONOUN,
-    ALL
-}
-```
-
-## VerbVariation.java
-
-```java
-public enum VerbVariation {
-
-    FIXED,
-    FLEXIBLE
-}
-```
-
-## Question.java
+`Question`は、DBの`question`テーブルと対応するEntityである。問題文と模範解答を中心に、言語種別、難易度、別解、解答条件など、通常学習で参照するデータを一つのレコードとして管理する。
 
 ```java
 @Getter
@@ -141,72 +135,12 @@ public class Question {
 
     @Column(name = "template")
     private String template;
-
-    @Column(name = "subject_type")
-    @Enumerated(EnumType.STRING)
-    private SubjectType subjectType;
-
-    @Column(name = "verb_variation")
-    @Enumerated(EnumType.STRING)
-    private VerbVariation verbVariation;
 }
 ```
 
-**Commit**
+**登録・取得確認用SQLとRepository**
 
-```text
-feat: set up question data for practice
-```
-
-### 追記（2026年8月23日）structureフィールドの追加
-
-問題を文法・構造によって分類できるようにするため、`Question` に `structure` フィールドを追加する。
-
-`structure` は、模範解答となる中国語文の根幹となる文法・構造を表す。
-
-例えば、
-
-```text
-他笑着跟我说话。
-→ 動態助詞（着）
-
-这么多菜，我们吃不完。
-→ 可能補語
-```
-
-のように設定する。
-
-`structure` の分類は今後問題を追加する中で増える可能性があり、現時点では値を固定できないため、Enumではなく `String` として保持する。
-
-既存のQuestionにはまだ `structure` の値が存在しないため、まずはNULLを許可した状態でフィールドを追加する。
-
-```text
-git commit -m "feat: add structure field to question"
-```
-
-#### Question.java
-
-```java
-@Column(name = "condition")
-private String condition;
-
-@Column(name = "structure")
-private String structure;
-
-@Column(name = "difficulty", nullable = false)
-@Enumerated(EnumType.STRING)
-private Difficulty difficulty;
-```
-
-アプリケーションを起動し、`question` テーブルに `structure` カラムが追加されたことを確認する。
-
-既存の全Questionに `structure` を設定した後、NULLが存在しないことを確認し、最終的に `structure` をNOT NULLとする。
-
-
-
-# 3. DBに問題データを登録
-
-最初に普通話・國語を1問ずつINSERTし、PostgreSQLへの保存とJPAからの取得が正常に行えることを確認した。
+まず普通話と國語を1問ずつ登録し、文字データと分類値が保存できることを確かめた。
 
 ```sql
 INSERT INTO question (
@@ -233,15 +167,13 @@ VALUES
 );
 ```
 
-pgAdminから確認する。
+登録したレコードをpgAdminから取得し、内容を確認した。
 
 ```sql
 SELECT * FROM question;
 ```
 
-![](../../images/0004-01.png)
-
-`QuestionRepository` からも正常に取得できることを確認した。
+DBに登録した問題をJava側から扱う入口として、`QuestionRepository`を用意する。この時点では基本的なCRUD操作を利用できる構成とし、出題条件に応じた検索は後続の実装で追加する。
 
 ```java
 public interface QuestionRepository extends JpaRepository<Question, Long> {
@@ -249,96 +181,35 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 }
 ```
 
-確認結果：
+Repository経由で取得した結果にも、両言語の問題が含まれていることを確認した。
 
 ```text
 1 / MAINLAND / 我们坐出租车去车站吧。
 2 / TAIWAN / 我們搭計程車去車站吧。
 ```
 
-これにより、
+#### 問題セットの抽出
 
-- PostgreSQLへの保存
-- 日本語・簡体字・繁体字の保存
-- JPAによる取得
-- `Question` Entityへのマッピング
+`PracticeService#getPracticeQuestions()`で、学習対象言語・難易度・開始位置・ランダム指定を受け取り、`QuestionRepository#findQuestionsByLanguageVariantAndDifficulty()`から問題を取得するようにした。
 
-が正常に動作していることを確認した。
+当初のRepository検索条件は次のとおり。
 
-その後、通常学習の動作確認用データとして、
-
-- 普通話：初級10問 / 中級10問 / 上級10問
-- 國語：初級10問 / 中級10問 / 上級10問
-
-の合計60問を登録した。
-
-## 追記（2026年8月23日）structure・conditionへのデータ設定
-
-`Question` に `structure` を追加したため、既存の問題データについて、中国語の模範解答をもとに各問題の `structure` を設定する。
-
-`structure` には、模範解答となる中国語文を文法・構造上分析した際の、文章の根幹となる文法・構造を設定する。
-
-例えば、
-
-```text
-他笑着跟我说话。
-→ structure：動態助詞（着）
-
-这么多菜，我们吃不完。
-→ structure：可能補語
-```
-
-のように分類する。
-
-また、既存の `condition` についても問題内容を確認し、特定の文法・語彙・言い回しなどを使用して解答させる必要がある問題には適切な値を設定する。
-
-一方、特定の解答条件を必要としない問題については、`condition` をNULLのままとする。
-
-```text
-structure
-└── 中国語文そのものの根幹となる文法・構造
-    └── 全問題に設定
-
-condition
-└── 出題者が指定する解答条件・ヒント
-    └── 必要な問題にのみ設定
-```
-
-既存の全問題について `structure` と `condition` を確認し、必要なデータをUPDATEする。
-
-```sql
-UPDATE question
-SET
-    structure = '...',
-    condition = '...'
-WHERE question_id = ...;
-```
-
-`condition` を必要としない問題については、`structure` のみを更新する。
-
-```sql
-UPDATE question
-SET structure = '...'
-WHERE question_id = ...;
-```
-
-データ設定後、`structure` が設定されていない問題が残っていないことを確認する。
+問題セットは言語と難易度で絞り込み、ID順に最大100件を取得するSQLを使用した。
 
 ```sql
 SELECT *
 FROM question
-WHERE structure IS NULL;
+WHERE language_variant = :languageVariant
+  AND difficulty = :difficulty
+ORDER BY question_id
+LIMIT 100 OFFSET :offset
 ```
 
-0件であることを確認した後、`structure` を必須項目として扱える状態とする。
+ランダム出題が指定された場合は、取得後のリストに`Collections.shuffle()`を適用した。
 
+**主要コード：問題セット取得**
 
-
-# 4. 難易度と範囲から問題セットを取得
-
-学習対象言語・難易度・開始位置を指定して、通常学習で使用する問題セットを取得する。
-
-## PracticeService.java
+出題条件の解釈は`PracticeService#getPracticeQuestions()`が担当する。開始番号をSQL用のオフセットへ変換して問題を取得し、ランダム出題が選ばれた場合に限り取得結果の順序を入れ替える。
 
 ```java
 public List<Question> getPracticeQuestions(
@@ -364,9 +235,7 @@ public List<Question> getPracticeQuestions(
 }
 ```
 
-`random = true` の場合は、取得した問題セットをシャッフルする。
-
-## QuestionRepository.java
+実際の抽出条件は`QuestionRepository`のネイティブSQLにまとめた。`language_variant`と`difficulty`で対象を絞り込み、`question_id`順に並べたうえで`LIMIT`と`OFFSET`を適用する。
 
 ```java
 @Query(value = """
@@ -384,31 +253,19 @@ List<Question> findQuestionsByLanguageVariantAndDifficulty(
 );
 ```
 
-**Commit**
+#### 学習メニューの問題数と出題範囲
 
-```text
-feat: add question set retrieval for practice
-```
+`PracticeService#countPracticeQuestions()`で難易度別の件数を取得し、`createRanges()`で**50問単位**の範囲を生成した。
 
+例：125問の場合は「1～50」「51～100」「101～125」とする。
 
-# 5. 各難易度の問題数とRangeを取得
+`PracticeMenuDto`に各難易度の問題数と`List<Range>`を格納し、`practice/menu.html`に渡した。
 
-学習メニューでは問題を50問単位の問題セットとして表示する。
+> **当時の実装上の注意：** 問題セット抽出SQLの`LIMIT 100`と、メニューの50問単位の区切りは元ログ上で一致していない。ここでは当時の記録をそのまま残し、現在の仕様とは区別する。
 
-例えば125問存在する場合、
+**主要コード：問題数・範囲の生成**
 
-```text
-1～50
-51～100
-101～125
-```
-
-のように分割する。
-
-
-## PracticeMenuDto.java
-
-学習メニュー表示に必要な、各難易度の問題数とRangeをまとめてControllerへ渡す。
+学習メニューへ渡す値をばらばらのModel属性にせず、`PracticeMenuDto`に集約する。初級・中級・上級それぞれについて、登録件数と選択可能な範囲の一覧を持たせた。
 
 ```java
 @Data
@@ -425,8 +282,7 @@ public class PracticeMenuDto {
 }
 ```
 
-
-## PracticeService.java
+`countPracticeQuestions()`は、選択中の言語について3段階の難易度ごとに問題数を集計する。続く`createRanges()`では、件数に応じて「1～50」「51～100」のような選択肢を作り、最後の範囲は実際の最終問題番号で終わるようにした。
 
 ```java
 public PracticeMenuDto countPracticeQuestions(
@@ -484,16 +340,7 @@ private List<Range> createRanges(long count) {
 }
 ```
 
-指定された `LanguageVariant` について、
-
-- BEGINNER
-- INTERMEDIATE
-- ADVANCED
-
-それぞれの問題数を取得し、50問単位のRangeを生成する。
-
-
-## Range.java
+範囲の開始・終了番号を組にして扱うため、`Range`クラスを設けた。`getDisplayText()`は、Thymeleafの選択肢にそのまま使える表示文字列を返す。
 
 ```java
 public class Range {
@@ -520,7 +367,7 @@ public class Range {
 }
 ```
 
-## QuestionRepository.java
+件数の取得はRepository側の`countByLanguageVariantAndDifficulty()`に任せる。Serviceは集計結果を受け取り、画面に必要なRangeの生成に集中できる構成とした。
 
 ```java
 long countByLanguageVariantAndDifficulty(
@@ -529,19 +376,28 @@ long countByLanguageVariantAndDifficulty(
 );
 ```
 
-**Commit**
+#### Controllerと画面遷移
 
-```text
-feat: add question range retrieval for practice
-```
+| パス | 処理 |
+| --- | --- |
+| `/practice/menu` | 問題数・範囲・再開可能状態を表示 |
+| `/practice/start` | 難易度と範囲を検証し、問題セットをSessionに保存 |
+| `/practice/question?page=...` | 指定位置の問題を表示 |
+| `/practice/suspend` | 現在位置を保存して中断 |
+| `/practice/resume` | 保存した位置から再開 |
+| `/practice/quit` | 通常学習のSession情報を破棄して終了 |
+| `/practice/complete` | 通常学習のSession情報を破棄して完了画面へ遷移 |
+| `/complete` | 完了画面を表示 |
 
+Sessionでは`practiceQuestions`と`practiceCurrentPage`を使用した。問題画面では`QuestionModelUtil#setQuestionModel()`により、現在の問題、前後の移動可否、総問題数などをModelに設定した。
 
-# 6. 通常学習フローをControllerで制御
+`practice/menu.html`には難易度別件数、範囲選択、順番／ランダム選択、再開ボタンを配置した。`practice/question.html`には問題文、条件、解答・別解、前後移動、中断・終了・完了ボタンを配置した。
 
-`PracticeController` で通常学習の一連の処理を制御する。
+「解答を見る」では`practice.js`の`showAnswer()`を呼び出し、解答ボタンを非表示にして解答領域を表示するようにした。
 
+**主要コード：Controller・Model設定**
 
-## 学習メニューを表示
+メニュー表示時には、難易度別の問題数・範囲に加えて、再開可能な学習があるかを判定する。Session内に問題セットと現在位置が両方存在する場合だけ、再開位置と総問題数をModelへ渡す。
 
 ```java
 @GetMapping("/practice/menu")
@@ -579,48 +435,7 @@ public String getPracticeMenu(
 }
 ```
 
-学習メニューでは、
-
-- 現在の学習対象言語の問題数・Rangeを取得
-- 中断中の問題セットが存在するか確認
-- 再開可能な場合は現在位置と総問題数を表示
-
-する。
-
-### 追記：学習対象言語未設定時の問題数取得を修正（2026年8月16日）
-
-Spring Boot再起動後に通常学習メニュー（`/practice/menu`）へアクセスすると、各難易度の問題数がすべて0問になる問題が発生した。
-
-![](../../images/0003-09.png)
-
-新しいSessionでは `languageVariant` がまだ設定されていないため、`PracticeController#getPracticeMenu()` で学習対象言語を取得し、未設定の場合はデフォルトの `MAINLAND` を使用するよう修正した。
-
-## PracticeController.java
-
-```java
-// 学習対象言語を取得
-LanguageVariant languageVariant =
-        (LanguageVariant) session.getAttribute("languageVariant");
-
-// 未設定の場合は普通話
-if (languageVariant == null) {
-    languageVariant = LanguageVariant.MAINLAND;
-}
-
-// 通常問題数を取得
-PracticeMenuDto menu =
-        practiceService.countPracticeQuestions(languageVariant);
-
-model.addAttribute("practiceMenu", menu);
-
-これにより、学習対象言語を一度も変更していない状態でも、普通話をデフォルトとして問題数を取得できるようになった。
-
-現時点では未設定時のデフォルトを MAINLAND とする。
-ログイン機能実装後、ユーザー設定としてデフォルトの学習対象言語を保持するかは別途検討する。
-
----
-
-## 新しい問題セットを開始
+新規開始では、3つの難易度のうち出題範囲がちょうど1つ選択されていることを確認する。選択内容から問題セットを取得した後、以前の学習状態をクリアしてSessionへ保存し、先頭の問題に遷移させる。
 
 ```java
 @GetMapping("/practice/start")
@@ -688,10 +503,7 @@ public String getPracticeStart(
 }
 ```
 
-選択された難易度・Rangeから問題セットを取得し、Sessionへ保存して最初の問題へ遷移する。
-
-
-## 問題を表示
+問題画面は、Sessionに保存された問題セットをもとに表示する。問題セットが存在しない場合や、指定ページが範囲外の場合はメニューへ戻し、有効な場合だけ画面用データを設定する。
 
 ```java
 @GetMapping("/practice/question")
@@ -722,10 +534,7 @@ public String getPracticeQuestion(
 }
 ```
 
-
-## QuestionModelUtil.java
-
-出題画面で必要な情報をまとめてModelへ格納する。
+問題表示に必要なModel属性の設定は`QuestionModelUtil`へ切り出した。Controllerからページ番号と問題一覧を渡すことで、現在の問題と前後の移動可否を一括して設定できる。
 
 ```java
 @Component
@@ -750,8 +559,7 @@ public class QuestionModelUtil {
 }
 ```
 
-
-## 中断した問題セットを再開
+`/practice/resume`では保存済みのページ番号を読み取り、その位置の出題画面へ戻す。
 
 ```java
 @GetMapping("/practice/resume")
@@ -771,8 +579,7 @@ public String getPracticeResume(
 }
 ```
 
-
-## 問題セットを完了
+`/practice/complete`では通常学習のSession情報を破棄して完了画面へ移動する。
 
 ```java
 @GetMapping("/practice/complete")
@@ -784,8 +591,7 @@ public String getPracticeComplete(HttpSession session) {
 }
 ```
 
-
-## トレーニングを中断
+`/practice/suspend`では現在のページ番号をSessionに保存し、トップ画面へ戻る。
 
 ```java
 @GetMapping("/practice/suspend")
@@ -802,8 +608,7 @@ public String getPracticeSuspend(
 }
 ```
 
-
-## トレーニングを終了
+`/practice/quit`では再開用のSession情報を破棄し、学習を終了する。
 
 ```java
 @GetMapping("/practice/quit")
@@ -815,16 +620,15 @@ public String getPracticeQuit(HttpSession session) {
 }
 ```
 
-**Commit**
+ここまでのController関連の変更は次のコミットで記録した。
 
 ```text
 feat: add practice flow controller
 ```
 
+**完了画面Controller**
 
-# 7. 学習完了Controller
-
-問題セット完了後の画面を表示するControllerを作成する。
+問題セットを完了した後は、通常学習のControllerから共通の完了画面へ遷移する。その表示先を受け持つのが`CompleteController`である。
 
 ```java
 @Controller
@@ -837,27 +641,9 @@ public class CompleteController {
 }
 ```
 
-**Commit**
+**画面テンプレートとJavaScript**
 
-```text
-feat: add practice completion controller
-```
-
-
-# 8. 通常学習メニュー画面
-
-`practice/menu.html` を作成する。
-
-主な機能は以下。
-
-- 各難易度の問題数表示
-- Range選択
-- 順番 / ランダム選択
-- 出題開始
-- 中断中のトレーニングの表示
-- 中断した問題セットの再開
-
-難易度ごとに `PracticeMenuDto` から問題数とRangeを取得する。
+`menu.html`の難易度別セレクトボックスには、`PracticeMenuDto`が保持するRangeを展開する。選択肢の値には開始番号を、画面に見せる文字列には`Range#getDisplayText()`を使用した。
 
 ```html
 <span th:text="#{practice.menu.difficulty.beginner(${practiceMenu.beginnerCount})}">
@@ -879,7 +665,7 @@ feat: add practice completion controller
 </select>
 ```
 
-中断中の問題セットが存在する場合は再開ボタンを表示する。
+再開用の領域は、Controllerから渡された`canResume`が真のときだけ表示する。学習者には「現在位置／総問題数」を示し、`/practice/resume`へ進めるようにした。
 
 ```html
 <div th:if="${canResume}"
@@ -903,36 +689,7 @@ feat: add practice completion controller
 </div>
 ```
 
-未学習問題のみを出題する機能については、ログイン機能実装後に使用するため、現段階では無効状態で表示する。
-
-**Commit**
-
-```text
-feat: add practice menu
-```
-
-
-# 9. 問題出題画面
-
-`practice/question.html` を作成する。
-
-画面には、
-
-- 現在の問題番号
-- 日本語問題
-- 条件
-- 中国語の解答
-- 別解
-- 前の問題
-- 次の問題
-- 完了
-- 中断
-- 終了
-
-を表示する。
-
-
-## 問題と解答
+`question.html`では日本語の問題文を先に見せ、模範解答は初期状態で隠す。解答条件と別解はデータが存在する場合だけ表示し、問題によって画面構成を変えられるようにした。
 
 ```html
 <span th:text="${nextPageIndex + '/' + totalPages}">
@@ -1003,8 +760,7 @@ feat: add practice menu
 </div>
 ```
 
-
-## 前後の問題への移動
+ページ移動は`hasPrevious`と`hasNext`で制御する。先頭では「前へ」を出さず、最後の問題では「次へ」の代わりに完了画面へ進むリンクを表示する。
 
 ```html
 <a th:if="${hasPrevious}"
@@ -1029,8 +785,7 @@ feat: add practice menu
 </a>
 ```
 
-
-## 中断・終了
+学習を一時的に止める操作と、問題セットを破棄する操作を分けた。中断リンクは現在のページ番号を渡し、終了リンクは再開を前提としない。
 
 ```html
 <a th:href="@{/practice/suspend(page=${nextPageIndex - 1})}"
@@ -1048,10 +803,7 @@ feat: add practice menu
 </a>
 ```
 
-
-## practice.js
-
-「解答を見る」を押したときに解答を表示する。
+解答の表示切り替えは、サーバーへの再リクエストを行わずJavaScriptで処理する。`showAnswer()`はボタンを隠して解答領域を表示し、学習者が答えを確認できるようにする。
 
 ```javascript
 function showAnswer() {
@@ -1067,23 +819,7 @@ function showAnswer() {
 }
 ```
 
-**Commit**
-
-```text
-feat: add practice question page
-```
-
-
-# 10. 学習完了画面
-
-`complete.html` を作成する。
-
-問題セット完了後に、
-
-- Topへ戻る
-- 通常学習メニューへ戻る
-
-を選択できるようにする。
+`complete.html`は学習終了後の遷移先となる。完了メッセージとともに、トップへ戻る操作と次の問題セットを選ぶ操作を用意した。
 
 ```html
 <div class="text-center"
@@ -1116,18 +852,11 @@ feat: add practice question page
 </div>
 ```
 
-**Commit**
+#### 多言語対応
 
-```text
-feat: add practice completion page
-```
+通常学習の表示文言を以下のファイルに追加した。
 
-
-# 11. 通常学習画面の多言語化
-
-通常学習で追加した画面について、画面上の文字列を `messages*.properties` で管理する。
-
-対象：
+表示文言の管理対象として、基本設定と各言語用のプロパティファイルを用意した。
 
 ```text
 messages.properties
@@ -1137,7 +866,19 @@ messages_zh_CN.properties
 messages_zh_TW.properties
 ```
 
-例：
+**多言語メッセージの設定例**
+
+画面に直接記述していた文言は、言語ごとのプロパティファイルから参照する構成にした。通常学習の画面で使うキーを各ファイルで対応させる。
+
+```text
+messages.properties
+messages_ja.properties
+messages_en.properties
+messages_zh_CN.properties
+messages_zh_TW.properties
+```
+
+以下は日本語メッセージの一部である。難易度ごとの問題数には`{0}`を使用し、Controllerから渡した件数を文言に組み込めるようにした。
 
 ```properties
 practice.menu.pageTitle=通常学習 | Chinese Output Forge
@@ -1161,79 +902,113 @@ practice.menu.difficulty.advanced=上級 : {0}問
 practice.menu.start=出題開始
 ```
 
-同じキーを英語・簡体字・繁体字にも追加した。
+### 1.4 動作確認
 
-
-# 12. 動作確認
-
-`/practice/menu` にアクセスし、通常学習メニューが表示されることを確認。
+**通常学習メニューが表示される。**
 
 ![](../../images/0004-02.png)
 
-難易度・Range・出題方法を選択して出題を開始すると、
-
-```text
-/practice/question?page=0
-```
-
-へ遷移し、問題セットの最初の問題が表示される。
+**難易度・範囲・出題方法を選んで開始すると、最初の問題へ遷移する。**
 
 ![](../../images/0004-03.png)
 
-「解答を見る」を押すと中国語の解答が表示される。
+**「解答を見る」で中国語の解答が表示される。**
 
 ![](../../images/0004-04.png)
 
-問題セットの最後まで進むと「完了」ボタンが表示される。
+**最終問題では「完了」ボタンが表示される。**
 
 ![](../../images/0004-05.png)
 
-完了すると `/complete` へ遷移する。
+**完了後は完了画面へ遷移する。**
 
 ![](../../images/0004-06.png)
 
-トレーニングを中断すると、学習メニューに中断中のトレーニングが表示される。
+**中断後、メニューに再開可能な学習が表示される。**
 
 ![](../../images/0004-07.png)
 
-「再開する」を押すと、
-
-```text
-/practice/question?page=X
-```
-
-へ遷移し、中断した位置から再開できる。
+**再開すると中断した位置の問題へ戻る。**
 
 ![](../../images/0004-08.png)
 
+---
 
-# 13. 学習対象言語変更時のSession不整合を修正
+## 2. 学習対象言語未設定時の問題数取得を修正（2026-08-16）
 
-動作確認中、学習対象言語を変更しても中断中の問題セットがSessionに残る問題が見つかった。
+### 2.1 目的
 
-例えば、
+アプリケーション再起動後など、新しいSessionで`/practice/menu`にアクセスすると、各難易度の問題数が0問と表示される問題を修正する。
 
-```text
-普通話でトレーニング
-↓
-10 / 50で中断
-↓
-学習対象言語を國語へ変更
+### 2.2 変更内容
+
+- `PracticeController#getPracticeMenu()`で`languageVariant`の未設定を判定するようにした。
+- 未設定時は`LanguageVariant.MAINLAND`を問題数取得用のデフォルト値として使用した。
+
+### 2.3 原因・対応
+
+新しいSessionでは`languageVariant`がまだ設定されておらず、その値を問題数取得処理へ渡していた。
+
+新しいSessionでは学習対象言語が未設定となるため、メニュー表示時に`MAINLAND`を初期値として補う処理を追加した。
+
+```java
+LanguageVariant languageVariant =
+        (LanguageVariant) session.getAttribute("languageVariant");
+
+if (languageVariant == null) {
+    languageVariant = LanguageVariant.MAINLAND;
+}
+
+PracticeMenuDto menu =
+        practiceService.countPracticeQuestions(languageVariant);
 ```
 
-とすると、
+**変更したコード**
 
-```text
-languageVariant = TAIWAN
-practiceQuestions = MAINLANDの問題セット
+
+
+### 2.4 動作確認
+
+修正前は各難易度の件数が0問になっていた。
+
+![](../../images/0003-09.png)
+
+修正後は、言語未設定でも普通話の問題数を取得できるようになった。
+
+---
+
+## 3. 学習対象言語変更時のSession不整合を修正
+
+**関連コミット：** `fix: clear practice session on language change`
+
+### 3.1 目的
+
+普通話の問題セットを中断した後に学習対象言語を國語へ変更すると、選択言語と中断中の問題セットが一致しなくなる問題を解消する。
+
+### 3.2 変更内容
+
+- `LanguageVariantController`で、学習対象言語が変わる際に`practiceQuestions`と`practiceCurrentPage`を削除するようにした。
+- 同じ言語を選択した場合は変更処理を行わないようにした。
+- 学習メニューから言語を切り替えた場合は、ホームではなく`/practice/menu`へ戻すようにした。
+- `PracticeController`と`header.html`で、言語変更後の戻り先を渡すようにした。
+
+### 3.3 原因・対応
+
+変更前は、`languageVariant = TAIWAN`であるにもかかわらず、`practiceQuestions`に普通話の問題セットが残ることがあった。
+
+言語変更時に以下のSession属性を削除することで対応した。
+
+言語変更時には以前の問題セットとページ番号をSessionから削除する。
+
+```java
+session.removeAttribute("practiceQuestions");
+session.removeAttribute("practiceCurrentPage");
+session.setAttribute("languageVariant", languageVariant);
 ```
 
-という不整合が発生する。
+**変更したコード**
 
-そのため、学習対象言語が変更された時点で通常学習のSession情報を破棄する。
-
-
-## LanguageVariantController.java
+`LanguageVariantController`で言語の変更を受け付け、異なる言語への切り替え時だけ学習状態を破棄する。
 
 ```java
 @GetMapping("/language-variant")
@@ -1272,10 +1047,7 @@ public String changeLanguageVariant(
 }
 ```
 
-また、`/practice/menu` で学習対象言語を変更した場合はHomeへ戻さず、同じ学習メニューを再表示するようにする。
-
-
-## PracticeController.java
+`PracticeController`からは、言語変更後の戻り先として通常学習メニューを渡す。
 
 ```java
 @GetMapping("/practice/menu")
@@ -1293,10 +1065,7 @@ public String getPracticeMenu(
 }
 ```
 
-
-## header.html
-
-言語切替時に戻り先を `/language-variant` へ渡す。
+ヘッダーの言語切り替えリンクにも戻り先を指定した。
 
 ```html
 <a class="dropdown-item language-variant-link"
@@ -1308,34 +1077,129 @@ public String getPracticeMenu(
 </a>
 ```
 
-TAIWAN側も同様に設定する。
+### 3.4 動作確認
 
-これにより、
+元ログでは、修正後に次の動作となったことを記録している。
 
-- 学習対象言語変更時に古い問題セットを破棄
-- Practiceメニューで変更した場合はPracticeメニューに留まる
-- 新しいLanguageVariantの問題数・Rangeを再取得
+- 言語変更時に古い問題セットを破棄する。
+- 学習メニューから変更した場合は同じメニューへ戻る。
+- 変更後の言語で問題数・出題範囲を再取得する。
 
-という流れになった。
+---
 
-**Commit**
+## 4. `Question`に`structure`を追加（2026-08-23）
 
-```text
-fix: clear practice session on language change
+**関連コミット：** `feat: add structure field to question`
+
+### 4.1 目的
+
+問題を中国語文の文法・構造によって分類できるようにする。
+
+### 4.2 追加・変更内容
+
+- `Question`に`structure`フィールドを追加した。
+- 当初は既存データに値がないためNULLを許可した。
+- 既存問題の模範解答を確認し、`structure`を設定した。
+- 必要な問題については`condition`も見直した。
+
+### 4.3 実装内容・設計上の判断
+
+`structure`は分類項目が今後増える可能性を考慮し、当時はEnumではなく`String`で保持した。
+
+後から文法・構文による問題分類が必要になったため、`Question`へ`structure`を追加する。分類値は今後増える可能性があることから、この段階ではEnumではなく文字列で保持した。
+
+```java
+@Column(name = "structure")
+private String structure;
 ```
 
+- `structure`：中国語の模範解答の根幹となる文法・構造。全問題に設定する方針。
+- `condition`：特定の文法・語彙・言い回しを指定する出題条件。必要な問題だけに設定する方針。
 
-# 14. 今後の実装
+例：
 
-今回で、ログインを必要としない通常学習の基本フローが動作するようになった。
+`structure`は、問題文で指定する条件ではなく、模範解答の文法的な骨組みを表す。例えば動態助詞「着」や可能補語などを、問題ごとの分類として記録する。
 
-現時点では以下が未実装。
+```text
+他笑着跟我说话。       → structure：動態助詞（着）
+这么多菜，我们吃不完。 → structure：可能補語
+```
 
-- 拼音 / 注音の表示
+既存データを更新した後、次のSQLで未設定の問題が残っていないか確認した。
+
+既存データの更新前に、`structure`が未設定の問題を確認した。
+
+```sql
+SELECT *
+FROM question
+WHERE structure IS NULL;
+```
+
+**追加したEntityフィールドとデータ更新SQL**
+
+`condition`は学習者に提示する解答条件、`structure`は模範解答の文法・構文分類であり、用途が異なる。既存の条件欄は残したまま、両者を独立したカラムとして管理する。
+
+```java
+@Column(name = "condition")
+private String condition;
+
+@Column(name = "structure")
+private String structure;
+
+@Column(name = "difficulty", nullable = false)
+@Enumerated(EnumType.STRING)
+private Difficulty difficulty;
+```
+
+既存データには、問題ごとの文法・構文分類を追加する。解答条件の見直しも必要なレコードについては、`structure`と`condition`を同時に更新する。
+
+```sql
+UPDATE question
+SET
+    structure = '...',
+    condition = '...'
+WHERE question_id = ...;
+```
+
+一方、解答に特別な指定がない問題の`condition`はNULLのままとし、`structure`だけを設定する。
+
+```sql
+UPDATE question
+SET structure = '...'
+WHERE question_id = ...;
+```
+
+更新後は`structure IS NULL`の件数を調べ、未設定の問題が残っていないことを確認した。
+
+```sql
+SELECT *
+FROM question
+WHERE structure IS NULL;
+```
+
+### 4.4 動作確認
+
+- アプリケーション起動後、`question`テーブルへの`structure`カラム追加を確認した。
+- 既存問題に分類を設定し、NULLの残存がないことを確認した。
+- その後、`structure`を必須項目として扱う方針とした。
+
+---
+
+## 5. 当時の未実装項目
+
+このログの作成時点では、以下は後続の実装対象だった。
+
+- 拼音・注音の表示
 - ログイン機能
-- 理解度（Hard / Good / Easy）の記録
-- 学習済み / 未学習の管理
-- 未学習問題のみの出題
+- 理解度（HARD／GOOD／EASY）の記録
+- 学習済み・未学習の管理と未学習問題の抽出
 - ユーザーごとの学習履歴
 
-特に、出題画面に拼音・注音を表示するためのデータが現在の `Question` Entityに存在しないことが判明したため、次の実装で対応する。
+> これは当時の課題一覧であり、現在も未実装であることを意味しない。
+
+## 6. 関連技術記事
+
+- [学習メニューの実装](https://mawsonlakes790913.com/2026/10/22/%e3%80%90java-spring-boot%e3%80%91%e4%b8%ad%e5%9b%bd%e8%aa%9e%e5%ad%a6%e7%bf%92%e3%82%a2%e3%83%97%e3%83%aa%e3%82%92%e4%bd%9c%e3%82%8b%ef%bd%9c%e5%ad%a6%e7%bf%92%e3%83%a1%e3%83%8b%e3%83%a5%e3%83%bc/)
+- [難易度・出題範囲の実装](https://mawsonlakes790913.com/2026/10/22/%e3%80%90java-spring-boot%e3%80%91%e4%b8%ad%e5%9b%bd%e8%aa%9e%e5%ad%a6%e7%bf%92%e3%82%a2%e3%83%97%e3%83%aa%e3%82%92%e4%bd%9c%e3%82%8b%ef%bd%9c%e9%9b%a3%e6%98%93%e5%ba%a6%e3%83%bb%e5%87%ba%e9%a1%8c/)
+- [問題抽出の実装](https://mawsonlakes790913.com/2026/10/22/%e3%80%90java-spring-boot%e3%80%91%e4%b8%ad%e5%9b%bd%e8%aa%9e%e5%ad%a6%e7%bf%92%e3%82%a2%e3%83%97%e3%83%aa%e3%82%92%e4%bd%9c%e3%82%8b%ef%bd%9c%e4%bb%96%e3%81%ae%e6%96%b9%e6%b3%95%e3%81%a7%e5%95%8f/)
+- [問題ページの実装](https://mawsonlakes790913.com/2026/10/22/%e3%80%90java-spring-boot-thymeleaf%e3%80%91%e4%b8%ad%e5%9b%bd%e8%aa%9e%e5%ad%a6%e7%bf%92%e3%82%a2%e3%83%97%e3%83%aa%e3%82%92%e4%bd%9c%e3%82%8b%ef%bd%9c%e5%95%8f%e9%a1%8c%e3%83%9a%e3%83%bc/)

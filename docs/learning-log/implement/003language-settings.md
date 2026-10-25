@@ -1,6 +1,8 @@
 # 003言語設定機能の実装で学んだこと
 
-## 言語設定機能の実装で学んだこと
+この学習ログは、言語設定機能を初めて実装した際に理解した内容を中心に記録する。後から変更した実装については、当初のコードを学習履歴として残し、変更点を注記する。
+
+**後から変更した点：** サイト表示言語は当初、日本語・英語・簡体字中国語・繁体字中国語の4種類に対応したが、**英語表示は開発途中で廃止した**。また、学習対象言語の変更は、初期のGET方式から、状態変更に適したPOST方式へ変更した。
 
 ## 1. サイト表示言語と学習対象言語は分けて考える
 
@@ -9,7 +11,7 @@
 * **サイト表示言語**
 
   * 日本語
-  * English
+  * English（初期実装のみ。後に廃止）
   * 简体中文
   * 繁體中文
 * **学習対象言語**
@@ -494,7 +496,7 @@ public enum LanguageVariant {
 
 # 10. `@RequestParam` からEnumへ変換できる
 
-学習対象言語のControllerでは、
+学習対象言語のControllerでは、**初期実装時にはGETリクエスト**を使用していた。
 
 ```java
 @GetMapping("/language-variant")
@@ -503,7 +505,7 @@ public String changeLanguageVariant(
         HttpSession session) {
 ```
 
-とした。
+とした。なお、このGET方式は後に廃止し、`@PostMapping("/language-variant")`とHTMLフォームによるPOST送信に変更した。以下は、`@RequestParam`によるEnumへの変換を学んだ当時の例である。
 
 例えば、
 
@@ -604,14 +606,14 @@ MAINLAND
 
 そのため、学習対象言語を変更した場合はHomeへ戻す構成とした。
 
-さらに、今後問題セットをSessionへ保存するようになった場合には、
+実際に通常学習の問題セットをSessionへ保存する構成では、学習対象言語の変更時に、
 
 ```java
-session.removeAttribute("studyQuestions");
-session.removeAttribute("studyCurrentPage");
+session.removeAttribute("practiceQuestions");
+session.removeAttribute("practiceCurrentPage");
 ```
 
-のように、現在の学習状態も破棄する必要がある。
+のように、以前の言語で取得した問題セットと現在ページの情報を破棄する必要がある。
 
 今回の設計から、Sessionで複数の状態を管理する場合、
 
@@ -623,7 +625,7 @@ session.removeAttribute("studyCurrentPage");
 
 # 13. `data-*` 属性を使ってJavaScriptへ値を渡す
 
-学習対象言語を変更すると現在のトレーニングへ影響するため、確認ダイアログを表示することにした。
+学習対象言語を変更すると現在のトレーニングへ影響するため、確認ダイアログを表示することにした。以下のリンクは初期実装時のもので、後にPOSTフォームへ変更している。
 
 HTML側では、
 
@@ -679,7 +681,7 @@ JavaScript
 
 # 14. `event.preventDefault()` でリンク遷移を止める
 
-確認ダイアログでは、
+初期実装では、リンクのクリックイベントで確認ダイアログを表示していた。
 
 ```javascript
 document.querySelectorAll('.language-variant-link').forEach(link => {
@@ -722,6 +724,21 @@ OK
 ```
 
 という処理になる。
+
+その後、学習対象言語の変更をPOSTフォームへ切り替えたため、監視対象もリンクの`click`イベントからフォームの`submit`イベントへ変更した。`event.preventDefault()`はフォーム送信の中止にも利用できる。
+
+```javascript
+document.querySelectorAll('.language-variant-form').forEach(form => {
+    form.addEventListener('submit', function(event) {
+        const message = this.querySelector('button').dataset.confirmMessage;
+        if (!confirm(message)) {
+            event.preventDefault();
+        }
+    });
+});
+```
+
+この変更により、確認ダイアログを維持しながら、Controllerの`@PostMapping`に対応するPOSTリクエストを送信できるようにした。
 
 ---
 

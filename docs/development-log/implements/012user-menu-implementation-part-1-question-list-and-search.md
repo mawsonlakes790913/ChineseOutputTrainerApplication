@@ -1,23 +1,12 @@
-# 012 ユーザーメニューの実装その1
+# 012 ユーザーメニューの実装 その1 - 問題一覧・検索機能
 
-ユーザー向け機能として、以下を実装する。
+ユーザーメニューを設置し、問題一覧・複数条件検索・ページネーション・詳細表示・理解度変更・お気に入り切替を実装する。プロフィールと設定はこの段階ではリンクのみを用意した。本ログは当初の実装と後日の修正を時系列で記録する。
 
-- ユーザーメニュー
-- 問題一覧・検索
-- 問題一覧からの理解度変更
-- 問題一覧からのお気に入り登録・解除
-
-プロフィール・設定については、ユーザーメニューへのリンクのみ先に用意し、機能自体は後から実装する。
-
----
-
-# 1. ユーザーメニュー画面の作成
+## 1. ユーザーメニュー画面
 
 `git commit -m "feat: add user menu page"`
 
-ユーザー向け機能への入口となる `/user/menu` を作成する。
-
-## UserMenuController.java
+`GET /user/menu`を設け、問題一覧・プロフィール・設定・管理者専用画面へのリンクを配置した。管理者メニューは`sec:authorize="hasRole('ROLE_ADMIN')"`で表示を制限する。プロフィール・設定の機能は未実装。
 
 ```java
 @Controller
@@ -31,132 +20,18 @@ public class UserMenuController {
 }
 ```
 
-## /user/menu.html
-
-```html
-
-<body>
-
-<div layout:fragment="content"
-     class="container pt-3">
-
-    <h2 th:text="#{user.menu.title}">
-        ユーザーメニュー
-    </h2>
-
-    <div class="list-group mt-3">
-
-        <!-- 問題一覧・検索 -->
-        <a th:href="@{/user/question/search}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-list-ul me-2"></i>
-            <span th:text="#{user.menu.questionSearch}">
-                問題一覧・検索
-            </span>
-        </a>
-
-        <!-- プロフィール -->
-        <a th:href="@{/user/profile}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-person-fill me-2"></i>
-            <span th:text="#{user.menu.profile}">
-                会員情報確認・編集
-            </span>
-        </a>
-
-        <!-- 設定 -->
-        <a th:href="@{/user/settings}"
-           class="list-group-item list-group-item-action">
-            <i class="bi bi-gear-fill me-2"></i>
-            <span th:text="#{user.menu.settings}">
-                設定
-            </span>
-        </a>
-
-        <!-- 管理者専用 -->
-        <a th:href="@{/admin/menu}"
-           class="list-group-item list-group-item-action"
-           sec:authorize="hasRole('ROLE_ADMIN')">
-            <i class="bi bi-shield-lock-fill me-2"></i>
-            <span th:text="#{user.menu.admin}">
-                アドミン権限専用画面
-            </span>
-        </a>
-
-    </div>
-
-    <div class="text-center mt-3">
-        <a th:href="@{/}"
-           class="btn btn-secondary"
-           th:text="#{common.backToTop}">
-            Topに戻る
-        </a>
-    </div>
-
-</div>
-
-</body>
-</html>
-```
-
-管理者専用メニューには、
-
-```html
-sec:authorize="hasRole('ROLE_ADMIN')"
-```
-
-を設定し、ADMIN権限を持つユーザーだけに表示する。
-(今後実装する)
-
-## messages.properties
-
-```properties
-# ユーザーメニュー
-user.menu.title=ユーザーメニュー
-user.menu.questionSearch=問題一覧・検索
-user.menu.profile=会員情報確認・編集
-user.menu.settings=設定
-user.menu.admin=アドミン権限専用画面
-
-# 共通
-common.backToTop=Topに戻る
-```
-
-他言語は省略。
-
-## 実行
-
-`http://localhost:8080/user/menu` にアクセスするとユーザーメニューが表示されるようになった。
+メニュー画面ではThymeleafの`th:href`と`messages.properties`でリンク・表示文言を管理した。管理者向けリンクの表示制御は、URL自体の認可設定の代わりにはならない。
 
 ![](../../images/0012-01.png)
 
----
+## 2. 問題一覧検索のRepository
 
-# 2. 問題一覧・検索機能の実装
+ここが一覧機能の中心となる。単に`question`を取得するだけでなく、ログインユーザーごとに異なる理解度・お気に入り状態を同時に取得し、複数条件で検索する必要がある。そのため、SQLを「取得列」「JOIN」「WHERE」「ページング用の件数取得」に分けて読むと理解しやすい。
+
 
 `git commit -m "feat: add language filtering and pronunciation display to question list"`
 
-アプリケーションが所有する問題を一覧表示する画面を作成する。
-
-一覧では検索条件による絞り込みに加え、現在のユーザーの理解度・お気に入り状態も表示する。
-
-また、一覧から理解度の変更、お気に入り登録・解除もできるようにする。
-
----
-
-## 2-1. QuestionRepositoryに検索Queryを追加
-
-問題一覧では `question` だけでなく、
-
-- `structure`
-- `study_history`
-- `favorite`
-
-の情報も必要になる。
-
-`structure` は通常の `JOIN`、ユーザーによってレコードの存在しない場合がある `study_history` と `favorite` は `LEFT JOIN` する。
-
-### QuestionRepository
+`question`と`structure`をJOINし、ユーザーごとの学習履歴とお気に入りは未登録レコードも一覧に残すため`LEFT JOIN`する。JOIN条件に`userId`を含め、他ユーザーの履歴が混ざらないようにする。学習状況（`ALL / LEARNED_ONLY / UNLEARNED_ONLY`）、お気に入り、難易度、理解度、文法、言語、日本語・中国語キーワードで絞り込む。
 
 ```java
 @Query(value = """
@@ -356,61 +231,20 @@ Page<UserQuestionListDto> findFilteredUserQuestionList(
 );
 ```
 
-### 検索条件
+**取得列（SELECT）**では、`AS questionId`などの別名をProjectionのGetterと対応させる。お気に入りは`favorite`のレコードが存在するかを`CASE`でbooleanに変換している。
 
-学習状況は、
+**JOIN**では、すべての問題にStructureが紐づくため`JOIN structure`を使用する。一方、未学習の問題には`study_history`が存在しないので`LEFT JOIN`を使用する。`favorite`も同様で、登録していない問題を一覧から消さないために`LEFT JOIN`とする。
 
-```text
-ALL
-LEARNED_ONLY
-UNLEARNED_ONLY
-```
+**WHERE**では、`studyCondition`が`LEARNED_ONLY`なら履歴がある問題、`UNLEARNED_ONLY`なら履歴がない問題を対象とする。`ALL`ならこの条件による絞り込みを行わない。お気に入りも同じ考え方で、`favorite`の有無を判定する。難易度・Structure・言語は`IN`で複数選択に対応し、キーワードは空文字なら絞り込まず、入力されていれば`LIKE`で部分一致検索する。
 
-の3種類とする。
+**件数取得（countQuery）**はページネーションに必要な検索結果全体の件数を返す。`Page<UserQuestionListDto>`を返すため、メインQueryと同じJOIN・WHERE条件で`SELECT COUNT(*)`する。表示用のSELECT列と`ORDER BY`は不要だが、検索条件がずれるとページ数と実際の一覧が一致しなくなる。
 
-`study_history` をLEFT JOINしているため、
+## 3. Projection用DTO
 
-```text
-sh.question_id IS NULL
-→ 未学習
+RepositoryのSQLは複数テーブルから必要な列だけを選択しているため、`Question` Entityそのものを返すよりも、画面用のProjectionにまとめた方が扱いやすい。
 
-sh.question_id IS NOT NULL
-→ 学習済み
-```
 
-として判定する。
-
-お気に入りについても `favorite` のレコードの有無を利用し、
-
-```text
-ALL
-FAVORITED
-NOT_FAVORITED
-```
-
-を切り替える。
-
-### countQuery
-
-戻り値を `Page<UserQuestionListDto>` とするため、メインQueryに加えて `countQuery` を定義する。
-
-`countQuery` は検索結果全体の件数を取得するため、JOIN・WHERE条件はメインQueryと合わせる。
-
-一方、画面表示用のSELECT項目や `ORDER BY` は不要なので、
-
-```sql
-SELECT COUNT(*)
-```
-
-とする。
-
----
-
-## 2-2. UserQuestionListDto.javaの作成
-
-問題一覧では `Question` の情報だけでなく、理解度・お気に入り・文法情報など複数テーブルの情報が必要になる。
-
-そのため、一覧画面で必要な情報をまとめて取得するProjection用DTOを作成する。
+問題・構文・学習履歴・お気に入りの情報を1行にまとめるインターフェースProjectionを定義した。SQLの列エイリアスとGetter名を対応させる。構文説明はTooltip、拼音・注音は詳細モーダルで使う。
 
 ```java
 public interface UserQuestionListDto {
@@ -446,17 +280,12 @@ public interface UserQuestionListDto {
 }
 ```
 
-`structureDescriptionZhCn`・`structureDescriptionZhTw` はTooltip、発音記号関係は詳細モーダルで使用する。
+## 4. Serviceで検索条件を整理する
 
-`favorite` は登録済み・未登録の2状態なのでbooleanで受け取る。
+Controllerから届く検索条件は、未選択のチェックボックスなどが`null`や空リストになる場合がある。そのままNative Queryへ渡すのではなく、Serviceで検索時の意味を統一してからRepositoryを呼び出す。
 
----
 
-## 2-3. UserQuestionService.javaの作成
-
-Controllerから受け取った検索条件を整理し、Repositoryへ渡すServiceを作成する。
-
-### UserQuestionService.java
+初期実装では、未指定の難易度・理解度をEnumの全値、文法をDB上の全IDに置き換え、学習状況・お気に入りを`ALL`、キーワードを空文字にしてから、EnumをNative Query向け文字列に変換した。**この初期実装は8月29日に一部重複処理を削除している**（後述）。
 
 ```java
 package io.github.mawsonlakes790913.chineseoutputforge.service;
@@ -553,26 +382,7 @@ public class UserQuestionService {
 }
 ```
 
-チェックボックス形式の検索条件は、何も選択されなかった場合に「検索対象なし」とせず、すべてを検索対象とする。
-
-```text
-難易度未指定
-→ 全難易度
-
-理解度未指定
-→ HARD・GOOD・EASYすべて
-
-文法・構造未指定
-→ 全structure
-```
-
-学習状況とお気に入りについては、通常のフォーム操作では値が送信されるが、検索条件なしで直接アクセスされた場合にも対応できるよう、`null` の場合は `ALL` とする。
-
----
-
-## 2-4. StudyCondition.javaの作成
-
-学習状況の検索条件を表すEnumを作成する。
+`StudyCondition`は`ALL / LEARNED_ONLY / UNLEARNED_ONLY`のEnumとし、`SearchConditionConverter`で`name()`による文字列変換を追加した。`LanguageVariant`もEnumのリストから文字列リストへ変換する。Structureの全IDはマスタテーブルから取得する。
 
 ```java
 public enum StudyCondition {
@@ -583,23 +393,6 @@ public enum StudyCondition {
 
 }
 ```
-
-```text
-ALL
-→ 学習済み・未学習を問わず検索
-
-LEARNED_ONLY
-→ 学習済みのみ
-
-UNLEARNED_ONLY
-→ 未学習のみ
-```
-
----
-
-## 2-5. SearchConditionConverterの追加
-
-`StudyCondition` と `LanguageVariant` をNative Queryへ渡せるStringへ変換する処理を追加する。
 
 ```java
 public String convertStudyCondition(
@@ -624,46 +417,6 @@ public String convertStudyCondition(
 ```
 
 ```java
-public List<String> convertLanguageVariant(
-        List<LanguageVariant> languageVariants) {
-
-    List<String> convertedLanguageVariants =
-            new ArrayList<>();
-
-    for (LanguageVariant languageVariant
-            : languageVariants) {
-
-        convertedLanguageVariants.add(
-                languageVariant.name()
-        );
-    }
-
-    return convertedLanguageVariants;
-}
-```
-
-`StudyCondition` は、
-
-```text
-ALL            → "ALL"
-LEARNED_ONLY   → "LEARNED_ONLY"
-UNLEARNED_ONLY → "UNLEARNED_ONLY"
-null           → "ALL"
-```
-
-としてRepositoryへ渡す。
-
-`LanguageVariant` についてもEnumの `name()` をStringのListへ変換する。
-
----
-
-## 2-6. StructureRepositoryに全structureId取得処理を追加
-
-文法・構造が何も選択されなかった場合は、すべての文法・構造を検索対象にする。
-
-そのため、DBに存在するすべての `structure_id` を取得するメソッドを追加する。
-
-```java
 @Query(value = """
     SELECT DISTINCT structure_id
     FROM structure
@@ -673,15 +426,12 @@ null           → "ALL"
 List<Long> findAllStructureIds();
 ```
 
-難易度や理解度はEnumなので `values()` ですべて取得できるが、文法・構造はDBで管理しているためRepositoryから取得する。
+## 5. Controllerと画面表示データ
 
----
+Controllerは、ログインユーザーの特定、リクエストパラメータの受け取り、Serviceの呼び出し、Thymeleafへ渡すModelの組み立てを担当する。検索SQLや条件変換はControllerへ書かず、前章のService・Repositoryへ委譲した。
 
-## 2-7. UserQuestionController.javaの作成
 
-`/user/question/list` の表示と検索を担当するControllerを作成する。
-
-### UserQuestionController.java
+`GET /user/question/list`でログインユーザーを取得し、検索条件をServiceへ渡す。言語が未指定の場合はSessionの`languageVariant`（未設定なら`MAINLAND`）を採用する。ページは50件単位。検索条件をModelへ戻し、フォームの選択状態を保持する。表示範囲の`start/end`と総件数も計算する。
 
 ```java
 @Controller
@@ -853,101 +603,12 @@ public class UserQuestionController {
 }
 ```
 
-1ページあたりの表示件数は、
+## 6. ページネーション
 
-```java
-@PageableDefault(page = 0, size = 50)
-```
+一覧を50件ずつ表示するため、Spring Dataの`Pageable`と`Page`を使用する。ただし、ページ番号のリンクをどの範囲まで表示するかは別の処理が必要になるため、`PaginationService`と`PaginationDto`を用意した。
 
-として50件とする。
 
-### 表示言語
-
-表示言語が未指定の場合は、Sessionに設定されている現在の学習対象言語を使用する。
-
-```java
-if (languageVariants == null
-        || languageVariants.isEmpty()) {
-
-    LanguageVariant languageVariant =
-            (LanguageVariant)
-            session.getAttribute("languageVariant");
-
-    if (languageVariant == null) {
-        languageVariant =
-                LanguageVariant.MAINLAND;
-    }
-
-    languageVariants =
-            Arrays.asList(languageVariant);
-}
-```
-
-これにより、例えば現在の学習対象が普通話の場合は、初回アクセス時にも普通話の問題を対象とする。
-
-### 表示件数
-
-検索結果全体のうち、現在何件目から何件目まで表示しているかを計算する。
-
-```java
-long start =
-        questionList.getNumber()
-        * questionList.getSize() + 1;
-
-long end =
-        start
-        + questionList.getNumberOfElements() - 1;
-```
-
-例えば101件を50件ずつ表示する場合は、
-
-```text
-1ページ目 → 1-50
-2ページ目 → 51-100
-3ページ目 → 101-101
-```
-
-となる。
-
-### 検索条件を画面へ戻す
-
-検索後も検索条件を画面に表示するため、受け取った値をModelへ戻す。
-
-```java
-model.addAttribute(
-        "selectedDifficulties",
-        difficulties);
-
-model.addAttribute(
-        "selectedEvaluations",
-        evaluations);
-
-model.addAttribute(
-        "selectedStudyCondition",
-        studyCondition);
-
-model.addAttribute(
-        "selectedFavoriteCondition",
-        favoriteCondition);
-
-model.addAttribute(
-        "selectedStructureIds",
-        structureIds);
-
-model.addAttribute(
-        "japaneseKeyword",
-        japaneseKeyword);
-
-model.addAttribute(
-        "chineseKeyword",
-        chineseKeyword);
-```
-
----
-
-## 2-8. PaginationDto.javaの作成
-
-ページネーション表示に必要な情報をまとめてControllerからHTMLへ渡すため、`PaginationDto` を作成する。
+`PaginationDto`に現在ページ・表示開始／終了ページ・両端の省略記号表示フラグを保持する。`PaginationService`は現在ページの前後2ページを基本に、先頭・末尾付近では不足分を補う。例：`1 ... 3 4 [5] 6 7 ... 10`。
 
 ```java
 @Data
@@ -966,8 +627,6 @@ public class PaginationDto {
 }
 ```
 
-各フィールドは、
-
 ```text
 currentPage
 → 現在ページ
@@ -985,1597 +644,99 @@ showLastEllipsis
 → 末尾側の「...」を表示するか
 ```
 
-を表す。
+## 7. 問題一覧画面とJavaScript
 
----
+検索はGETフォームとして実装し、検索条件をURLパラメータで送信する。一方、理解度やお気に入りの変更は一覧全体を再検索せず操作できるよう、JavaScriptから更新リクエストを送る構成とした。**検索と更新で通信方法を分けている**点が、この画面の重要な設計である。
 
-## 2-9. PaginationService.javaの作成
 
-ページ数が多い場合でも、
-
-```text
-1 ... 3 4 [5] 6 7 ... 10
-```
-
-のように現在ページ周辺だけを表示できるようにする。
-
-### PaginationService.java
-
-```java
-@Service
-public class PaginationService {
-	
-	public PaginationDto createPagination(
-	        Page<?> page) {
-
-	    // 現在のページ番号(0始まり)
-	    int currentPage =
-	            page.getNumber();
-
-	    // ページ番号の最小値・最大値
-	    int startPage = 0;
-
-	    int endPage =
-	            page.getTotalPages() - 1;
-
-	    // 現在ページの前後2ページを
-	    // 表示範囲とする
-	    int displayStartPage =
-	            Math.max(
-	                    startPage,
-	                    currentPage - 2);
-
-	    int displayEndPage =
-	            Math.min(
-	                    endPage,
-	                    currentPage + 2);
-
-	    // 表示ページ数が5ページ未満の場合は
-	    // 不足分を補う
-	    int shortage = 0;
-
-	    // 先頭側に寄っている場合は
-	    // 右側へ表示範囲を広げる
-	    if (displayStartPage == startPage) {
-
-	        shortage =
-	                4 - (
-	                    displayEndPage
-	                    - displayStartPage
-	                );
-
-	        displayEndPage =
-	                Math.min(
-	                        endPage,
-	                        displayEndPage
-	                        + shortage);
-
-	    // 末尾側に寄っている場合は
-	    // 左側へ表示範囲を広げる
-	    } else if (
-	            displayEndPage == endPage) {
-
-	        shortage =
-	                4 - (
-	                    displayEndPage
-	                    - displayStartPage
-	                );
-
-	        displayStartPage =
-	                Math.max(
-	                        startPage,
-	                        displayStartPage
-	                        - shortage);
-	    }
-
-	    // 先頭・末尾の省略記号(...)
-	    // を表示するか判定
-	    boolean showFirstEllipsis =
-	            displayStartPage >= 3;
-
-	    boolean showLastEllipsis =
-	            displayEndPage
-	            <= endPage - 3;
-
-	    // ページネーション情報をDTOへ格納
-	    PaginationDto pagination =
-	            new PaginationDto();
-
-	    pagination.setCurrentPage(
-	            currentPage);
-
-	    pagination.setDisplayStartPage(
-	            displayStartPage);
-
-	    pagination.setDisplayEndPage(
-	            displayEndPage);
-
-	    pagination.setShowFirstEllipsis(
-	            showFirstEllipsis);
-
-	    pagination.setShowLastEllipsis(
-	            showLastEllipsis);
-
-	    return pagination;
-	}
-
-}
-```
-
-基本的には現在ページの前後2ページを表示する。
-
-ただし、現在ページが先頭または末尾に近い場合は表示数が5ページ未満になるため、不足した分を反対側へ広げる。
-
-```text
-[1] 2 3 4 5 ... 10
-
-1 [2] 3 4 5 ... 10
-
-1 ... 6 7 8 9 [10]
-```
-
-また、`...` は2ページ以上を省略する場合だけ表示する。
-
-```java
-boolean showFirstEllipsis =
-        displayStartPage >= 3;
-
-boolean showLastEllipsis =
-        displayEndPage <= endPage - 3;
-```
-
-計算結果は `PaginationDto` に格納し、Controllerを経由してHTMLへ渡す。
-
-# 2-10. 問題一覧画面の作成
-
-`/user/question/list.html` を作成し、検索フォーム・問題一覧・ページネーション・詳細モーダル・理解度変更機能を1画面にまとめる。
-
-## /user/question/list.html
+`/user/question/list.html`には検索フォーム、問題テーブル、ページリンク、問題詳細モーダル、理解度変更モーダルを配置した。HTML全文は同様のチェックボックスやページリンクが繰り返されるため、重要な要素を抜粋する。
 
 ```html
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout/layout}">
-
-<head>
-    <meta charset="UTF-8">
-    <title>Chinese Output Forge</title>
-
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-
-    <script th:src="@{/js/user/question/list.js}"
-            defer>
-    </script>
-
-    <meta name="_csrf"
-          th:content="${_csrf.token}">
-
-    <meta name="_csrf_header"
-          th:content="${_csrf.headerName}">
-</head>
-
-<body>
-
-<div layout:fragment="content" class="w-100">
-
-    <h2 class="mb-4"
-        th:text="#{user.question.list.title}">
-        問題一覧
-    </h2>
-
-    <!-- ========================= -->
-    <!-- 検索フォーム -->
-    <!-- ========================= -->
-
-    <form th:action="@{/user/question/list}"
-          method="get"
-          class="card p-3 mb-3">
-
-        <div class="row g-3">
-
-            <!-- ========================= -->
-            <!-- 学習対象言語 -->
-            <!-- ========================= -->
-
-            <div class="col-md-12">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.languageVariant}">
-                    学習対象言語
-                </label>
-
-                <div class="d-flex align-items-center gap-4">
-
-                    <!-- 普通話 -->
-                    <div class="form-check">
-
-                        <input class="form-check-input"
-                               type="checkbox"
-                               name="languageVariants"
-                               value="MAINLAND"
-                               id="mainland"
-                               th:checked="${selectedLanguageVariants != null
-                                   and selectedLanguageVariants.![name()].contains('MAINLAND')}">
-
-                        <label class="form-check-label"
-                               for="mainland"
-                               th:classappend="${session.languageVariant == null
-                                   or session.languageVariant.name() == 'MAINLAND'}
-                                   ? ' fs-5 fw-bold'
-                                   : ''">
-                            🇨🇳普通话
-                        </label>
-
-                    </div>
-
-                    <!-- 國語 -->
-                    <div class="form-check">
-
-                        <input class="form-check-input"
-                               type="checkbox"
-                               name="languageVariants"
-                               value="TAIWAN"
-                               id="taiwan"
-                               th:checked="${selectedLanguageVariants != null
-                                   and selectedLanguageVariants.![name()].contains('TAIWAN')}">
-
-                        <label class="form-check-label"
-                               for="taiwan"
-                               th:classappend="${session.languageVariant != null
-                                   and session.languageVariant.name() == 'TAIWAN'}
-                                   ? ' fs-5 fw-bold'
-                                   : ''">
-                            🇹🇼國語
-                        </label>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 難易度 -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.difficulty}">
-                    難易度
-                </label>
-
-                <div class="form-check">
-
-                    <input class="form-check-input"
-                           type="checkbox"
-                           name="difficulties"
-                           value="BEGINNER"
-                           id="beginner"
-                           th:checked="${selectedDifficulties == null
-                               or selectedDifficulties.![name()].contains('BEGINNER')}">
-
-                    <label class="form-check-label"
-                           for="beginner"
-                           th:text="#{difficulty.beginner}">
-                        初級
-                    </label>
-
-                </div>
-
-                <div class="form-check">
-
-                    <input class="form-check-input"
-                           type="checkbox"
-                           name="difficulties"
-                           value="INTERMEDIATE"
-                           id="intermediate"
-                           th:checked="${selectedDifficulties == null
-                               or selectedDifficulties.![name()].contains('INTERMEDIATE')}">
-
-                    <label class="form-check-label"
-                           for="intermediate"
-                           th:text="#{difficulty.intermediate}">
-                        中級
-                    </label>
-
-                </div>
-
-                <div class="form-check">
-
-                    <input class="form-check-input"
-                           type="checkbox"
-                           name="difficulties"
-                           value="ADVANCED"
-                           id="advanced"
-                           th:checked="${selectedDifficulties == null
-                               or selectedDifficulties.![name()].contains('ADVANCED')}">
-
-                    <label class="form-check-label"
-                           for="advanced"
-                           th:text="#{difficulty.advanced}">
-                        上級
-                    </label>
-
-                </div>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 理解度 -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.evaluation}">
-                    理解度
-                </label>
-
-                <div class="form-check">
-
-                    <input class="form-check-input evaluationFilter"
-                           type="checkbox"
-                           name="evaluations"
-                           value="HARD"
-                           id="hard"
-                           th:checked="${selectedEvaluations != null
-                               and selectedEvaluations.![name()].contains('HARD')}">
-
-                    <label class="form-check-label"
-                           for="hard">
-                        Hard
-                    </label>
-
-                </div>
-
-                <div class="form-check">
-
-                    <input class="form-check-input evaluationFilter"
-                           type="checkbox"
-                           name="evaluations"
-                           value="GOOD"
-                           id="good"
-                           th:checked="${selectedEvaluations != null
-                               and selectedEvaluations.![name()].contains('GOOD')}">
-
-                    <label class="form-check-label"
-                           for="good">
-                        Good
-                    </label>
-
-                </div>
-
-                <div class="form-check">
-
-                    <input class="form-check-input evaluationFilter"
-                           type="checkbox"
-                           name="evaluations"
-                           value="EASY"
-                           id="easy"
-                           th:checked="${selectedEvaluations != null
-                               and selectedEvaluations.![name()].contains('EASY')}">
-
-                    <label class="form-check-label"
-                           for="easy">
-                        Easy
-                    </label>
-
-                </div>
-
-                <span id="evaluationWarning"
-                      class="text-danger small"
-                      th:text="#{user.question.list.evaluation.warning}">
-                    理解度は「学習済み」を選択した場合のみ指定できます。
-                </span>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 学習状況 -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.studyCondition}">
-                    学習状況
-                </label>
-
-                <select class="form-select"
-                        name="studyCondition"
-                        id="studyCondition">
-
-                    <option value="ALL"
-                            th:selected="${selectedStudyCondition == null
-                                or selectedStudyCondition.name() == 'ALL'}"
-                            th:text="#{user.question.list.studyCondition.all}">
-                        すべて
-                    </option>
-
-                    <option value="LEARNED_ONLY"
-                            th:selected="${selectedStudyCondition != null
-                                and selectedStudyCondition.name() == 'LEARNED_ONLY'}"
-                            th:text="#{user.question.list.studyCondition.learned}">
-                        学習済み
-                    </option>
-
-                    <option value="UNLEARNED_ONLY"
-                            th:selected="${selectedStudyCondition != null
-                                and selectedStudyCondition.name() == 'UNLEARNED_ONLY'}"
-                            th:text="#{user.question.list.studyCondition.unlearned}">
-                        未学習
-                    </option>
-
-                </select>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- お気に入り -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.favorite}">
-                    お気に入り
-                </label>
-
-                <select class="form-select"
-                        name="favoriteCondition">
-
-                    <option value="ALL"
-                            th:selected="${selectedFavoriteCondition == null
-                                or selectedFavoriteCondition.name() == 'ALL'}"
-                            th:text="#{user.question.list.favorite.all}">
-                        すべて
-                    </option>
-
-                    <option value="FAVORITED"
-                            th:selected="${selectedFavoriteCondition != null
-                                and selectedFavoriteCondition.name() == 'FAVORITED'}"
-                            th:text="#{user.question.list.favorite.only}">
-                        お気に入りのみ
-                    </option>
-
-                    <option value="NOT_FAVORITED"
-                            th:selected="${selectedFavoriteCondition != null
-                                and selectedFavoriteCondition.name() == 'NOT_FAVORITED'}"
-                            th:text="#{user.question.list.favorite.not}">
-                        お気に入り以外
-                    </option>
-
-                </select>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 文法・構造 -->
-            <!-- ========================= -->
-
-            <div class="col-12">
-
-                <div class="card">
-
-                    <div class="card-header fw-bold"
-                         th:text="#{user.question.list.structure}">
-                        文法・構造
-                    </div>
-
-                    <div class="card-body">
-
-                        <div class="mb-3">
-
-                            <button type="button"
-                                    id="selectAllStructures"
-                                    class="btn btn-outline-primary btn-sm"
-                                    th:text="#{user.question.list.structure.selectAll}">
-                                すべて選択
-                            </button>
-
-                            <button type="button"
-                                    id="clearAllStructures"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    th:text="#{user.question.list.structure.clearAll}">
-                                すべて解除
-                            </button>
-
-                        </div>
-
-                        <div id="structureList"
-                             class="d-flex flex-wrap gap-2 structure-list">
-
-                            <label th:each="structure : ${structures}"
-                                   class="bg-light rounded px-3 py-2"
-                                   data-bs-toggle="tooltip"
-                                   data-bs-placement="top"
-                                   th:data-bs-title="${session.languageVariant != null
-                                       && session.languageVariant.name() == 'TAIWAN'
-                                       ? structure.descriptionZhTw
-                                       : structure.descriptionZhCn}">
-
-                                <input class="form-check-input me-2"
-                                       type="checkbox"
-                                       name="structureIds"
-                                       th:value="${structure.structureId}"
-                                       th:checked="${selectedStructureIds == null
-                                           or selectedStructureIds.contains(structure.structureId)}">
-
-                                <span th:text="${structure.name}">
-                                    文法・構造
-                                </span>
-
-                            </label>
-
-                        </div>
-
-                        <div class="text-center mt-3">
-
-                            <button type="button"
-                                    id="toggleStructures"
-                                    class="btn btn-link btn-sm"
-                                    th:data-show-text="#{user.question.list.structure.showAll}"
-                                    th:data-hide-text="#{user.question.list.structure.collapse}"
-                                    th:text="#{user.question.list.structure.showAll}">
-                                すべて表示
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 日本語キーワード -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.japaneseKeyword}">
-                    日本語キーワード
-                </label>
-
-                <input class="form-control"
-                       type="text"
-                       name="japaneseKeyword"
-                       th:value="${japaneseKeyword}">
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 中国語キーワード -->
-            <!-- ========================= -->
-
-            <div class="col-md-4">
-
-                <label class="form-label fw-bold"
-                       th:text="#{user.question.list.chineseKeyword}">
-                    中国語キーワード
-                </label>
-
-                <input class="form-control"
-                       type="text"
-                       name="chineseKeyword"
-                       th:value="${chineseKeyword}">
-
-            </div>
-
-            <!-- ========================= -->
-            <!-- 検索ボタン -->
-            <!-- ========================= -->
-
-            <div class="col-md-4 d-grid align-self-end">
-
-                <button class="btn btn-primary"
-                        type="submit">
-
-                    <i class="bi bi-search me-1"></i>
-
-                    <span th:text="#{user.question.list.search}">
-                        検索
-                    </span>
-
-                </button>
-
-            </div>
-
-        </div>
-
-    </form>
-
-    <!-- ========================= -->
-    <!-- 件数 -->
-    <!-- ========================= -->
-
-    <div class="text-center mb-3">
-
-        <span th:text="${start}"></span>
-        -
-        <span th:text="${end}"></span>
-        /
-        <span th:text="${total}"></span>
-
-        <span th:text="#{user.question.list.items}">
-            件
-        </span>
-
-    </div>
-
-    <!-- ========================= -->
-    <!-- 問題一覧 -->
-    <!-- ========================= -->
-
-    <div class="table-responsive">
-
-        <table class="table table-hover align-middle">
-
-            <thead class="table-dark">
-
-            <tr>
-
-                <th class="text-nowrap"
-                    style="width:5%;"
-                    th:text="#{user.question.list.questionId}">
-                    問題番号
-                </th>
-
-                <th style="width:22%;"
-                    th:text="#{user.question.list.japanese}">
-                    日本語
-                </th>
-
-                <th style="width:22%;"
-                    th:text="#{user.question.list.chinese}">
-                    中国語
-                </th>
-
-                <th style="width:14%;"
-                    th:text="#{user.question.list.alternativeAnswer}">
-                    別解
-                </th>
-
-                <th style="width:10%;"
-                    th:text="#{user.question.list.structure}">
-                    文法・構造
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.difficulty}">
-                    難易度
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.detail}">
-                    詳細
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.evaluation}">
-                    理解度
-                </th>
-
-                <th class="text-nowrap"
-                    th:text="#{user.question.list.favorite}">
-                    お気に入り
-                </th>
-
-            </tr>
-
-            </thead>
-
-            <tbody>
-
-            <tr th:each="question : ${questionList}">
-
-                <!-- 問題番号 -->
-                <td th:text="${question.questionId}">
-                </td>
-
-                <!-- 日本語 -->
-                <td th:text="${question.japaneseText}">
-                </td>
-
-                <!-- 中国語 -->
-                <td th:text="${question.chineseText}">
-                </td>
-
-                <!-- 別解 -->
-                <td th:text="${question.alternativeAnswer != null
-                    ? (#strings.length(question.alternativeAnswer) > 20
-                        ? #strings.substring(question.alternativeAnswer, 0, 20) + '…'
-                        : question.alternativeAnswer)
-                    : ''}">
-                </td>
-
-                <!-- 文法・構造 -->
-                <td>
-
-                    <span th:text="${question.structureName}"
-                          data-bs-toggle="tooltip"
-                          data-bs-placement="top"
-                          th:data-bs-title="${session.languageVariant != null
-                              && session.languageVariant.name() == 'TAIWAN'
-                              ? question.structureDescriptionZhTw
-                              : question.structureDescriptionZhCn}">
-                        文法・構造
-                    </span>
-
-                </td>
-
-                <!-- 難易度 -->
-                <td>
-
-                    <span class="text-danger fw-bold"
-                          th:if="${question.difficulty.name() == 'BEGINNER'}"
-                          th:text="#{difficulty.beginner}">
-                        初級
-                    </span>
-
-                    <span class="text-primary fw-bold"
-                          th:if="${question.difficulty.name() == 'INTERMEDIATE'}"
-                          th:text="#{difficulty.intermediate}">
-                        中級
-                    </span>
-
-                    <span class="text-success fw-bold"
-                          th:if="${question.difficulty.name() == 'ADVANCED'}"
-                          th:text="#{difficulty.advanced}">
-                        上級
-                    </span>
-
-                </td>
-
-                <!-- 詳細 -->
-                <td>
-
-                    <button type="button"
-                            class="detailButton btn btn-outline-primary btn-sm text-nowrap"
-                            data-bs-toggle="modal"
-                            data-bs-target="#questionDetailModal"
-                            th:data-japanese="${question.japaneseText}"
-                            th:data-chinese="${question.chineseText}"
-                            th:data-alternative="${question.alternativeAnswer}"
-                            th:text="#{user.question.list.detail}"
-                            th:data-pinyin="${question.pinyin}"
-                            th:data-zhuyin="${question.zhuyin}"
-                            th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
-                            th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}">
-                        詳細
-                    </button>
-
-                </td>
-
-                <!-- 理解度 -->
-                <td>
-
-                    <span th:if="${question.evaluation == null}"
-                          class="text-secondary text-nowrap"
-                          th:text="#{user.question.list.unlearned}">
-                        未学習
-                    </span>
-
-                    <button th:if="${question.evaluation?.name() == 'HARD'}"
-                            class="btn btn-sm btn-danger evaluationButton"
-                            th:data-question-id="${question.questionId}"
-                            data-bs-toggle="modal"
-                            data-bs-target="#evaluationModal">
-                        Hard
-                    </button>
-
-                    <button th:if="${question.evaluation?.name() == 'GOOD'}"
-                            class="btn btn-sm btn-primary evaluationButton"
-                            th:data-question-id="${question.questionId}"
-                            data-bs-toggle="modal"
-                            data-bs-target="#evaluationModal">
-                        Good
-                    </button>
-
-                    <button th:if="${question.evaluation?.name() == 'EASY'}"
-                            class="btn btn-sm btn-success evaluationButton"
-                            th:data-question-id="${question.questionId}"
-                            data-bs-toggle="modal"
-                            data-bs-target="#evaluationModal">
-                        Easy
-                    </button>
-
-                </td>
-
-                <!-- お気に入り -->
-                <td class="text-center">
-
-                    <button class="btn btn-link p-0 favoriteButton"
-                            th:data-question-id="${question.questionId}">
-
-                        <i class="bi bi-heart-fill text-danger"
-                           th:if="${question.favorite}">
-                        </i>
-
-                        <i class="bi bi-heart text-secondary"
-                           th:unless="${question.favorite}">
-                        </i>
-
-                    </button>
-
-                </td>
-
-            </tr>
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-    <!-- ========================= -->
-    <!-- ページネーション -->
-    <!-- ========================= -->
-
-    <nav class="mt-4 mb-5"
-         th:if="${page.totalPages > 0}">
-
-        <ul class="pagination justify-content-center">
-
-            <!-- 前へ -->
-            <li class="page-item"
-                th:classappend="${page.first} ? ' disabled'">
-
-                <a class="page-link"
-                   th:href="@{/user/question/list(
-                       page=${page.number - 1},
-                       size=${page.size},
-                       difficulties=${selectedDifficulties},
-                       evaluations=${selectedEvaluations},
-                       studyCondition=${selectedStudyCondition},
-                       favoriteCondition=${selectedFavoriteCondition},
-                       structureIds=${selectedStructureIds},
-                       japaneseKeyword=${japaneseKeyword},
-                       chineseKeyword=${chineseKeyword}
-                   )}"
-                   th:text="#{user.question.list.previous}">
-                    前へ
-                </a>
-
-            </li>
-
-            <!-- 1ページ目 -->
-            <li class="page-item"
-                th:classappend="${page.number == 0} ? ' active'">
-
-                <a class="page-link"
-                   th:href="@{/user/question/list(
-                       page=0,
-                       size=${page.size},
-                       difficulties=${selectedDifficulties},
-                       evaluations=${selectedEvaluations},
-                       studyCondition=${selectedStudyCondition},
-                       favoriteCondition=${selectedFavoriteCondition},
-                       structureIds=${selectedStructureIds},
-                       japaneseKeyword=${japaneseKeyword},
-                       chineseKeyword=${chineseKeyword}
-                   )}">
-                    1
-                </a>
-
-            </li>
-
-            <!-- ... 先頭側 -->
-            <li class="page-item disabled"
-                th:if="${pagination.showFirstEllipsis}">
-
-                <span class="page-link">...</span>
-
-            </li>
-
-            <!-- 中央のページ番号 -->
-            <li class="page-item"
-                th:each="i : ${#numbers.sequence(
-                    pagination.displayStartPage,
-                    pagination.displayEndPage)}"
-                th:if="${i != 0 and i != page.totalPages - 1}"
-                th:classappend="${i == pagination.currentPage} ? ' active'">
-
-                <a class="page-link"
-                   th:href="@{/user/question/list(
-                       page=${i},
-                       size=${page.size},
-                       difficulties=${selectedDifficulties},
-                       evaluations=${selectedEvaluations},
-                       studyCondition=${selectedStudyCondition},
-                       favoriteCondition=${selectedFavoriteCondition},
-                       structureIds=${selectedStructureIds},
-                       japaneseKeyword=${japaneseKeyword},
-                       chineseKeyword=${chineseKeyword}
-                   )}"
-                   th:text="${i + 1}">
-                </a>
-
-            </li>
-
-            <!-- ... 末尾側 -->
-            <li class="page-item disabled"
-                th:if="${pagination.showLastEllipsis}">
-
-                <span class="page-link">...</span>
-
-            </li>
-
-            <!-- 最終ページ -->
-            <li class="page-item"
-                th:if="${page.totalPages > 1}"
-                th:classappend="${page.last} ? ' active'">
-
-                <a class="page-link"
-                   th:href="@{/user/question/list(
-                       page=${page.totalPages - 1},
-                       size=${page.size},
-                       difficulties=${selectedDifficulties},
-                       evaluations=${selectedEvaluations},
-                       studyCondition=${selectedStudyCondition},
-                       favoriteCondition=${selectedFavoriteCondition},
-                       structureIds=${selectedStructureIds},
-                       japaneseKeyword=${japaneseKeyword},
-                       chineseKeyword=${chineseKeyword}
-                   )}"
-                   th:text="${page.totalPages}">
-                </a>
-
-            </li>
-
-            <!-- 次へ -->
-            <li class="page-item"
-                th:classappend="${page.last} ? ' disabled'">
-
-                <a class="page-link"
-                   th:href="@{/user/question/list(
-                       page=${page.number + 1},
-                       size=${page.size},
-                       difficulties=${selectedDifficulties},
-                       evaluations=${selectedEvaluations},
-                       studyCondition=${selectedStudyCondition},
-                       favoriteCondition=${selectedFavoriteCondition},
-                       structureIds=${selectedStructureIds},
-                       japaneseKeyword=${japaneseKeyword},
-                       chineseKeyword=${chineseKeyword}
-                   )}"
-                   th:text="#{user.question.list.next}">
-                    次へ
-                </a>
-
-            </li>
-
-        </ul>
-
-    </nav>
-
-    <!-- ========================= -->
-    <!-- 戻る -->
-    <!-- ========================= -->
-
-    <div class="text-center mt-3 mb-3">
-
-        <a th:href="@{/user/menu}"
-           class="btn btn-secondary"
-           th:text="#{user.question.list.backToMenu}">
-            ユーザーメニューに戻る
-        </a>
-
-    </div>
-
-    <!-- ========================= -->
-    <!-- 問題詳細モーダル -->
-    <!-- ========================= -->
-
-    <div class="modal fade"
-         id="questionDetailModal"
-         th:data-pronunciation-type="${pronunciationType}">
-
-        <div class="modal-dialog">
-
-            <div class="modal-content">
-
-                <div class="modal-header">
-
-                    <h5 class="modal-title"
-                        th:text="#{user.question.list.detailTitle}">
-                        問題詳細
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal">
-                    </button>
-
-                </div>
-
-                <div class="modal-body">
-
-                    <!-- 日本語 -->
-                    <p>
-
-                        <strong th:text="#{user.question.list.japanese}">
-                            日本語
-                        </strong>
-
-                        <br>
-
-                        <span id="modalJapanese"></span>
-
-                    </p>
-
-                    <!-- 中国語 -->
-                    <div class="mb-3">
-
-                        <strong th:text="#{user.question.list.chinese}">
-                            中国語
-                        </strong>
-
-                        <br>
-
-                        <span id="modalChinese"></span>
-
-                        <div id="modalChinesePronunciationArea"
-                             class="text-secondary small mt-1">
-
-                            <span id="modalChinesePronunciation"></span>
-
-                        </div>
-
-                    </div>
-
-                    <!-- 別解 -->
-                    <div id="modalAlternativeArea"
-                         class="mb-3">
-
-                        <strong th:text="#{user.question.list.alternativeAnswer}">
-                            別解
-                        </strong>
-
-                        <br>
-
-                        <span id="modalAlternative"></span>
-
-                        <div id="modalAlternativePronunciationArea"
-                             class="text-secondary small mt-1">
-
-                            <span id="modalAlternativePronunciation"></span>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="modal-footer">
-
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal"
-                            th:text="#{common.close}">
-                        閉じる
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- ========================= -->
-    <!-- 理解度変更モーダル -->
-    <!-- ========================= -->
-
-    <div class="modal fade"
-         id="evaluationModal">
-
-        <div class="modal-dialog">
-
-            <div class="modal-content">
-
-                <div class="modal-header">
-
-                    <h5 class="modal-title"
-                        th:text="#{user.question.list.changeEvaluation}">
-                        理解度変更
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal">
-                    </button>
-
-                </div>
-
-                <div class="modal-body text-center">
-
-                    <button class="btn btn-danger evaluationSelect"
-                            data-evaluation="HARD">
-                        Hard
-                    </button>
-
-                    <button class="btn btn-primary evaluationSelect"
-                            data-evaluation="GOOD">
-                        Good
-                    </button>
-
-                    <button class="btn btn-success evaluationSelect"
-                            data-evaluation="EASY">
-                        Easy
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-</body>
-</html>
+<!-- 検索フォーム：GETで検索条件を送信 -->
+<form th:action="@{/user/question/list}" method="get">
+  <input type="checkbox" name="languageVariants" value="MAINLAND"
+         th:checked="${selectedLanguageVariants != null and selectedLanguageVariants.![name()].contains('MAINLAND')}">
+  <input type="text" name="japaneseKeyword" th:value="${japaneseKeyword}">
+  <input type="text" name="chineseKeyword" th:value="${chineseKeyword}">
+  <button type="submit">検索</button>
+</form>
+
+<!-- 一覧表示はProjectionから取得 -->
+<tr th:each="question : ${questionList}">
+  <td th:text="${question.questionId}"></td>
+  <td th:text="${question.japaneseText}"></td>
+  <td th:text="${question.chineseText}"></td>
+  <td>
+    <button class="evaluationButton" th:data-question-id="${question.questionId}"
+            data-bs-toggle="modal" data-bs-target="#evaluationModal">理解度</button>
+  </td>
+  <td><button class="favoriteButton" th:data-question-id="${question.questionId}">お気に入り</button></td>
+</tr>
 ```
 
----
-
-# 2-11. 検索フォームの表示
-
-検索フォームでは以下を指定できるようにした。
-
-- 表示言語
-- 難易度
-- 理解度
-- 学習状況
-- お気に入り
-- 文法・構造
-- 日本語キーワード
-- 中国語キーワード
-
-表示言語は普通話・國語を複数選択可能にする。
-
-現在Sessionで学習対象になっている言語については、
+詳細モーダルには日本語・中国語・別解とSession設定に応じた拼音／注音を表示する。`list.js`でStructureの全選択・解除・展開、Tooltip、モーダルへの値設定、理解度・お気に入りのAJAX更新を担当する。POST時にはCSRFトークンとヘッダー名をmeta要素から取得する。
 
 ```html
-th:classappend="${session.languageVariant == null
-    or session.languageVariant.name() == 'MAINLAND'}
-    ? ' fs-5 fw-bold'
-    : ''"
+<meta name="_csrf" th:content="${_csrf.token}">
+<meta name="_csrf_header" th:content="${_csrf.headerName}">
+<button class="detailButton" data-bs-toggle="modal"
+        data-bs-target="#questionDetailModal"
+        th:data-chinese="${question.chineseText}"
+        th:data-pinyin="${question.pinyin}"
+        th:data-zhuyin="${question.zhuyin}">詳細</button>
 ```
 
-のように強調表示し、**検索対象として選択している言語と、現在の学習対象言語を区別できるようにした。**
+## 8. 初回動作確認
 
-文法・構造は項目数が多いため、
+検索条件を変えた場合の一覧と件数、詳細モーダルに渡す発音情報、理解度・お気に入りの変更結果をそれぞれ確認する。複数テーブルをJOINする一覧では、未学習・お気に入り未登録の問題も表示されることが重要である。
 
-```text
-すべて選択
-すべて解除
-すべて表示
-折りたたむ
-```
 
-を用意する。
-
-また、各文法・構造にカーソルを合わせるとTooltipで説明を確認できるようにした。
-
----
-
-# 2-12. 問題一覧の表示
-
-検索結果には、
-
-- 問題番号
-- 日本語
-- 中国語
-- 別解
-- 文法・構造
-- 難易度
-- 詳細
-- 理解度
-- お気に入り
-
-を表示する。
-
-## 別解の省略
-
-別解が長い場合、そのまま表示すると一覧表が横に広がるため、20文字を超えた場合は省略する。
-
-```html
-<td th:text="${question.alternativeAnswer != null
-    ? (#strings.length(question.alternativeAnswer) > 20
-        ? #strings.substring(question.alternativeAnswer, 0, 20) + '…'
-        : question.alternativeAnswer)
-    : ''}">
-</td>
-```
-
-```text
-別解なし
-→ 空欄
-
-20文字以下
-→ そのまま表示
-
-20文字超
-→ 先頭20文字 + …
-```
-
-## 文法・構造
-
-一覧には文法・構造名を表示し、説明はTooltipに表示する。
-
-```html
-<span th:text="${question.structureName}"
-      data-bs-toggle="tooltip"
-      data-bs-placement="top"
-      th:data-bs-title="${session.languageVariant != null
-          && session.languageVariant.name() == 'TAIWAN'
-          ? question.structureDescriptionZhTw
-          : question.structureDescriptionZhCn}">
-```
-
-國語を学習対象としている場合は繁体字、それ以外では簡体字の説明を使用する。
-
-## 理解度
-
-`evaluation` が存在しない場合は、
-
-```text
-未学習
-```
-
-と表示する。
-
-学習済みの場合は、
-
-```text
-HARD → Hard
-GOOD → Good
-EASY → Easy
-```
-
-のボタンを表示し、クリックすると理解度変更モーダルを開く。
-
-## お気に入り
-
-お気に入り登録済みなら、
-
-```html
-<i class="bi bi-heart-fill text-danger">
-```
-
-未登録なら、
-
-```html
-<i class="bi bi-heart text-secondary">
-```
-
-を表示する。
-
----
-
-# 2-13. 問題詳細をモーダルで表示
-
-一覧表にすべての情報を表示すると横幅が大きくなるため、詳細情報はモーダルへ分離した。
-
-詳細ボタンには、
-
-```html
-th:data-japanese="${question.japaneseText}"
-th:data-chinese="${question.chineseText}"
-th:data-alternative="${question.alternativeAnswer}"
-th:data-pinyin="${question.pinyin}"
-th:data-zhuyin="${question.zhuyin}"
-th:data-alternative-pinyin="${question.alternativeAnswerPinyin}"
-th:data-alternative-zhuyin="${question.alternativeAnswerZhuyin}"
-```
-
-として必要な値を持たせる。
-
-JavaScriptはこれらの `data-*` を取得してモーダルへ表示する。
-
-表示する発音記号はSessionの `PronunciationType` に従い、
-
-```text
-PINYIN
-ZHUYIN
-NONE
-```
-
-を切り替える。
-
----
-
-# 2-14. ページネーションの表示
-
-`PaginationService` で計算した値を利用し、
-
-```text
-1 ... 3 4 [5] 6 7 ... 10
-```
-
-の形式でページネーションを表示する。
-
-ページ移動時には検索条件もURLへ渡す。
-
-```html
-difficulties=${selectedDifficulties},
-evaluations=${selectedEvaluations},
-studyCondition=${selectedStudyCondition},
-favoriteCondition=${selectedFavoriteCondition},
-structureIds=${selectedStructureIds},
-japaneseKeyword=${japaneseKeyword},
-chineseKeyword=${chineseKeyword}
-```
-
-これにより、検索結果の2ページ目以降へ移動しても検索条件を維持できる。
-
----
-
-# 2-15. JavaScriptによる画面操作
-
-`list.js` では主に以下を担当する。
-
-```text
-・文法・構造のすべて選択
-・文法・構造のすべて解除
-・文法・構造一覧の展開／折りたたみ
-・Bootstrap Tooltipの初期化
-・問題詳細モーダルへの値設定
-・発音記号の切り替え
-・理解度変更
-・お気に入り登録／解除
-・学習状況に応じた理解度フィルターの制御
-```
-
-理解度変更とお気に入り変更では、画面全体を再読み込みせずAJAXで更新する。
-
-対象問題はHTML側で設定した、
-
-```html
-th:data-question-id="${question.questionId}"
-```
-
-から取得する。
-
-また、POST時には、
-
-```html
-<meta name="_csrf"
-      th:content="${_csrf.token}">
-
-<meta name="_csrf_header"
-      th:content="${_csrf.headerName}">
-```
-
-からCSRF情報を取得してリクエストへ設定する。
-
----
-
-# 2-16. 実行
-
-`http://localhost:8080/user/question/list` にアクセスすると、現在設定している学習対象言語を対象として問題一覧が表示される。
+現在の学習対象言語を初期値にして一覧を表示し、検索、詳細モーダル、拼音・注音、理解度、お気に入りの操作を確認した。
 
 ![](../../images/0012-02.png)
 ![](../../images/0012-03.png)
-
-検索条件による絞り込みも可能になった。
-
 ![](../../images/0012-04.png)
-
-学習済みの問題では理解度、お気に入り登録済みの問題ではハートアイコンが表示される。
-
 ![](../../images/0012-05.png)
-
-問題詳細はモーダルで確認できる。
-
-拼音：
-
 ![](../../images/0012-06.png)
-
-注音：
-
 ![](../../images/0012-07.png)
-
-理解度は一覧画面から変更できる。
-
 ![](../../images/0012-08.png)
-
-お気に入りについても登録・解除できる。
-
 ![](../../images/0012-09.png)
 ![](../../images/0012-10.png)
 
-## 追加修正 - 理解度変更のControllerを追加
+## 9. 追加修正：理解度更新用エンドポイント
+
+画面にボタンやモーダルが存在していても、実際の更新先となるControllerがなければ処理は完結しない。今回はフロントエンド側の操作を先に用意したため、POST先の不足が動作確認で判明した。
+
+
+`git commit -m "fix: enable evaluation updates from user question list"`
+
+理解度変更モーダルは表示できたが、JavaScriptがPOSTする`/evaluation/toggle`に対応するControllerが未実装だった。`UserQuestionController`に`@PostMapping`を追加して`EvaluationService.updateEvaluation()`を呼び出すよう修正した。
 
 ```text
 git commit -m "fix: enable evaluation updates from user question list"
 ```
 
-User用問題一覧画面では、学習済みの問題に表示されている理解度をクリックすると、モーダルからHard・Good・Easyを選択できるようにしていた。
-
-しかし、モーダルを開いて理解度を選択することはできるものの、実際には理解度が変更されなかった。
-
-原因を確認したところ、JavaScriptでは`/evaluation/toggle`へPOSTリクエストを送信していたが、そのリクエストを受け取るControllerの`PostMapping`を実装していなかった。
-
-そこで、`UserQuestionController`に理解度変更用の処理を追加した。
-
-### UserQuestionController
-
-```java
-@PostMapping("/evaluation/toggle")
-@ResponseBody
-public void toggleEvaluation(
-        @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam Long questionId,
-        @RequestParam Evaluation evaluation) {
-
-    // ユーザー情報を取得
-    Users user =
-            userAccountService.getUserOne(loginUser.getUsername());
-
-    evaluationService.updateEvaluation(
-            user,
-            questionId,
-            evaluation);
-}
-```
-
-ログイン中のユーザーと対象の問題ID、変更後の理解度を取得し、`EvaluationService`の`updateEvaluation`を呼び出して理解度を更新する。
-
-これにより、JavaScriptから送信される`POST /evaluation/toggle`をControllerで受け取れるようになった。
-
-### 実行
-
-理解度がEasyの問題を選択する。
-
 ![](../../images/0012-18.png)
-
-モーダルから理解度をHardに変更する。
-
 ![](../../images/0012-19.png)
-
-変更後、問題一覧にHardとして反映されることを確認した。
-
 ![](../../images/0012-20.png)
 
----
+## 10. UIと検索状態の修正
 
-# 3. UI修正
+初回実装後、次の不整合を順に修正した。
 
-基本機能の実装後、実際に操作して見つかったUI上の問題を修正する。
-
----
-
-# 3-1. 学習状況と理解度の矛盾を解消
+### 学習状況と理解度の矛盾を解消
 
 `git commit -m "feat: disable evaluation filter based on study status"`
 
-理解度は学習済み問題にのみ存在する。
-
-そのため、学習状況が「すべて」または「未学習」の状態で理解度を指定できるのは、検索条件として分かりにくい。
-
-理解度は**学習状況が「学習済み」の場合だけ選択可能**に変更する。
-
-## /user/question/list.html
-
-理解度欄に警告文を追加する。
-
-```html
-<span id="evaluationWarning"
-      class="text-danger small"
-      th:text="#{user.question.list.evaluation.warning}">
-    理解度は「学習済み」を選択した場合のみ指定できます。
-</span>
-```
-
-## /user/question/list.js
-
-変更前は「未学習かどうか」だけを判定していた。
-
-```javascript
-function updateEvaluationState() {
-
-    const unlearned =
-        studyCondition.value ===
-        "UNLEARNED_ONLY";
-
-    evaluations.forEach(function (cb) {
-
-        if (unlearned) {
-
-            cb.checked = false;
-            cb.disabled = true;
-
-        } else {
-
-            cb.disabled = false;
-
-        }
-
-    });
-}
-```
-
-これを「学習済みかどうか」の判定へ変更する。
-
-```javascript
-function updateEvaluationState() {
-
-    const learned =
-        studyCondition.value ===
-        "LEARNED_ONLY";
-
-    const evaluationWarning =
-        document.getElementById(
-            "evaluationWarning");
-
-    evaluations.forEach(function (cb) {
-
-        if (learned) {
-
-            cb.disabled = false;
-
-        } else {
-
-            cb.checked = false;
-            cb.disabled = true;
-
-        }
-
-    });
-
-    evaluationWarning.style.display =
-        learned ? "none" : "";
-}
-```
-
-これにより、
-
-```text
-すべて
-→ 理解度無効
-
-学習済み
-→ 理解度選択可能
-
-未学習
-→ 理解度無効
-```
-
-となる。
-
-操作できない場合には警告文も表示する。
-
-## 実行
-
-学習状況が「すべて」または「未学習」の場合は、理解度を選択できなくなった。
+`git commit -m "feat: disable evaluation filter based on study status"` そのため、学習状況が「すべて」または「未学習」の状態で理解度を指定できるのは、検索条件として分かりにくい。 理解度は**学習状況が「学習済み」の場合だけ選択可能**に変更する。       class="text-danger small"
 
 ![](../../images/0012-11.png)
 
----
-
-# 3-2. 検索条件を検索後も維持する
+### 検索条件を検索後も維持する
 
 `git commit -m "fix: preserve question list search filters"`
 
-検索ボタンを押した後にフォームの状態が初期化されると、ユーザーが現在どの条件で検索しているのか分からなくなる。
-
-そのため、ControllerからModelへ戻した検索条件を利用して、検索後もフォームの状態を維持する。
-
-## 表示言語
-
-Enumを `name()` に変換して判定する。
-
-### 普通話
+`git commit -m "fix: preserve question list search filters"` 検索ボタンを押した後にフォームの状態が初期化されると、ユーザーが現在どの条件で検索しているのか分からなくなる。 そのため、ControllerからModelへ戻した検索条件を利用して、検索後もフォームの状態を維持する。 <input class="form-check-input"
 
 ```html
 <input class="form-check-input"
@@ -2587,114 +748,11 @@ Enumを `name()` に変換して判定する。
            and selectedLanguageVariants.![name()].contains('MAINLAND')}">
 ```
 
-### 國語
-
-```html
-<input class="form-check-input"
-       type="checkbox"
-       name="languageVariants"
-       value="TAIWAN"
-       id="taiwan"
-       th:checked="${selectedLanguageVariants != null
-           and selectedLanguageVariants.![name()].contains('TAIWAN')}">
-```
-
-## 難易度
-
-```html
-th:checked="${selectedDifficulties == null
-    or selectedDifficulties.![name()].contains('BEGINNER')}"
-```
-
-```html
-th:checked="${selectedDifficulties == null
-    or selectedDifficulties.![name()].contains('INTERMEDIATE')}"
-```
-
-```html
-th:checked="${selectedDifficulties == null
-    or selectedDifficulties.![name()].contains('ADVANCED')}"
-```
-
-未指定の場合は全難易度を対象にする仕様なので、`null` の場合はすべてにチェックを付ける。
-
-## 理解度
-
-```html
-th:checked="${selectedEvaluations != null
-    and selectedEvaluations.![name()].contains('HARD')}"
-```
-
-```html
-th:checked="${selectedEvaluations != null
-    and selectedEvaluations.![name()].contains('GOOD')}"
-```
-
-```html
-th:checked="${selectedEvaluations != null
-    and selectedEvaluations.![name()].contains('EASY')}"
-```
-
-## 学習状況・お気に入り
-
-select要素については `th:selected` を利用する。
-
-```html
-th:selected="${selectedStudyCondition != null
-    and selectedStudyCondition.name() == 'LEARNED_ONLY'}"
-```
-
-```html
-th:selected="${selectedFavoriteCondition != null
-    and selectedFavoriteCondition.name() == 'FAVORITED'}"
-```
-
-## 文法・構造
-
-`structureIds` は `List<Long>` なので、そのまま `contains()` で判定する。
-
-```html
-th:checked="${selectedStructureIds == null
-    or selectedStructureIds.contains(structure.structureId)}"
-```
-
-## キーワード
-
-Controllerから戻された値を `th:value` へ設定する。
-
-```html
-<input class="form-control"
-       type="text"
-       name="japaneseKeyword"
-       th:value="${japaneseKeyword}">
-```
-
-```html
-<input class="form-control"
-       type="text"
-       name="chineseKeyword"
-       th:value="${chineseKeyword}">
-```
-
-これにより、検索後もすべての検索条件を画面上で確認できるようになった。
-
----
-
-# 3-3. Bootstrap JavaScriptの二重読み込みを修正
+### Bootstrap JavaScriptの二重読み込みを修正
 
 `git commit -m "fix: remove duplicate Bootstrap JavaScript import"`
 
-`/user/question/list` を表示した際、
-
-- 学習対象言語
-- ユーザーメニュー
-- ハンバーガーメニュー
-
-など、共通ヘッダーにあるBootstrap Dropdownが反応しない問題が発生した。
-
-## 原因
-
-共通レイアウトの `layout/layout.html` ですでにBootstrap JavaScriptを読み込んでいた。
+`git commit -m "fix: remove duplicate Bootstrap JavaScript import"` など、共通ヘッダーにあるBootstrap Dropdownが反応しない問題が発生した。 共通レイアウトの `layout/layout.html` ですでにBootstrap JavaScriptを読み込んでいた。 <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"
 
 ```html
 <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"
@@ -2702,84 +760,11 @@ Controllerから戻された値を `th:value` へ設定する。
 </script>
 ```
 
-しかし、`user/question/list.html` 側でも同じJavaScriptを読み込んでいた。
-
-```html
-<script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}">
-</script>
-```
-
-`user/question/list.html` は、
-
-```html
-layout:decorate="~{layout/layout}"
-```
-
-によって共通レイアウトを使用しているため、Bootstrap JavaScriptが二重に読み込まれていた。
-
-## 修正
-
-`user/question/list.html` からBootstrap JavaScriptの読み込みを削除する。
-
-ページ固有のJavaScriptのみ残す。
-
-```html
-<script th:src="@{/js/user/question/list.js}"
-        defer>
-</script>
-```
-
-役割を、
-
-```text
-layout/layout.html
-├─ Bootstrap CSS
-├─ Bootstrap Icons
-└─ Bootstrap JavaScript
-
-user/question/list.html
-└─ list.js
-```
-
-のように分離した。
-
-これにより、ヘッダーのDropdownが正常に動作するようになった。
-
----
-
-# 3-4. 理解度未選択時のチェック表示を修正
+### 理解度未選択時のチェック表示を修正
 
 `git commit -m "fix: preserve evaluation filter state when no option is selected"`
 
-学習状況を「学習済み」にした状態で、理解度を1つも選択せず検索すると、Service側では、
-
-```text
-HARD
-GOOD
-EASY
-```
-
-のすべてを検索対象として扱う。
-
-しかし画面上では、理解度のチェックがすべて外れた状態になっていた。
-
-これは難易度や文法・構造の、
-
-```text
-何も選択しない
-↓
-すべてを検索対象にする
-↓
-検索後はすべてにチェックを付ける
-```
-
-という表示と統一されていない。
-
-そこでControllerで、学習状況が `LEARNED_ONLY` かつ理解度が未指定の場合は、画面へ戻す値を全理解度にする。
-
-## UserQuestionController.java
-
-`selectedEvaluations` をModelへ設定する前に追加する。
+`git commit -m "fix: preserve evaluation filter state when no option is selected"` 学習状況を「学習済み」にした状態で、理解度を1つも選択せず検索すると、Service側では、 しかし画面上では、理解度のチェックがすべて外れた状態になっていた。 そこでControllerで、学習状況が `LEARNED_ONLY` かつ理解度が未指定の場合は、画面へ戻す値を全理解度にする。
 
 ```java
 // 学習済みで理解度が未指定の場合は
@@ -2798,144 +783,14 @@ model.addAttribute(
         evaluations);
 ```
 
-これにより、
-
-```text
-学習済み
-+
-理解度を何も選択せず検索
-
-↓
-
-検索条件
-HARD / GOOD / EASYすべて
-
-↓
-
-画面表示
-Hard / Good / Easyすべてチェック
-```
-
-となり、実際の検索条件とUI上の表示が一致するようになった。
-
-## 実行
-
-学習状況を「学習済み」にして理解度を空欄のまま検索する。
-
 ![](../../images/0012-12.png)
-
-検索後はすべての理解度にチェックが付くようになった。
-
 ![](../../images/0012-13.png)
 
----
+## 11. 8月29日：検索条件のデフォルト処理を整理
 
-## 追加修正　8月29日
+`git commit -m "refactor: remove redundant filter defaults from user question service"`
 
-**git commit**
-
-```bash
-git commit -m "refactor: remove redundant filter defaults from user question service"
-```
-
-### `UserQuestionService.getFilteredUserQuestionList`の重複処理を削除
-
-`UserQuestionService.getFilteredUserQuestionList`を確認したところ、検索条件が未指定だった場合の初期値設定が、`SearchConditionConverter`の処理と重複していることが判明した。
-
-これまで、以下の処理によって難易度・理解度・学習条件・お気に入り条件が未指定の場合の値を設定していた。
-
-```java
-// 難易度
-if (difficulties == null || difficulties.isEmpty()) {
-    difficulties = Arrays.asList(Difficulty.values());
-}
-
-// 理解度
-if (evaluations == null || evaluations.isEmpty()) {
-    evaluations = Arrays.asList(Evaluation.values());
-}
-
-// 学習条件
-if (studyCondition == null) {
-    studyCondition = StudyCondition.ALL;
-}
-
-// お気に入り条件
-if (favoriteCondition == null) {
-    favoriteCondition = FavoriteCondition.ALL;
-}
-```
-
-これらは、各検索条件が`null`または空の場合に、すべての項目を検索対象として扱うための処理である。
-
-しかし、その後の処理では以下のように`SearchConditionConverter`を使用している。
-
-```java
-// ここで変換する
-List<String> convertedDifficulties =
-        searchConditionConverter.convertDifficulty(difficulties);
-
-List<String> convertedEvaluations =
-        searchConditionConverter.convertEvaluation(evaluations);
-
-String convertedStudyCondition =
-        searchConditionConverter.convertStudyCondition(studyCondition);
-
-String convertedFavoriteCondition =
-        searchConditionConverter.convertFavoriteCondition(favoriteCondition);
-```
-
-`SearchConditionConverter`の各メソッドでは、検索条件をRepositoryへ渡す形式に変換するだけでなく、`null`または空の場合の初期値設定も行っている。
-
-例えば、`convertDifficulty`では`difficulties`が`null`または空の場合、すべての難易度を検索対象とする。
-
-```java
-if (difficulties == null || difficulties.isEmpty()) {
-
-    difficultyList = List.of(
-            Difficulty.BEGINNER.name(),
-            Difficulty.INTERMEDIATE.name(),
-            Difficulty.ADVANCED.name());
-
-}
-```
-
-`convertEvaluation`でも同様に、未指定の場合はすべての理解度を検索対象とする。
-
-```java
-if (evaluations == null || evaluations.isEmpty()) {
-
-    evaluationList = List.of(
-            Evaluation.HARD.name(),
-            Evaluation.GOOD.name(),
-            Evaluation.EASY.name());
-
-}
-```
-
-また、`convertStudyCondition`では`null`の場合に`ALL`へ変換する。
-
-```java
-if (studyCondition == null) {
-
-    convertedStudyCondition =
-            StudyCondition.ALL.name();
-
-}
-```
-
-`convertFavoriteCondition`についても、`null`の場合は`ALL`へ変換している。
-
-```java
-if (favoriteCondition == null) {
-
-    convertedFavoriteCondition =
-            FavoriteCondition.ALL.name();
-
-}
-```
-
-そのため、`UserQuestionService`側で同じ初期値設定を行う必要はない。
+Service内で重複していた検索条件の初期値補完を整理した。初期実装時のコードと修正後のコードを混同しないよう、変更内容を後日のリファクタリングとして記録する。
 
 ### 修正後
 
@@ -2987,125 +842,17 @@ if (chineseKeyword == null) {
 
 ---
 
-## 追加修正　9月13日 - ページ移動後も検索条件を維持する
+## 12. 9月13日：ページ移動時の検索条件を維持
 
-```text
-git commit -m "fix: preserve search conditions during pagination"
-```
+ページ番号のリンクは新たなGETリクエストになるため、`page`だけを送信するとそれまで選択していた絞り込み条件が失われる。検索条件をURLへ引き継ぐ必要があり、後から追加した条件もリンク生成側に反映する。
 
-### 問題点
 
-ユーザー問題一覧で検索条件を指定して絞り込みを行った後、ページネーションで別のページへ移動すると、一部の検索条件が失われる問題があった。
+`git commit -m "fix: preserve search conditions during pagination"`
 
-以下の条件で動作を確認した。
-
-```text
-user: mawsonlakes_admin
-ユーザー自身の学習対象言語: 國語
-
-検索条件
-学習対象言語: 普通話・國語
-難易度: 中級
-```
-
-検索を実行すると、該当する問題は221件となった。
-
-![](../../images/0012-14.png)
-
-1ページあたり50件表示するため、検索結果は5ページとなる。
-
-![](../../images/0012-15.png)
-
-しかし、ページ番号「5」をクリックして別のページへ移動すると、以下の問題が発生した。
-
-- 問題総件数が221件から111件に変化する
-- 検索条件から普通話が外れる
-- 國語の中級問題111件のみが検索対象になる
-- 111件の場合は3ページ目が最終ページとなるため、存在しない5ページ目へ遷移した状態となり、問題が表示されない
-
-![](../../images/0012-16.png)
-
-### 原因
-
-ページネーションのリンクを生成する際に、一部の検索条件をURLパラメータとして引き継いでいなかったことが原因である。
-
-`list.html` のページネーションでは、
+普通話・國語の両方で検索した結果は221件だったが、ページ移動後に111件へ減少した。原因はページネーションの5種類のリンク（前へ／1ページ目／中央／最終／次へ）から`languageVariants`と`sourceCondition`が欠落していたこと。言語条件が未送信になるとControllerがSessionの言語を初期値として再設定するため、検索対象が國語のみへ変わっていた。`sourceCondition`も同様に失われていた。
 
 ```html
-difficulties=${selectedDifficulties},
-evaluations=${selectedEvaluations},
-studyCondition=${selectedStudyCondition},
-favoriteCondition=${selectedFavoriteCondition},
-structureIds=${selectedStructureIds},
-japaneseKeyword=${japaneseKeyword},
-chineseKeyword=${chineseKeyword}
-```
-
-などの検索条件は引き継いでいたが、以下の2つが抜けていた。
-
-```html
-sourceCondition=${selectedSourceCondition},
-languageVariants=${selectedLanguageVariants},
-```
-
-そのため、検索直後は普通話・國語の両方を対象として正しく221件を取得できていたが、ページ番号をクリックすると `languageVariants` がリクエストパラメータから失われていた。
-
-`UserQuestionController` では、`languageVariants` が指定されていない場合、セッションに保存されているユーザーの学習対象言語を使用する。
-
-```java
-if (languageVariants == null || languageVariants.isEmpty()) {
-
-    LanguageVariant languageVariant =
-            (LanguageVariant) session.getAttribute("languageVariant");
-
-    if (languageVariant == null) {
-        languageVariant = LanguageVariant.MAINLAND;
-    }
-
-    languageVariants = Arrays.asList(languageVariant);
-}
-```
-
-今回のユーザーの学習対象言語は國語であるため、ページ移動によって `languageVariants` が失われると、検索条件が
-
-```text
-普通話 + 國語
-```
-
-から
-
-```text
-國語のみ
-```
-
-へ変化していた。
-
-その結果、検索結果も221件から111件へ減少していた。
-
-また、同様に `sourceCondition` もページネーションで引き継がれていなかったため、問題の生成元を指定して検索した場合にも、ページ移動後にその条件が失われる状態になっていた。
-
-### 修正
-
-`list.html` のページネーションを構成する以下の5か所を修正した。
-
-- 前へ
-- 1ページ目
-- 中央のページ番号
-- 最終ページ
-- 次へ
-
-それぞれの `th:href` に、これまで不足していた以下の検索条件を追加した。
-
-```html
-sourceCondition=${selectedSourceCondition},
-languageVariants=${selectedLanguageVariants},
-```
-
-これにより、ページ番号をクリックした際にも現在の検索条件がURLパラメータとして次のリクエストへ渡されるようにした。
-
-たとえばページネーションのリンクは以下のようになる。
-
-```html
+<!-- ページ番号リンクの例：検索条件をすべて引き継ぐ -->
 th:href="@{/user/question/list(
     page=${i},
     size=${page.size},
@@ -3121,24 +868,14 @@ th:href="@{/user/question/list(
 )}"
 ```
 
-### 実行
+修正後はページを移動しても言語・生成元・その他の検索条件と総件数が維持されることを確認した。`sourceCondition`は初回実装時の検索項目にはなく、後日の画面状態に基づく修正として扱う。
 
-以下へアクセスして動作確認を行った。
-
-```text
-http://localhost:8080/user/question/list
-```
-
-学習対象言語として普通話・國語の両方を選択し、検索を実行する。
-
-その後、1ページ目以外のページへ移動しても、
-
-- 普通話・國語の両方が選択された状態を維持する
-- 検索結果の総件数が変化しない
-- 指定した検索条件に基づいた結果が引き続き表示される
-
-ことを確認した。
-
+![](../../images/0012-14.png)
+![](../../images/0012-15.png)
+![](../../images/0012-16.png)
 ![](../../images/0012-17.png)
 
-ページネーションで別のページへ移動する場合も、検索時に指定した条件を正しく維持できるようになった。
+## 13. まとめ
+
+今回の実装では、複数テーブルのProjection検索と件数取得、Controller／Serviceでの検索条件の受け渡し、ページネーション、モーダル・AJAX操作を組み合わせた。後日の修正では、画面で選択した条件を検索後やページ移動後まで一貫して維持すること、フロントエンドとControllerのエンドポイントを対応させることが重要だった。
+

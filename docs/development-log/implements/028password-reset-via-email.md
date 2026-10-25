@@ -1,4 +1,4 @@
-# 028 メールを利用したパスワードリセット機能
+# 028 メールを利用したパスワードリセット機能の実装
 
 ## 概要
 
@@ -42,7 +42,7 @@
 
 ---
 
-## 1. パスワードリセットトークンを管理
+## 1. トークン管理用テーブル・Entity・Repositoryの追加
 
 ### password_reset_tokenテーブル
 
@@ -170,7 +170,7 @@ Users
 
 ---
 
-## 2. パスワードリセットトークンを発行
+## 2. トークンの発行・再発行処理
 
 ### UserRepository
 
@@ -296,71 +296,15 @@ MailServiceへメールアドレスとトークンを渡す
 
 という処理を担当する。
 
-### passwordResetTokenRepository.flush()
+### 既存トークン削除後のflush()
 
-既存トークンを削除する処理では、
+既存トークンの削除直後に`passwordResetTokenRepository.flush()`を実行した。`password_reset_token.user_id`には`UNIQUE`制約があるため、削除SQLが実行される前に同じユーザーの新規トークンをINSERTすると制約違反が発生する。
 
-```java
-passwordResetTokenRepository.delete(
-        existingToken.get());
-
-passwordResetTokenRepository.flush();
-```
-
-として`delete()`の直後に`flush()`を実行。
-
-`@Transactional`によるトランザクション内では、Repositoryの`delete()`を呼び出しても、その時点でDELETE文がDBへ送信されるとは限らない。
-
-今回の`password_reset_token`では、
-
-```sql
-user_id BIGINT NOT NULL UNIQUE
-```
-
-としているため、同じ`user_id`を持つレコードを2件登録することはできない。
-
-そのため、
-
-```text
-既存トークンのdelete()を呼び出す
-    ↓
-DELETEがまだDBへ反映されていない
-    ↓
-新しいトークンをINSERT
-```
-
-という順序になると、
-
-```text
-duplicate key value violates unique constraint
-"password_reset_token_user_id_key"
-```
-
-が発生する。
-
-そこで、
-
-```java
-passwordResetTokenRepository.flush();
-```
-
-によって、それまでの変更をDBへ反映してから新しいトークンを保存する。
-
-```text
-既存トークンをdelete()
-    ↓
-flush()
-    ↓
-DELETEをDBへ反映
-    ↓
-新しいトークンをINSERT
-```
-
-これにより、同じユーザーが再度パスワードリセットを要求した場合にも新しいトークンへ置き換えられる。
+この問題の発生状況と修正内容は「12. 発生したエラーと対処」に記録する。なお、`flush()`はSQLの実行を促す処理であり、トランザクションのコミットそのものではない。
 
 ---
 
-## 3. パスワードリセットメールを送信
+## 3. MailServiceによるリセットメール送信
 
 ### pom.xml
 
@@ -442,7 +386,7 @@ mailSender.send(message);
 
 ---
 
-## 4. SMTPとベースURLを設定
+## 4. SMTP・環境変数・ベースURLの設定
 
 ### application.yml
 
@@ -524,7 +468,7 @@ Javaコード内へURLを固定せず設定値として分離することで、�
 
 ---
 
-## 5. パスワードリセットトークンを検証
+## 5. トークンの存在・有効期限の検証
 
 ### PasswordResetService.validateToken
 
@@ -611,7 +555,7 @@ PasswordResetTokenを返す
 
 ---
 
-## 6. パスワードを更新
+## 6. 新しいパスワードの検証・更新
 
 ### ResetPasswordForm
 
@@ -704,7 +648,7 @@ passwordResetTokenRepository.delete(resetToken);
 
 ---
 
-## 7. パスワードリセット要求画面を追加
+## 7. パスワードリセット要求画面とController
 
 ### ForgotPasswordForm
 
@@ -862,7 +806,7 @@ Controllerから受け取った`email`を、
 
 ---
 
-## 8. パスワード再設定画面を追加
+## 8. パスワード再設定画面とController
 
 ### PasswordResetController.getResetPassword
 
@@ -997,7 +941,7 @@ return "redirect:/login";
 
 ---
 
-## 9. パスワードリセット関連ページを非ログイン状態で許可
+## 9. 未認証ユーザー向けのアクセス許可
 
 ### SecurityConfig
 
@@ -1028,7 +972,7 @@ return "redirect:/login";
 
 ---
 
-## 10. メッセージを追加
+## 10. メッセージの追加
 
 パスワードリセットで使用する画面表示、バリデーション、処理結果のメッセージを`messages.properties`へ追加。
 
@@ -1057,7 +1001,7 @@ password.reset.success=パスワードを再設定しました。新しいパス
 
 ---
 
-## 11. 実行確認
+## 11. 動作確認
 
 `mawsonlakes_user`がパスワードを忘れた場合を想定して一連の動作を確認。
 
@@ -1107,7 +1051,7 @@ DBにトークンが存在していても有効期限が切れている場合は
 
 ---
 
-## 12. その他経験したエラー
+## 12. 発生したエラーと対処
 
 ### password_reset_tokenテーブルへのアクセス権限不足
 
@@ -1202,38 +1146,12 @@ DELETEをDBへ反映
 
 ## まとめ
 
-登録済みのメールアドレスを利用し、ログインできないユーザーが自分でパスワードを再設定できる機能を追加。
+登録済みメールアドレスからパスワードリセットを要求し、UUIDによるトークンを発行して1時間の有効期限とともにDBへ保存する機能を実装した。`JavaMailSender`でトークン付きURLを送信し、GETでの画面表示時とPOSTでの更新時にトークンを検証する。パスワードは`PasswordEncoder`でハッシュ化し、更新後に使用済みトークンを削除する。
 
-パスワードリセット要求時にはメールアドレスから対象ユーザーを取得し、UUIDによるランダムなトークンを生成する。
+また、未ログイン状態で利用する画面のアクセス許可、Gmail SMTPの設定、環境変数による認証情報管理、エラーメッセージの表示を追加した。動作確認ではメール受信と再設定の一連の流れ、入力エラー、無効・期限切れトークンの扱いを確認した。DB権限不足と再発行時のUNIQUE制約違反についても、発生原因と修正内容を記録した。
 
-生成したトークンは対象ユーザーと有効期限とともに`password_reset_token`へ保存し、トークンを含むパスワード再設定URLを登録メールアドレスへ送信する構成とした。
+### 今後の改善候補（今回の実装には含まない）
 
-メール内のURLへアクセスした場合は、
-
-```text
-トークンがDBに存在するか
-    ↓
-有効期限内か
-```
-
-を確認し、両方を満たした場合のみパスワード再設定画面を表示する。
-
-新しいパスワードは既存のパスワード処理と同様に`PasswordEncoder`でハッシュ化して`users.password`へ反映。
-
-更新後には使用済みの`PasswordResetToken`を削除し、一度使用したリセットURLを再利用できないようにする。
-
-また、GmailのSMTPを利用したメール送信、環境変数によるメール認証情報の管理、ローカル環境とデプロイ環境で切り替えられる`app.base-url`も追加。
-
-これにより、
-
-```text
-パスワードリセット要求
-    ↓
-本人の登録メールアドレスへURLを送信
-    ↓
-一時トークンを検証
-    ↓
-新しいパスワードへ更新
-```
-
-という一連のアカウント復旧処理を実行できるようになった。
+- 登録されていないメールアドレスに対しても、画面上では同じ送信受付メッセージを返し、アカウントの存在を推測しにくくする。
+- 送信完了画面へメールアドレスをクエリパラメータで引き継ぐ方式を見直し、URLやアクセスログへの露出を抑える。
+- トークンの安全な保存方法、再発行の同時実行、メール送信失敗時の扱い、リセット要求の回数制限を必要に応じて検討する。

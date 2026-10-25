@@ -1,40 +1,24 @@
-# 017 AI問題生成モードの実装その3 AI生成した問題セットを取得する②API連携
+# 017 AI問題生成モードの実装その3 — AI API連携【実装ログ】
 
-前チャプターでは、AI問題生成の対象となる`sourceQuestions`を取得し、
+## 1. 実装の目的と範囲
 
-- 共通プロンプト
-- Language Profile
-- 生成元問題のJSON
-
-を組み合わせて、AI APIへ送信する`input`を作成した。
-
-このチャプターでは、その`input`を実際にChatGPTまたはGeminiへ送信し、AIが生成した問題を`TemporaryGeneratedQuestionListDto`として取得する処理を実装する。
-
-ChatGPTとGeminiのどちらも、
+016で作成した`input`（共通プロンプト・言語別Language Profile・生成元問題のJSON）をOpenAI Responses APIまたはGemini APIへ渡し、生成結果を共通の`TemporaryGeneratedQuestionListDto`として取得する処理を実装した。
 
 ```text
-APIリクエストを作成
-        ↓
-APIへリクエストを送信
-        ↓
-Responseを取得
-        ↓
-Responseから生成結果を取得
-        ↓
-TemporaryGeneratedQuestionListDto
+input
+  ├─ OpenAI Responses API → StructuredResponse → DTO
+  └─ Gemini API          → JSON文字列 → ObjectMapper → DTO
+                                               ↓
+                            TemporaryGeneratedQuestionListDto
 ```
 
-という流れは共通している。
+この段階では、取得したDTOを`sourceIndex`で元の`Question`に紐付けて`AiGeneratedQuestionDto`へ変換する処理は未実装。APIクライアントのSpring Bean登録も次チャプターで扱う。
 
-一方で、それぞれ異なるJava SDKを使用するため、リクエスト設定やレスポンスから生成結果を取得する方法は異なる。
+## 2. OpenAI Responses APIとの連携
 
----
+### 2-1. SDKの依存関係
 
-## 1. OpenAI Java SDKの追加
-
-JavaアプリケーションからOpenAI APIを利用するため、`pom.xml`へOpenAI Java SDKを追加した。
-
-### `pom.xml`
+`pom.xml`へ当時使用したOpenAI Java SDKを追加した。
 
 ```xml
 <dependency>
@@ -44,30 +28,9 @@ JavaアプリケーションからOpenAI APIを利用するため、`pom.xml`へ
 </dependency>
 ```
 
-これにより、OpenAI APIとの連携に使用する、
+### 2-2. `generateQuestionsWithChatGPT()`
 
-```java
-OpenAIClient
-ResponseCreateParams
-StructuredResponseCreateParams
-StructuredResponse
-```
-
-などのクラスを利用できるようになる。
-
----
-
-## 2. ChatGPTによる問題生成処理の実装
-
-ChatGPTへ`input`を送信し、生成結果を`TemporaryGeneratedQuestionListDto`として取得する、
-
-```java
-generateQuestionsWithChatGPT()
-```
-
-を`AiPracticeService`へ追加した。
-
-### `AiPracticeService.java`
+`AiPracticeService`に以下のメソッドを追加した。**API設定・送信・レスポンスの走査・結果未取得時の例外処理**をまとめて掲載する。
 
 ```java
 private TemporaryGeneratedQuestionListDto generateQuestionsWithChatGPT(
@@ -135,316 +98,45 @@ private TemporaryGeneratedQuestionListDto generateQuestionsWithChatGPT(
 }
 ```
 
-このメソッドでは、
+### 2-3. リクエスト設定とStructured Outputs
 
-```text
-1. Structured Outputsを使用するAPIリクエスト設定を作成
-2. OpenAI APIへリクエストを送信
-3. StructuredResponseを取得
-4. responseからStructured Outputsの生成結果を探す
-5. TemporaryGeneratedQuestionListDtoを返す
-```
+- `ResponseCreateParams.builder()`でリクエスト設定を構築する。
+- `.model(ChatModel.GPT_5_2)`で当時の使用モデルを指定する。
+- `.input(input)`に016で作成した入力文字列を渡す。
+- `.text(TemporaryGeneratedQuestionListDto.class)`で、JavaクラスをStructured Outputsの出力形式として指定する。
+- `openAIClient.responses().create(params)`でResponses APIへ送信し、`StructuredResponse<TemporaryGeneratedQuestionListDto>`を受け取る。
 
-という処理を行う。
-
----
-
-## 3. ChatGPTのAPIリクエスト設定を作成
-
-OpenAIのResponses APIへ送信するリクエスト設定を作成する。
-
-```java
-StructuredResponseCreateParams<TemporaryGeneratedQuestionListDto> params =
-        ResponseCreateParams.builder()
-                .model(ChatModel.GPT_5_2)
-                .input(input)
-                .text(TemporaryGeneratedQuestionListDto.class)
-                .build();
-```
-
-今回はStructured Outputsを使用するため、
-
-```java
-StructuredResponseCreateParams<TemporaryGeneratedQuestionListDto>
-```
-
-としてリクエスト設定を作成する。
-
-各設定は、
-
-```java
-.model(ChatModel.GPT_5_2)
-```
-
-で使用するモデル、
-
-```java
-.input(input)
-```
-
-で前チャプターで作成したAIへの入力、
-
-```java
-.text(TemporaryGeneratedQuestionListDto.class)
-```
-
-でStructured Outputsによる出力形式を指定している。
-
-これにより、AIには最終的に、
-
-```java
-TemporaryGeneratedQuestionListDto
-```
-
-に対応する構造で回答を生成させる。
-
----
-
-## 4. `TemporaryGeneratedQuestionListDto`をStructured Outputsの出力形式として使用
-
-前チャプターでは、AIが生成した1問を受け取る、
-
-```java
-TemporaryGeneratedQuestionDto
-```
-
-に加えて、
+`TemporaryGeneratedQuestionListDto`は`List<TemporaryGeneratedQuestionDto> questions`を保持するラッパーDTO。`List<TemporaryGeneratedQuestionDto>.class`のようにパラメータ化された`List`を直接クラスリテラルとして指定できないため、この形で複数問の生成結果を受け取る。
 
 ```java
 @Data
 public class TemporaryGeneratedQuestionListDto {
-
     private List<TemporaryGeneratedQuestionDto> questions;
 }
 ```
 
-を作成した。
+### 2-4. レスポンスから生成結果を取得
 
-今回生成するのは1問ではなく最大50問なので、必要なのは、
-
-```java
-List<TemporaryGeneratedQuestionDto>
-```
-
-である。
-
-しかし、
-
-```java
-List<TemporaryGeneratedQuestionDto>.class
-```
-
-という指定はできない。
-
-そこで、`List<TemporaryGeneratedQuestionDto>`をフィールドとして持つ`TemporaryGeneratedQuestionListDto`でラップし、
-
-```java
-.text(TemporaryGeneratedQuestionListDto.class)
-```
-
-としてStructured Outputsの出力形式へ指定する。
-
-生成結果は概念的に、
+`response.output()`には複数の出力項目が含まれ得るため、外側のループで`output.isMessage()`、内側のループで`content.isOutputText()`を確認する。該当する内容を`content.asOutputText()`でDTOとして取得する。
 
 ```text
-TemporaryGeneratedQuestionListDto
-│
-└─ questions
-   │
-   ├─ TemporaryGeneratedQuestionDto
-   ├─ TemporaryGeneratedQuestionDto
-   ├─ TemporaryGeneratedQuestionDto
-   │
-   ...
-   └─ TemporaryGeneratedQuestionDto
+StructuredResponse
+  └─ output()（複数の出力項目）
+       └─ Message
+            └─ content()（複数のコンテンツ）
+                 └─ OutputText → TemporaryGeneratedQuestionListDto
+                                      └─ questions（生成問題の一覧）
 ```
 
-という構造になる。
+**二重ループは最大50問を走査しているわけではない。** レスポンス内部を調べ、生成問題の一覧を保持するDTOを探している。結果を取得できない場合は`ai.generation.error.response`のメッセージを使って`IllegalStateException`を送出する。
 
----
+この時点で`openAIClient`はDIで受け取るフィールドとして想定しているが、クライアント生成・Bean登録は後続チャプターで実装する。
 
-## 5. OpenAI APIへリクエストを送信
+## 3. Gemini APIとの連携
 
-作成した`params`を使用して、OpenAI APIへリクエストを送信する。
+### 3-1. SDKの依存関係
 
-```java
-StructuredResponse<TemporaryGeneratedQuestionListDto> response =
-        openAIClient.responses().create(params);
-```
-
-`openAIClient`はOpenAI APIとの通信を担当するクライアントである。
-
-```java
-.responses()
-```
-
-でResponses APIを使用し、
-
-```java
-.create(params)
-```
-
-で作成した`params`を送信する。
-
-APIから返されたレスポンス全体を、
-
-```java
-StructuredResponse<TemporaryGeneratedQuestionListDto>
-```
-
-として受け取る。
-
-`AiPracticeService`では、この`openAIClient`をDIで受け取るため、
-
-```java
-private final OpenAIClient openAIClient;
-```
-
-をフィールドとして持たせる。
-
-このチャプターではAPIリクエスト処理までを実装し、`OpenAIClient`の生成およびSpring Beanへの登録は次チャプターで実装する。
-
----
-
-## 6. OpenAIのResponseから生成結果を取得
-
-`StructuredResponse`にはAIが生成した問題だけではなく、レスポンスに関する複数の情報が含まれる。
-
-そのため、`response`の構造をたどり、Structured Outputsによって生成された`TemporaryGeneratedQuestionListDto`を取得する。
-
-```java
-TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto = null;
-
-for (int i = 0; i < response.output().size(); i++) {
-
-    var output = response.output().get(i);
-
-    if (output.isMessage()) {
-
-        var message = output.asMessage();
-
-        for (int j = 0; j < message.content().size(); j++) {
-
-            var content = message.content().get(j);
-
-            if (content.isOutputText()) {
-
-                temporaryGeneratedQuestionListDto =
-                        content.asOutputText();
-
-                break;
-            }
-        }
-    }
-
-    if (temporaryGeneratedQuestionListDto != null) {
-        break;
-    }
-}
-```
-
-処理しているレスポンスの構造は、
-
-```text
-response
-│
-└─ output()
-   │
-   └─ output
-      │
-      └─ Message
-         │
-         └─ content()
-            │
-            └─ content
-               │
-               └─ TemporaryGeneratedQuestionListDto
-                  │
-                  └─ questions
-                     ├─ TemporaryGeneratedQuestionDto
-                     ├─ TemporaryGeneratedQuestionDto
-                     └─ ...
-```
-
-となる。
-
-外側のループでは、
-
-```java
-response.output()
-```
-
-を順番に確認し、
-
-```java
-output.isMessage()
-```
-
-によって`Message`を探す。
-
-内側のループでは、
-
-```java
-message.content()
-```
-
-を順番に確認し、
-
-```java
-content.isOutputText()
-```
-
-によってStructured Outputsの生成結果を探す。
-
-見つかった場合は、
-
-```java
-temporaryGeneratedQuestionListDto =
-        content.asOutputText();
-```
-
-として`TemporaryGeneratedQuestionListDto`を取得する。
-
-ここで二重ループが走査しているのは生成された最大50問ではなく、`response`内部から生成結果全体を持つ`TemporaryGeneratedQuestionListDto`を探すための処理である。
-
----
-
-## 7. ChatGPTから生成結果を取得できなかった場合の処理
-
-Response内から`TemporaryGeneratedQuestionListDto`を取得できなかった場合は例外を発生させる。
-
-```java
-if (temporaryGeneratedQuestionListDto == null) {
-
-    throw new IllegalStateException(
-            messageSource.getMessage(
-                    "ai.generation.error.response",
-                    null,
-                    locale));
-}
-```
-
-### `messages.properties`
-
-```properties
-ai.generation.error.response=AIから生成結果を取得できませんでした。
-```
-
-生成結果を正常に取得できた場合は、
-
-```java
-return temporaryGeneratedQuestionListDto;
-```
-
-として呼び出し元へ返す。
-
----
-
-## 8. Google Gen AI Java SDKの追加
-
-Gemini APIをJavaアプリケーションから利用するため、Google Gen AI Java SDKを`pom.xml`へ追加した。
-
-### `pom.xml`
+`pom.xml`へ当時使用したGoogle Gen AI Java SDKを追加した。
 
 ```xml
 <dependency>
@@ -454,29 +146,9 @@ Gemini APIをJavaアプリケーションから利用するため、Google Gen A
 </dependency>
 ```
 
-これにより、
+### 3-2. `generateQuestionsWithGemini()`
 
-```java
-Schema
-GenerateContentConfig
-GenerateContentResponse
-```
-
-など、Gemini APIとの連携に必要なクラスを使用できるようになる。
-
----
-
-## 9. Geminiによる問題生成処理の実装
-
-Geminiへ`input`を送信し、生成されたJSONを`TemporaryGeneratedQuestionListDto`へ変換する、
-
-```java
-generateQuestionsWithGemini()
-```
-
-を`AiPracticeService`へ追加した。
-
-### `AiPracticeService.java`
+`AiPracticeService`に以下のメソッドを追加した。OpenAI版と異なり、**出力SchemaをJava側で構築し、受信したJSON文字列をJacksonでDTOへ変換する**。
 
 ```java
 private TemporaryGeneratedQuestionListDto generateQuestionsWithGemini(
@@ -573,122 +245,11 @@ private TemporaryGeneratedQuestionListDto generateQuestionsWithGemini(
 }
 ```
 
-Gemini版では、
+### 3-3. 1問分とレスポンス全体のSchema
 
-```text
-1問分のSchemaを作成
-        ↓
-レスポンス全体のSchemaを作成
-        ↓
-GenerateContentConfigを作成
-        ↓
-Gemini APIへ送信
-        ↓
-生成されたJSON文字列を取得
-        ↓
-ObjectMapperでDTOへ変換
-```
+`questionSchema`は生成問題1件のJSONオブジェクトを定義する。`sourceIndex`は`INTEGER`、`japaneseText`・`chineseText`・`pinyin`・`zhuyin`は`STRING`であり、5項目すべてを`required`に指定した。
 
-という流れになる。
-
----
-
-## 10. Geminiの1問分のStructured Outputs Schemaを作成
-
-Geminiでは、生成させるJSONの構造を`Schema`として明示的に定義する。
-
-まず、1問分の構造を、
-
-```java
-Schema questionSchema =
-        Schema.builder()
-                .type(Type.Known.OBJECT)
-                .properties(Map.of(
-                        "sourceIndex",
-                        Schema.builder()
-                                .type(Type.Known.INTEGER)
-                                .build(),
-                        "japaneseText",
-                        Schema.builder()
-                                .type(Type.Known.STRING)
-                                .build(),
-                        "chineseText",
-                        Schema.builder()
-                                .type(Type.Known.STRING)
-                                .build(),
-                        "pinyin",
-                        Schema.builder()
-                                .type(Type.Known.STRING)
-                                .build(),
-                        "zhuyin",
-                        Schema.builder()
-                                .type(Type.Known.STRING)
-                                .build()
-                ))
-                .required(List.of(
-                        "sourceIndex",
-                        "japaneseText",
-                        "chineseText",
-                        "pinyin",
-                        "zhuyin"))
-                .build();
-```
-
-として定義する。
-
-```java
-.type(Type.Known.OBJECT)
-```
-
-によって1問分のデータがJSONオブジェクトであることを指定する。
-
-`.properties()`では各プロパティとその型を指定し、
-
-```text
-sourceIndex   → INTEGER
-japaneseText  → STRING
-chineseText   → STRING
-pinyin        → STRING
-zhuyin        → STRING
-```
-
-という構造を定義する。
-
-さらに、
-
-```java
-.required(List.of(
-        "sourceIndex",
-        "japaneseText",
-        "chineseText",
-        "pinyin",
-        "zhuyin"))
-```
-
-によって5つのプロパティを必須にする。
-
----
-
-## 11. Geminiのレスポンス全体のSchemaを作成
-
-1問分の`questionSchema`を利用し、複数問題を格納するレスポンス全体のSchemaを作成する。
-
-```java
-Schema responseSchema =
-        Schema.builder()
-                .type(Type.Known.OBJECT)
-                .properties(Map.of(
-                        "questions",
-                        Schema.builder()
-                                .type(Type.Known.ARRAY)
-                                .items(questionSchema)
-                                .build()
-                ))
-                .required(List.of("questions"))
-                .build();
-```
-
-レスポンス全体は、
+`responseSchema`は`questions`という配列プロパティを持つオブジェクト。配列の各要素は`questionSchema`に従う。
 
 ```json
 {
@@ -704,197 +265,24 @@ Schema responseSchema =
 }
 ```
 
-という構造にする。
+`GenerateContentConfig`では`responseMimeType("application/json")`と`responseSchema(responseSchema)`を設定する。`input`が「何を生成するか」、`config`が「どの形式で生成するか」を担当する。
 
-そのため、
+### 3-4. 送信・JSON取得・DTOへの変換
 
-```java
-.type(Type.Known.ARRAY)
-```
+`geminiClient.models.generateContent("gemini-3.7-flash", input, config)`で当時指定したモデルにリクエストする。`response.text()`で生成結果をJSON形式の`String`として取得し、`objectMapper.readValue(responseJson, TemporaryGeneratedQuestionListDto.class)`でJava DTOへ変換する。
 
-で`questions`を配列として定義し、
-
-```java
-.items(questionSchema)
-```
-
-によって配列内の各要素が先ほど作成した`questionSchema`に従うことを指定する。
-
----
-
-## 12. Geminiの`GenerateContentConfig`を作成
-
-作成した`responseSchema`を使用して、Geminiの生成設定を作成する。
-
-```java
-GenerateContentConfig config =
-        GenerateContentConfig.builder()
-                .responseMimeType("application/json")
-                .responseSchema(responseSchema)
-                .build();
-```
-
-```java
-.responseMimeType("application/json")
-```
-
-によってレスポンスをJSON形式で生成するよう指定する。
-
-```java
-.responseSchema(responseSchema)
-```
-
-では、生成するJSONが`responseSchema`で定義した構造に従うよう指定する。
-
-ここまでで、
+これは016で送信データを作成した`writeValueAsString()`とは逆方向の変換である。
 
 ```text
-input
-→ 何を生成するか
-
-config
-→ どのような形式・設定で生成するか
+016: List<AiGenerationSourceDto> → writeValueAsString() → JSON文字列
+017: JSON文字列 → readValue() → TemporaryGeneratedQuestionListDto
 ```
 
-という2つの情報をGemini APIへ渡せる状態になる。
+JSONの解析やDTOへの変換で`JsonProcessingException`が発生した場合は、`ai.generation.error.response`を使用した`IllegalStateException`として扱う。
 
----
+## 4. 使用するAPIの切り替えと結果形式の統一
 
-## 13. Gemini APIへリクエストを送信
-
-作成した`input`と`config`をGemini APIへ送信する。
-
-```java
-GenerateContentResponse response =
-        geminiClient.models.generateContent(
-                "gemini-3.7-flash",
-                input,
-                config);
-```
-
-ここでは、
-
-```text
-"gemini-3.7-flash"
-→ 使用するモデル
-
-input
-→ 生成してほしい内容
-
-config
-→ 生成方法・出力形式の設定
-```
-
-を`generateContent()`へ渡している。
-
-Gemini APIから返されたレスポンス全体は、
-
-```java
-GenerateContentResponse response
-```
-
-として取得する。
-
----
-
-## 14. GeminiのResponseからJSONを取得
-
-Geminiが生成した回答部分を、
-
-```java
-String responseJson =
-        response.text();
-```
-
-として取得する。
-
-`config`では、
-
-```java
-.responseMimeType("application/json")
-.responseSchema(responseSchema)
-```
-
-を設定しているため、`response.text()`から取得する文字列は`responseSchema`に従ったJSONとなる。
-
-この時点では、
-
-```java
-String responseJson
-```
-
-であり、まだ`TemporaryGeneratedQuestionListDto`ではない。
-
----
-
-## 15. GeminiのJSONを`TemporaryGeneratedQuestionListDto`へ変換
-
-取得したJSON文字列を、Jacksonの`ObjectMapper`を使用してJava DTOへ変換する。
-
-```java
-TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto;
-
-try {
-    temporaryGeneratedQuestionListDto =
-            objectMapper.readValue(
-                    responseJson,
-                    TemporaryGeneratedQuestionListDto.class);
-
-} catch (JsonProcessingException e) {
-    throw new IllegalStateException(
-            messageSource.getMessage(
-                    "ai.generation.error.response",
-                    null,
-                    locale),
-            e);
-}
-```
-
-前チャプターでは、
-
-```java
-objectMapper.writeValueAsString(generationSources);
-```
-
-として、
-
-```text
-Javaオブジェクト
-↓
-JSON文字列
-```
-
-へ変換した。
-
-今回は逆に、
-
-```java
-objectMapper.readValue(
-        responseJson,
-        TemporaryGeneratedQuestionListDto.class);
-```
-
-として、
-
-```text
-JSON文字列
-↓
-TemporaryGeneratedQuestionListDto
-```
-
-へ変換する。
-
-JSONの解析またはDTOへの変換に失敗した場合は`JsonProcessingException`を捕捉し、AIの生成結果を正常に取得できなかったものとして`IllegalStateException`を発生させる。
-
----
-
-## 16. ChatGPTとGeminiの生成処理を切り替える
-
-ChatGPT版とGemini版の両方を実装したことで、同じ`generateQuestions()`内で両方を実行すると生成結果を格納する変数が競合する。
-
-そのため、現時点では使用するAIを一時的に切り替える簡易的な分岐を追加した。
-
-### `AiPracticeService.java`
+両方のメソッドを呼び出すのではなく、当時は`useChatGPT`フラグによって使用先を一時的に選択した。
 
 ```java
 // 使用するAIを一時的に切り替える
@@ -920,165 +308,66 @@ if (useChatGPT) {
 // このさき最終的なAiGeneratedQuestionDtoを作成(次回で実装)
 ```
 
-どちらのAPIを使用した場合でも、最終的には、
+どちらを使用しても戻り値は`TemporaryGeneratedQuestionListDto`である。このため、後続の`sourceIndex`による生成元Questionの特定や`AiGeneratedQuestionDto`への変換は、APIごとに別々に実装せず共通化できる。
 
-```java
-TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto
+このフラグは当時の暫定的な切り替え方式であり、設定画面等による切り替え機能を実装したことを意味しない。
+
+## 5. OpenAI版とGemini版の違い
+
+| 項目 | OpenAI Responses API | Gemini API |
+|---|---|---|
+| Java SDK | `com.openai:openai-java:4.54.0` | `com.google.genai:google-genai:1.67.0` |
+| 出力形式の指定 | `.text(TemporaryGeneratedQuestionListDto.class)` | `Schema`を構築し`responseSchema()`へ指定 |
+| API呼び出し | `openAIClient.responses().create(params)` | `geminiClient.models.generateContent(...)` |
+| 受信後の処理 | `StructuredResponse`を走査してDTOを取得 | `response.text()`でJSONを取得して`ObjectMapper.readValue()` |
+| 最終的な戻り値 | `TemporaryGeneratedQuestionListDto` | `TemporaryGeneratedQuestionListDto` |
+
+SDKごとの実装は異なるが、**アプリケーション内部に渡すDTOを統一した**ことが今回の設計上のポイントとなる。
+
+## 6. エラーメッセージと実装状況
+
+`messages.properties`へ、生成結果を取得できなかった場合のメッセージを追加した。
+
+```properties
+ai.generation.error.response=AIから生成結果を取得できませんでした。
 ```
 
-を取得する。
+今回の実装範囲は、**APIへリクエストする処理と、返された生成結果を`TemporaryGeneratedQuestionListDto`として取り出す処理**まで。APIクライアントのBean登録や、生成結果と元問題の紐付け、最終的な問題DTOへの変換は後続チャプターに引き継ぐ。
 
-これによって、ChatGPTとGeminiで異なる処理を、
-
-```text
-ChatGPT
-generateQuestionsWithChatGPT()
-        │
-        ├──────────────┐
-        │              ↓
-        │    TemporaryGeneratedQuestionListDto
-        │              ↑
-        └──────────────┤
-                       │
-Gemini                 │
-generateQuestionsWithGemini()
-```
-
-という形で同じDTOへ収束させる。
-
-そのため、この後のAI生成問題をアプリケーション用DTOへ変換する処理については、ChatGPTとGeminiで共通化できる。
-
----
-
-## 17. ChatGPTとGeminiのAPI連携処理の違い
-
-今回、ChatGPTとGeminiでは同じ、
-
-```text
-APIリクエストを作成
-↓
-APIへ送信
-↓
-生成結果を取得
-↓
-TemporaryGeneratedQuestionListDto
-```
-
-という処理を実装したが、使用するSDKとStructured Outputsの扱い方が異なる。
-
-### ChatGPT
-
-```text
-input
-↓
-StructuredResponseCreateParams
-↓
-openAIClient.responses().create()
-↓
-StructuredResponse
-↓
-output
-↓
-Message
-↓
-content
-↓
-TemporaryGeneratedQuestionListDto
-```
-
-OpenAI Java SDKでは、
-
-```java
-.text(TemporaryGeneratedQuestionListDto.class)
-```
-
-としてJavaクラスをStructured Outputsの出力形式へ指定する。
-
-生成結果についても、SDKによって`TemporaryGeneratedQuestionListDto`として扱えるため、`StructuredResponse`の構造をたどってDTOを取得する。
-
-### Gemini
-
-```text
-input
-↓
-questionSchema
-↓
-responseSchema
-↓
-GenerateContentConfig
-↓
-geminiClient.models.generateContent()
-↓
-GenerateContentResponse
-↓
-JSON文字列
-↓
-ObjectMapper
-↓
-TemporaryGeneratedQuestionListDto
-```
-
-Geminiでは、`Schema`を使用して生成するJSONの構造を明示的に定義する。
-
-APIからは生成結果をJSON文字列として取得し、
-
-```java
-objectMapper.readValue()
-```
-
-によって`TemporaryGeneratedQuestionListDto`へ変換する。
-
-両者の実装方法は異なるが、このチャプターでは最終的にどちらからも、
-
-```java
-TemporaryGeneratedQuestionListDto
-```
-
-を取得できるところまで実装した。
-
----
-
-## 18. このチャプターで実装した処理の流れ
-
-このチャプターまでで、AI生成元問題の取得からAPIレスポンスをDTOとして取得するまでが、
+### 実装後の処理の流れ
 
 ```text
 List<Question> sourceQuestions
-        ↓
+    ↓
 List<AiGenerationSourceDto>
-        ↓
-JSONへ変換
-        ↓
-commonPrompt
-+
-languageProfile
-+
-generationSourcesJson
-        ↓
+    ↓ ObjectMapper.writeValueAsString()
+生成元問題JSON + 共通プロンプト + Language Profile
+    ↓
 input
-        ↓
-使用するAIを選択
-        ↓
-┌──────────────────────┬──────────────────────┐
-│ ChatGPT              │ Gemini               │
-│                      │                      │
-│ Structured Outputs   │ Schemaを作成          │
-│ の設定               │                      │
-│ ↓                    │ ↓                    │
-│ Responses API        │ generateContent()    │
-│ ↓                    │ ↓                    │
-│ StructuredResponse   │ JSON                 │
-│ ↓                    │ ↓                    │
-│ DTOを取得            │ ObjectMapper         │
-│                      │ ↓                    │
-│                      │ DTOへ変換             │
-└───────────┬──────────┴───────────┬──────────┘
-            │                      │
-            └──────────┬───────────┘
-                       ↓
-        TemporaryGeneratedQuestionListDto
+    ↓ 使用するAPIを選択
+    ├─ OpenAI: Structured Outputs → DTO取得
+    └─ Gemini: Schema指定 → JSON → DTO変換
+    ↓
+TemporaryGeneratedQuestionListDto
+    ↓
+（次チャプター：sourceIndexで元問題と対応付け）
 ```
 
-という流れになった。
+**記録上の留意点：** 本チャプターにはAPIリクエスト処理のコードが掲載されているが、クライアントのBean登録は次回としているため、ここでAPIの実行成功まで検証済みだったとは記載しない。また、モデル名・SDKバージョンは当時のコードを記録したもので、現在の利用可否を検証したものではない。
 
-次チャプターでは、取得した`TemporaryGeneratedQuestionListDto`と生成元の`sourceQuestions`を`sourceIndex`によって対応付けし、実際にAI問題生成モードで使用する`AiGeneratedQuestionDto`を作成する。
+## まとめ
+
+このチャプターでは、前チャプターで作成した`input`をOpenAI APIまたはGemini APIへ送信し、AIが生成した問題を`TemporaryGeneratedQuestionListDto`として取得する処理を実装した。
+
+両APIでは使用するSDKやStructured Outputsの設定方法が異なる。
+
+- **OpenAI API**：`TemporaryGeneratedQuestionListDto.class`を出力形式に指定し、`StructuredResponse`からDTOを取得する。
+- **Gemini API**：`Schema`でJSONの出力形式を定義し、レスポンスのJSON文字列を`ObjectMapper`でDTOへ変換する。
+
+このようにAPIごとの実装方法は異なるが、最終的な戻り値を`TemporaryGeneratedQuestionListDto`に統一することで、後続の処理を共通化できる構成とした。
+
+また、現段階では`useChatGPT`による簡易的な切り替えを採用し、どちらか一方のAPIを呼び出す仕組みを用意した。
+
+なお、このチャプターではAPI連携メソッドを実装した段階であり、APIクライアントのSpring Bean登録や、生成結果を実際の学習画面で使用するための変換処理はまだ完了していない。
+
+次のチャプターでは、APIクライアントの設定に加え、取得した`TemporaryGeneratedQuestionListDto`と生成元の`sourceQuestions`を`sourceIndex`によって対応付け、最終的な`AiGeneratedQuestionDto`へ変換する処理を実装する。

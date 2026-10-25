@@ -1011,63 +1011,38 @@ HTMLへ表示
 
 ## 14. このチャプター全体を通して
 
-### 苦戦した点
+### 苦戦した点：DIとClientの初期化
 
 今回最も苦戦したのは、APIを実際に動かしたことで初めて発生したSpringのDI周辺の問題だった。
 
-コード上では、
+`AiPracticeService`には、次の2つの依存関係を定義していた。
 
 ```java
 private final OpenAIClient openAIClient;
 private final Client geminiClient;
 ```
 
-と書くことができ、Eclipse上でもServiceの実装自体は進められていた。
-
-しかし、実際にSpring Bootを起動すると、
+しかし、コード上で依存関係を宣言しただけでは、Spring Bootが起動時に必要なClientを生成できない。実際には、次の順番で問題が明らかになった。
 
 ```text
 OpenAIClientのBeanがない
-↓
-Beanを追加
-
+    ↓
+OpenAiConfigでBeanを登録
+    ↓
 Gemini ClientのBeanがない
-↓
-Beanを追加
-
+    ↓
+GeminiConfigでBeanを登録
+    ↓
 Gemini APIキーがない
-↓
-APIキーを追加
+    ↓
+環境変数GEMINI_API_KEYを設定
 ```
 
-と、依存関係が順番に問題として現れた。
+この経緯を通じて、APIを呼び出すコードが書けていることと、Spring Bootアプリケーションとして実行できることは別だと分かった。
 
-APIを呼び出すコードが正しく書けていることと、Spring Bootアプリケーションとしてそのコードを実行できることは別であり、DIされるオブジェクトの生成まで含めて考える必要があった。
+### 勉強になった点：Bean生成と実行時の分岐は別
 
-### 勉強になった点
-
-今回の実装で、SpringのDIについてこれまでより具体的に理解できた。
-
-特に、
-
-```java
-@RequiredArgsConstructor
-```
-
-があるからDIできるのではなく、
-
-```text
-@RequiredArgsConstructor
-↓
-必要な依存関係を受け取るコンストラクタを作る
-
-@Bean
-↓
-そのコンストラクタへ渡せる実際のオブジェクトを
-Spring Containerへ登録する
-```
-
-という役割の違いが分かった。
+`@RequiredArgsConstructor`は、`final`フィールドなどを引数に持つコンストラクタを生成する。一方、`@Bean`は、そのコンストラクタへ注入するオブジェクトをSpring Containerに登録するために使用した。
 
 また、
 
@@ -1075,118 +1050,44 @@ Spring Containerへ登録する
 boolean useChatGPT = true;
 ```
 
-のような実行時の分岐はBean生成には影響しない。
-
-この経験によって、
+としても、`AiPracticeService`を生成する段階では`OpenAIClient`とGeminiの`Client`の両方が必要だった。
 
 ```text
-Bean定義
-↓
-依存関係解決
-↓
-Service生成
-↓
-アプリケーション起動
-↓
+Spring Boot起動
+    ↓
+Beanの生成・依存関係の解決
+    ↓
+AiPracticeServiceの生成
+    ↓
 メソッド実行
-↓
-if文による処理分岐
+    ↓
+useChatGPTによるAPIの分岐
 ```
 
-というSpring Bootの処理順序を意識できるようになった。
+実行時に通らない分岐であっても、その分岐で使うClientをコンストラクタで必須の依存関係として宣言していれば、起動時にBeanを生成できる状態にしておく必要がある。さらに、Gemini Clientは`new Client()`で生成する際にAPIキーを要求したため、Gemini APIを呼び出さなくても環境変数の設定が必要になった。
 
-### 気づいた点
+### 気づいた点：外部API連携はServiceだけでは完結しない
 
-前チャプターまではAPI連携を、
+前チャプターまでは、API連携を「リクエストを作成し、送信して、レスポンスを受け取る処理」として捉えていた。しかし、実際の動作にはSDK、Clientの生成、Bean登録、DI、APIキー、DTO変換、Session、Controller、Thymeleafまでが関係する。
 
 ```text
-リクエストを作る
-↓
-APIへ送る
-↓
-Responseを受け取る
+DBから生成元Questionを取得
+    ↓
+AI送信用DTO・プロンプトを作成
+    ↓
+OpenAI / Gemini API
+    ↓
+生成結果を画面表示用DTOへ変換
+    ↓
+Sessionへ保存
+    ↓
+Spring MVC・Thymeleafで表示
 ```
-
-というコード上の処理として考えていた。
-
-しかし、実際に動かすためには、
-
-```text
-SDKの依存関係
-Client
-Spring Bean
-DI
-APIキー
-環境変数
-課金設定
-リクエスト
-Response
-DTO変換
-Session
-Controller
-HTML
-```
-
-までがつながって初めて1つの機能として成立する。
-
-外部API連携はServiceクラス内の数行だけで完結するものではなく、アプリケーションの設定や実行環境まで含めた実装になることを学んだ。
 
 ### 所感
 
-今回は、AI問題生成モードを設計し始めてから初めて、
+今回初めて、自分のDBに登録していた中国語問題を元にAIが新しい問題を生成し、その結果が自作アプリの問題画面に表示されるところまで確認できた。
 
-```text
-DB
-↓
-Java
-↓
-AI API
-↓
-Java
-↓
-Spring MVC
-↓
-ブラウザ
-```
+例えば「這部電影很好看。」から「這部電影很感人。」への変化や、`把`構文を維持した問題生成を確認できたことは、これまで個別に作成してきたRepository、DTO、プロンプト、API連携、画面表示が一連の機能としてつながったことを実感できる結果だった。
 
-という一連の流れが実際につながった。
-
-特に、実際に自分のDBに登録していた中国語問題から、
-
-```text
-這部電影很好看。
-```
-
-が、
-
-```text
-這部電影很感人。
-```
-
-へ変わったり、
-
-```text
-我把手機忘在家裡了。
-```
-
-が、
-
-```text
-我媽把鑰匙忘在車上了。
-```
-
-へ変わった状態で自分のアプリケーションの問題画面に表示されたことで、これまで個別に実装してきたRepository、DTO、ObjectMapper、プロンプト、API、Session、Controller、Thymeleafがすべて1つの処理としてつながったことを確認できた。
-
-また、今回は実際にAPIを動かしたことで、コードを書いているだけでは気づかなかったBeanやAPIキーの問題も発生した。
-
-エラーを順番に確認することで、
-
-```text
-なぜOpenAIClientのBeanが必要なのか
-なぜGeminiを使わないのにGemini ClientのBeanが必要なのか
-なぜGemini APIを呼んでいないのにAPIキーが必要なのか
-```
-
-まで処理の流れを追って理解できた。
-
-API連携そのものだけでなく、Spring Boot上で外部サービスを実際に動かすために必要な仕組みまで学ぶことができたチャプターになった。
+また、BeanやAPIキーのエラーを一つずつ解決したことで、Spring Boot上で外部サービスを動かすための実行環境についても理解が深まった。

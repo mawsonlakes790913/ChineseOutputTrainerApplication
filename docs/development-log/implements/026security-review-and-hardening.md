@@ -1,115 +1,90 @@
-# 026 Security Review and Hardening
+# 026 セキュリティ設定の見直しと強化
 
-## 概要
+## このチャプターで行ったこと
 
-既存のSpring Security設定および認証・認可に関係する処理をアプリケーション全体で確認し、不足していたアクセス制御やSecurityログ、エラー処理を追加した。
+既存のSpring Security設定と認証・認可に関係する処理を見直し、アクセス制御の不足、状態変更に使用するHTTPメソッド、セキュリティ関連ログ、エラー表示を整理した。
 
-主な変更内容は以下の通り。
+主な変更は以下のとおり。
 
-```text
-・/admin/** のADMIN限定化
-・PracticeControllerの認証制御追加
-・ユーザー所有問題のアクセスチェック追加
-・ユーザー設定変更処理のPOST化
-・Security固有ログの追加
-・アクセス拒否Handlerの追加
-・403専用および共通エラーページの追加
-```
+- `/admin/**`へのアクセスを`ROLE_ADMIN`に限定
+- ゲスト利用を許可する通常学習のうち、認証が必要な処理に`@PreAuthorize`を追加
+- 理解度・お気に入り操作時に、対象問題へのアクセス権を確認
+- 学習対象言語と発音表記の変更をGETからPOSTへ変更
+- ログイン成功・失敗、アクセス拒否に関するログを追加
+- `CustomAccessDeniedHandler`と403専用・共通エラーページを追加
 
-## 1. 管理者URLのアクセス制御を追加
+## 1. URL単位とメソッド単位のアクセス制御
 
-### SecurityConfig
+### 1.1 管理者URLを`ROLE_ADMIN`に限定
 
-`/admin/**`に対するROLE制限が設定されておらず、`ROLE_USER`でもURLを直接指定することで管理者画面へアクセスできる状態になっていた。
+見直し前は`/admin/**`に対するロール制限がなく、一般ユーザーがURLを直接指定して管理者画面へアクセスできる状態だった。
 
-`SecurityConfig`に以下を追加した。
+`SecurityConfig`に次の設定を追加した。
 
 ```java
-// 管理者のみアクセス可能
 .requestMatchers("/admin/**").hasRole("ADMIN")
 ```
 
-変更後は、
+これにより、`/admin/**`へのアクセスには`ROLE_ADMIN`が必要となる。画面上で管理メニューを非表示にするだけでなく、URLへの直接アクセス自体を制限することが目的である。
 
-```text
-/admin/**
-→ ROLE_ADMINのみアクセス可能
-```
+### 1.2 通常学習の一部メソッドに認証条件を追加
 
-となる。
-
-## 2. PracticeControllerの認証制御を追加
-
-`/practice/**`は未ログインユーザーでも通常学習を利用できるよう、`SecurityConfig`では引き続き、
+通常学習はゲストも利用できるため、`SecurityConfig`の設定は維持した。
 
 ```java
 .requestMatchers("/practice/**").permitAll()
 ```
 
-とする。
-
-一方、ログインユーザーの情報を必要とする以下の処理に認証制御を追加した。
-
-### `/practice/new/start`
+ただし、`/practice/**`配下のすべての操作をゲストに許可するわけではない。ログインユーザーの情報を前提とする次のメソッドに認証条件を追加した。
 
 ```java
 @PreAuthorize("isAuthenticated()")
 @GetMapping("/practice/new/start")
 ```
 
-### `/practice/evaluation`
-
 ```java
 @PreAuthorize("isAuthenticated()")
 @PostMapping("/practice/evaluation")
 ```
 
-既存の`/practice/count`については、すでに以下が設定されていたため変更していない。
+`/practice/count`には、以前から同じ`@PreAuthorize("isAuthenticated()")`が設定されていたため、変更していない。
 
-```java
-@PreAuthorize("isAuthenticated()")
-@GetMapping("/practice/count")
-```
+URL全体はゲストに公開しつつ、認証が必要な操作をメソッド単位で制限する構成とした。
 
-## 3. ユーザー所有問題のアクセスチェックを追加
+## 2. ユーザー所有問題へのアクセスチェック
 
-`EvaluationService`および`FavoriteService`ではログインユーザーの`userId`を使用していたが、リクエストから受け取った`questionId`が、そのユーザーからアクセス可能な問題であるかを確認していなかった。
+`EvaluationService`と`FavoriteService`ではログインユーザーの`userId`を利用していたが、リクエストで指定された`questionId`が、そのユーザーにとって操作可能な問題かどうかを確認していなかった。
 
-そのため、他のユーザーが所有するAI生成由来問題の`questionId`を指定できないようアクセスチェックを追加した。
+そのため、他のユーザーが所有するAI生成由来問題を指定して、理解度やお気に入りを操作できないようチェックを追加した。
 
-### QuestionRepository
-
-以下のメソッドを追加した。
+### 2.1 `QuestionRepository`に判定メソッドを追加
 
 ```java
 @Query("""
         SELECT COUNT(q) > 0
         FROM Question q
         WHERE q.questionId = :questionId
-        AND (
-            q.aiGenerated = false
-            OR q.owner.id = :userId
-        )
+          AND (
+              q.aiGenerated = false
+              OR q.owner.id = :userId
+          )
         """)
 boolean existsAccessibleQuestion(
         @Param("questionId") Long questionId,
         @Param("userId") Long userId);
 ```
 
-以下の条件に該当する問題をアクセス可能とする。
+判定条件は次のとおり。
 
-```text
-通常問題
-OR
-owner.id = ログインユーザーのuserId
-```
+- AI生成問題ではない通常問題（`aiGenerated = false`）はアクセス可能
+- AI生成由来問題は所有者の`owner.id`がログインユーザーの`userId`と一致する場合のみアクセス可能
+- どちらにも該当しない場合、または指定した問題が存在しない場合は`false`
 
-### EvaluationService
+### 2.2 理解度・お気に入り更新前に確認
 
-理解度を更新する前に、対象問題へのアクセス可否を確認する処理を追加した。
+`EvaluationService`と`FavoriteService`の両方で、更新処理の前に次のチェックを追加した。
 
 ```java
-// 操作可能な問題か確認
 if (!questionRepository.existsAccessibleQuestion(
         questionId,
         user.getId())) {
@@ -122,131 +97,70 @@ if (!questionRepository.existsAccessibleQuestion(
 }
 ```
 
-### FavoriteService
+これにより、単にログイン済みであることだけでなく、**操作対象の問題にアクセスできること**も確認する。
 
-お気に入りを更新する前にも同じアクセスチェックを追加した。
-
-```java
-// 操作可能な問題か確認
-if (!questionRepository.existsAccessibleQuestion(
-        questionId,
-        user.getId())) {
-
-    throw new IllegalArgumentException(
-            messageSource.getMessage(
-                    "question.error.accessDenied",
-                    null,
-                    locale));
-}
-```
-
-### messages.properties
-
-アクセスできない問題が指定された場合のメッセージを追加した。
+エラーメッセージとして`messages.properties`に次を追加し、簡体字・繁体字のメッセージファイルにも対応する文言を設定した。
 
 ```properties
 question.error.accessDenied=アクセスできない問題です。
 ```
 
-簡体字・繁体字のメッセージファイルにも対応するメッセージを追加した。
+なお、ここで実装したのはService側のアクセス可否判定と`IllegalArgumentException`の送出である。後述するSpring Securityの`AccessDeniedHandler`による403応答とは別の経路である。
 
-## 4. ユーザー設定変更処理をPOSTへ変更
+## 3. 設定変更処理をGETからPOSTへ変更
 
-DBおよびSessionの状態を変更していた以下の処理をGETからPOSTへ変更した。
+学習対象言語と発音表記の変更は、DBやSessionの状態を書き換える処理であるにもかかわらず、GETリクエストで実行していた。
 
-```text
-/language-variant
-/pronunciation-type
-```
+対象は以下の2つ。
 
-### LanguageVariantController
+| URL | 変更前 | 変更後 |
+|---|---|---|
+| `/language-variant` | `@GetMapping` | `@PostMapping` |
+| `/pronunciation-type` | `@GetMapping` | `@PostMapping` |
 
-変更前：
+それぞれ`LanguageVariantController`、`PronunciationTypeController`のマッピングを変更した。
 
-```java
-@GetMapping("/language-variant")
-```
-
-変更後：
-
-```java
-@PostMapping("/language-variant")
-```
-
-### PronunciationTypeController
-
-変更前：
-
-```java
-@GetMapping("/pronunciation-type")
-```
-
-変更後：
-
-```java
-@PostMapping("/pronunciation-type")
-```
-
-### user/settings.html
-
-設定変更に使用していた`<a>`をPOSTフォームへ変更した。
-
-学習対象言語については、
+併せて`user/settings.html`のリンクをPOSTフォームへ変更した。学習対象言語の変更例は以下のとおり。
 
 ```html
 <form th:action="@{/language-variant}" method="post">
-
     <input type="hidden"
            name="languageVariant"
            value="MAINLAND">
-
     <input type="hidden"
            name="redirect"
            value="/user/settings">
-
-    <button type="submit">
-        ...
-    </button>
-
+    <button type="submit">...</button>
 </form>
 ```
 
-の形式へ変更した。
-
-発音表記についても、
+発音表記も同様に変更した。
 
 ```html
 <form th:action="@{/pronunciation-type}" method="post">
-
     <input type="hidden"
            name="pronunciationType"
            value="PINYIN">
-
-    <button type="submit">
-        ...
-    </button>
-
+    <button type="submit">...</button>
 </form>
 ```
 
-の形式へ変更した。
+状態を変更する操作をGETから切り離し、POSTで送信する構成とした。ログアウトはすでにPOSTフォームを使用していたため変更していない。
 
-ログアウトについては既存実装ですでにPOSTフォームを使用していたため変更していない。
+## 4. 認証・アクセス拒否のログを追加
 
-## 5. Security固有ログを追加
+025では一般的な業務ログを整理した。今回はその続きとして、Spring Securityに関係する認証・認可イベントのログを追加した。
 
-### LoginSuccessHandler
+| イベント | ログレベル | 記録内容 |
+|---|---|---|
+| ログイン成功 | INFO | `loginId` |
+| ログイン失敗 | WARN | 入力された`loginId` |
+| アカウント凍結によるログイン失敗 | WARN | 入力された`loginId` |
+| アクセス拒否 | WARN | `loginId`、アクセス先URI |
 
-`@Slf4j`を追加した。
+### 4.1 ログイン成功
 
-```java
-@Component
-@Slf4j
-public class LoginSuccessHandler
-extends SavedRequestAwareAuthenticationSuccessHandler {
-```
-
-ログイン成功時に以下のINFOログを出力するようにした。
+`LoginSuccessHandler`に`@Slf4j`を追加し、成功時のログを出力するようにした。
 
 ```java
 log.info(
@@ -254,26 +168,15 @@ log.info(
         authentication.getName());
 ```
 
-### SecurityConfig
+### 4.2 ログイン失敗
 
-`SecurityConfig`にも`@Slf4j`を追加した。
-
-```java
-@Configuration
-@RequiredArgsConstructor
-@EnableMethodSecurity
-@Slf4j
-public class SecurityConfig {
-```
-
-ログイン失敗時に入力された`loginId`を取得する。
+`SecurityConfig`にも`@Slf4j`を追加し、ログインフォームに入力されたIDを取得する。
 
 ```java
-String loginId =
-        request.getParameter("loginId");
+String loginId = request.getParameter("loginId");
 ```
 
-通常のログイン失敗では以下を出力する。
+通常の認証失敗と、アカウント凍結による失敗を区別して記録する。
 
 ```java
 log.warn(
@@ -281,41 +184,25 @@ log.warn(
         loginId);
 ```
 
-アカウント凍結によるログイン失敗では以下を出力する。
-
 ```java
 log.warn(
         "Login failed because account is locked: loginId={}",
         loginId);
 ```
 
-Security関連ログは以下のレベルで記録する。
+パスワードはログへ出力しない。
 
-```text
-ログイン成功
-→ INFO
+## 5. アクセス拒否Handlerとエラーページの追加
 
-ログイン失敗
-→ WARN
+### 5.1 `CustomAccessDeniedHandler`
 
-アカウント凍結によるログイン失敗
-→ WARN
-
-アクセス拒否
-→ WARN
-```
-
-## 6. アクセス拒否Handlerを追加
-
-`ROLE_USER`など権限を持たないユーザーによるアクセス拒否を独自に処理するため、`CustomAccessDeniedHandler`を追加した。
-
-### CustomAccessDeniedHandler
+権限不足によるアクセス拒否を独自に処理するため、`AccessDeniedHandler`を実装した。
 
 ```java
 @Component
 @Slf4j
 public class CustomAccessDeniedHandler
-implements AccessDeniedHandler {
+        implements AccessDeniedHandler {
 
     @Override
     public void handle(
@@ -324,59 +211,41 @@ implements AccessDeniedHandler {
             AccessDeniedException accessDeniedException)
             throws IOException, ServletException {
 
-        // 認証情報を取得
         Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
+                SecurityContextHolder.getContext()
                         .getAuthentication();
 
-        // ログインIDを取得
         String loginId = authentication != null
                 ? authentication.getName()
                 : "anonymous";
 
-        // アクセス拒否を記録
         log.warn(
                 "Access denied: loginId={}, uri={}",
                 loginId,
                 request.getRequestURI());
 
-        // 403エラーを返す
         response.sendError(
                 HttpServletResponse.SC_FORBIDDEN);
     }
 }
 ```
 
-アクセス拒否時には、
+このHandlerは、拒否されたユーザーとアクセス先をWARNログに記録し、HTTP 403を返す。
 
-```text
-Access denied: loginId=mawsonlakes_user, uri=/admin/menu
-```
-
-の形式でWARNログを出力する。
-
-### SecurityConfig
-
-`CustomAccessDeniedHandler`をDIする。
+`SecurityConfig`でHandlerをDIし、`SecurityFilterChain`へ登録した。
 
 ```java
 private final CustomAccessDeniedHandler customAccessDeniedHandler;
 ```
 
-さらに`SecurityFilterChain`へ以下を追加した。
-
 ```java
 .exceptionHandling(exception -> exception
-        .accessDeniedHandler(customAccessDeniedHandler)
-)
+        .accessDeniedHandler(customAccessDeniedHandler))
 ```
 
-これにより、Spring Securityによるアクセス拒否時に`CustomAccessDeniedHandler`が実行される。
+### 5.2 共通エラーページと403専用ページ
 
-## 7. エラーページを追加
-
-Whitelabel Error Pageの代わりにアプリケーション独自のエラー画面を表示するため、共通エラーページと403専用エラーページを追加した。
+Whitelabel Error Pageの代わりにアプリケーション独自の画面を表示するため、次のテンプレートを追加した。
 
 ```text
 src/main/resources/templates/
@@ -385,77 +254,33 @@ src/main/resources/templates/
     └── 403.html
 ```
 
-### error.html
-
-専用ページを用意していないエラーに使用する共通エラーページを追加した。
+共通エラーページ`error.html`ではステータスとエラー情報を表示する。
 
 ```html
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-
-<head>
-    <meta charset="UTF-8">
-    <title th:text="#{error.common.title}">エラー</title>
-</head>
-
-<body>
-
-    <h1 th:text="${status} + ' ' + ${error}">
-        Error
-    </h1>
-
-    <p th:text="#{error.common.message}">
-        エラーが発生しました。
-    </p>
-
-    <a th:href="@{/}"
-       th:text="#{error.back.home}">
-        ホーム画面に戻る
-    </a>
-
-</body>
-
-</html>
+<h1 th:text="${status} + ' ' + ${error}">Error</h1>
+<p th:text="#{error.common.message}">
+    エラーが発生しました。
+</p>
+<a th:href="@{/}" th:text="#{error.back.home}">
+    ホーム画面に戻る
+</a>
 ```
 
-### error/403.html
-
-403 Forbidden専用ページを追加した。
+403専用ページ`error/403.html`では、アクセス権限がないことを表示する。
 
 ```html
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-
-<head>
-    <meta charset="UTF-8">
-    <title th:text="#{error.403.title}">
-        アクセス権限がありません
-    </title>
-</head>
-
-<body>
-
-    <h1 th:text="#{error.403.title}">
-        アクセス権限がありません
-    </h1>
-
-    <p th:text="#{error.403.message}">
-        このページを表示する権限がありません。
-    </p>
-
-    <a th:href="@{/}"
-       th:text="#{error.back.home}">
-        ホーム画面に戻る
-    </a>
-
-</body>
-
-</html>
+<h1 th:text="#{error.403.title}">
+    アクセス権限がありません
+</h1>
+<p th:text="#{error.403.message}">
+    このページを表示する権限がありません。
+</p>
+<a th:href="@{/}" th:text="#{error.back.home}">
+    ホーム画面に戻る
+</a>
 ```
 
-### messages.properties
-
-エラー画面用のメッセージを追加した。
+表示文言は`messages.properties`に追加し、簡体字・繁体字のファイルにも対応する文言を設定した。
 
 ```properties
 error.common.title=エラー
@@ -465,52 +290,41 @@ error.403.message=このページを表示する権限がありません。
 error.back.home=ホーム画面に戻る
 ```
 
-簡体字・繁体字のメッセージファイルにも対応する文言を追加した。
+## 6. 動作確認
 
-## 8. 動作確認
+原稿で確認結果が記録されている項目は以下のとおり。
 
-以下のアクセス制御とエラー画面を確認した。
+| 確認項目 | 確認結果 |
+|---|---|
+| `ROLE_USER`で`/admin/menu`へアクセス | 403 Forbiddenとなり、`error/403.html`を表示 |
+| 管理者画面へのアクセス拒否 | `CustomAccessDeniedHandler`からWARNログを出力 |
+| 存在しないURLへのアクセス | 共通エラーページ`error.html`を表示 |
 
-### 管理者画面
+一方、`/practice/new/start`・`/practice/evaluation`の認証制御、他ユーザー所有問題の操作拒否、設定変更のPOST化については、元の記録に具体的な動作確認結果が記載されていないため、ここでは検証済みとは扱わない。
 
-```text
-ROLE_USER
-↓
-/admin/menu
-↓
-403 Forbidden
-↓
-error/403.html
-```
+## 7. まとめ
 
-アクセス拒否時には`CustomAccessDeniedHandler`からWARNログが出力される。
+今回の見直しでは、URLやメソッドへのアクセス制御だけでなく、**ログイン後に操作するデータの所有者確認**も追加した。
 
-### 共通エラー画面
+また、状態変更を行うGETリクエストをPOSTへ変更し、認証・認可に関するログとエラー画面を整備した。
 
-存在しないURLへアクセスし、専用エラーページが存在しないエラーについて`error.html`が表示されることを確認した。
-
-## 変更後の構成
-
-今回の変更後、主なSecurity処理は以下の構成となった。
+変更後の主な責務は次のようになる。
 
 ```text
 SecurityConfig
 ├── URL単位の認証・認可
 ├── /admin/** → ROLE_ADMIN
-├── ログイン失敗処理
+├── ログイン失敗時のログ
 └── AccessDeniedHandlerの登録
 
 PracticeController
-└── @PreAuthorizeによる認証制御
+└── @PreAuthorizeによるメソッド単位の認証制御
 
 QuestionRepository
-└── 問題へのアクセス可否確認
+└── 問題へのアクセス可否判定
 
-EvaluationService
-└── 評価前の問題アクセスチェック
-
-FavoriteService
-└── お気に入り変更前の問題アクセスチェック
+EvaluationService / FavoriteService
+└── 更新前の問題アクセスチェック
 
 LoginSuccessHandler
 └── ログイン成功ログ
@@ -521,6 +335,7 @@ CustomAccessDeniedHandler
 
 templates/
 ├── error.html
-└── error/
-    └── 403.html
+└── error/403.html
 ```
+
+なお、今回の変更によってアプリケーション全体のセキュリティを網羅的に検証できたわけではない。実装内容と、記録のある動作確認結果を区別して残す。

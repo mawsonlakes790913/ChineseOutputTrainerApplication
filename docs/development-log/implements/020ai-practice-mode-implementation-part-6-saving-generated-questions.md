@@ -143,26 +143,7 @@ public Question saveGeneratedQuestion(
 }
 ```
 
-生成された内容については、
-
-```java
-savedQuestion.setJapaneseText(aiGeneratedQuestionDto.getJapaneseText());
-savedQuestion.setChineseText(aiGeneratedQuestionDto.getChineseText());
-savedQuestion.setPinyin(aiGeneratedQuestionDto.getPinyin());
-savedQuestion.setZhuyin(aiGeneratedQuestionDto.getZhuyin());
-```
-
-として`AiGeneratedQuestionDto`から取得する。
-
-一方、
-
-```java
-savedQuestion.setLanguageVariant(sourceQuestion.getLanguageVariant());
-savedQuestion.setStructure(sourceQuestion.getStructure());
-savedQuestion.setDifficulty(sourceQuestion.getDifficulty());
-```
-
-のように、生成元問題から引き継ぐ情報は`sourceQuestion`から取得する。
+生成された日本語文・中国語文・拼音・注音は`AiGeneratedQuestionDto`から取得し、言語種別・構文・難易度は生成元の`Question`から引き継ぐ。
 
 AI生成問題をさらにAI生成元として使用することは想定しないため、
 
@@ -220,23 +201,9 @@ public Long postAiPracticeSave(
 }
 ```
 
-Sessionに保存されている、
+Sessionの`aiPracticeQuestions`から現在ページの`AiGeneratedQuestionDto`を取得し、`saveGeneratedQuestion()`へ渡す。
 
-```text
-aiPracticeQuestions
-```
-
-から現在ページの`AiGeneratedQuestionDto`を取得し、`saveGeneratedQuestion()`へ渡す。
-
-保存後は、
-
-```java
-return savedQuestion.getQuestionId();
-```
-
-として、新しく採番された`questionId`をJavaScriptへ返す。
-
-保存後のお気に入り登録と理解度登録では`Question`のIDが必要になるためである。
+保存後は新しく採番された`questionId`をJavaScriptへ返す。お気に入りと理解度の登録には永続化済み`Question`のIDが必要だからである。
 
 ---
 
@@ -440,35 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 ```
 
-保存ボタンを押すと、
-
-```text
-POST /ai-practice/save
-```
-
-へ現在ページを送信する。
-
-保存に成功するとControllerから新しい`questionId`が返されるため、
-
-```javascript
-document.getElementById("favoriteButton")
-    .dataset.questionId = questionId;
-```
-
-としてお気に入り処理へ設定する。
-
-理解度登録用のhidden要素にも、
-
-```javascript
-document.querySelectorAll(".savedQuestionId")
-    .forEach(input => {
-        input.value = questionId;
-    });
-```
-
-として同じIDを設定する。
-
-最後に保存ボタンを非表示にし、保存後に利用可能になる操作を表示する。
+保存に成功すると返却された`questionId`をお気に入りボタンの`data-question-id`と理解度フォームのhidden要素へ設定し、保存ボタンを隠して保存後の操作を表示する。
 
 messages.propertiesにも以下を追加した。
 
@@ -632,20 +571,7 @@ DBでもお気に入りが正常に登録されていることを確認した。
 
 # 3. 保存済みAI生成問題を再表示した場合の状態を復元する
 
-一度AI生成問題を保存すると、その場ではJavaScriptによって、
-
-```text
-保存ボタン
-→ 非表示
-
-お気に入り
-→ 表示
-
-理解度
-→ 表示
-```
-
-へ切り替わる。
+保存直後はJavaScriptによって保存ボタンを隠し、お気に入り・理解度の操作を表示する。
 
 ![](../../images/0020-09.png)
 
@@ -657,7 +583,7 @@ DBでもお気に入りが正常に登録されていることを確認した。
 
 ![](../../images/0020-11.png)
 
-これは初期HTMLでは常に保存ボタンを表示し、お気に入り・理解度を`d-none`としているためである。
+原因は、GETで画面を再生成すると初期HTMLの`d-none`が再適用されるためだった。
 
 さらに、もう一度保存ボタンを押して表示状態を復元しようとしても、同一問題の重複保存チェックにより保存処理が失敗する。
 
@@ -687,15 +613,7 @@ Optional<Question> findByOwnerIdAndChineseText(
         String chineseText);
 ```
 
-これによって、
-
-```text
-現在のユーザーID
-+
-現在表示しているAI生成問題の中国語文
-```
-
-から、そのユーザーが以前保存した`Question`を取得できる。
+これによって、ユーザーIDと現在のAI生成問題の`chineseText`を条件に、本人が保存した`Question`を取得できる。
 
 ---
 
@@ -796,19 +714,7 @@ savedQuestionId != null
 
 となるため、最初から`d-none`が付かない。
 
-さらに`isFavorite`から、
-
-```text
-bi-heart-fill text-danger
-```
-
-または、
-
-```text
-bi-heart text-secondary
-```
-
-を設定し、お気に入り状態も復元する。
+`isFavorite`に応じて`bi-heart-fill text-danger`または`bi-heart text-secondary`を設定し、お気に入り状態も復元する。
 
 ---
 
@@ -910,15 +816,7 @@ AI生成問題を保存した。
 
 ## 3-7. 過去に生成・保存した同一問題も自動判定できるようになった
 
-保存済み判定では生成日時や現在の生成回ではなく、
-
-```text
-ユーザーID
-+
-chineseText
-```
-
-を利用している。
+保存済み判定には、生成日時や生成回ではなく「ユーザーID＋`chineseText`」を利用している。
 
 そのため、例えば9月1日に、
 
@@ -964,13 +862,7 @@ if (questionRepository.existsByChineseText(
 
 としていた。
 
-この条件では、
-
-```text
-Questionテーブル全体
-```
-
-に同じ`chineseText`が存在するかだけを判定する。
+この条件では、`Question`テーブル全体で同じ`chineseText`が存在するかだけを判定してしまう。
 
 しかし、AI生成問題はユーザーごとに所有する仕様である。
 
@@ -1040,24 +932,11 @@ if (existingQuestion.isPresent()) {
 
 へ変更した。
 
-これによって、
-
-```text
-ユーザーA + 問題X
-→ 保存可能
-
-ユーザーA + 問題Xを再保存
-→ 保存不可
-
-ユーザーB + 問題X
-→ 保存可能
-```
-
-というAI生成問題の所有者仕様に合った重複判定になった。
+これによって、ユーザーAが問題Xを保存してもユーザーBは同じ問題Xを保存できる。一方、ユーザーA自身による問題Xの再保存は拒否する。
 
 ---
 
-# 5. AI問題生成モードの実装完了
+# 5. まとめ — AI問題生成モードの実装完了
 
 これでAI問題生成モードについて、
 
@@ -1085,4 +964,6 @@ AI問題を生成
 
 AI生成問題は所有ユーザー単位で管理するため、他ユーザーが保存した問題によって通常学習用の問題構成が影響を受けない設計とした。
 
-これをもってAI問題生成モードの実装を完了した。
+これをもって、AI問題生成モードの基本的な実装を完了した。
+
+なお、このチャプターで示した重複判定はアプリケーション側の検索に基づくものであり、同時保存時の一意性をDB制約で保証する設計とは別の問題である。また、保存・評価処理ではログインユーザーと対象Questionの対応を確認することが重要になる。これらは運用時の堅牢性を検討する際の確認事項とする。

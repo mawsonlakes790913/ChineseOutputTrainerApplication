@@ -21,7 +21,7 @@ DBからユーザー情報を取得
     ↓
 UserDetailsをSpring Securityへ返す
     ↓
-Spring Securityが認証
+Spring Security側でパスワードなどを検証
     ↓
 成功 / 失敗
 ```
@@ -105,6 +105,8 @@ Spring Securityへ返す
 ```
 
 という橋渡しをしていると考えると理解しやすい。
+
+ここで重要なのは、`UserDetailsServiceImpl`自体は入力されたパスワードを照合しないこと。今回の構成では、取得した`UserDetails`を使い、Spring Securityの認証処理（`DaoAuthenticationProvider`など）が`PasswordEncoder`を利用してパスワードを検証する。ユーザー情報の取得と認証の判定は別の役割だった。
 
 ### GrantedAuthorityとSimpleGrantedAuthority
 
@@ -429,7 +431,9 @@ LogoutSuccessHandler
 HomeController
 ```
 
-となるだけで、Sessionを使ったメッセージの受け渡し方は同じだった。
+となり、Sessionを使って一度だけメッセージを表示する考え方は共通していた。
+
+ただし、**ログアウト時のSessionの扱いはログイン失敗時と異なる**。Spring Securityの標準的なログアウト処理では既存のSessionが無効化されるため、`LogoutSuccessHandler`内で`request.getSession(true)`を呼び出すと、必要に応じて新しいSessionが作られる。今回の`logout.success`は、その新しいSessionに保存してトップ画面へ渡している。
 
 一つの処理の流れを理解すると、似た機能にもその考え方を流用できることが分かった。
 
@@ -447,7 +451,7 @@ HomeController
 sec:authentication="name"
 ```
 
-とするだけで、現在ログインしているユーザーのユーザーIDを表示できた。
+とするだけで、現在ログインしているユーザーのログインIDを表示できた。今回の`UserDetails`では`loginId`をユーザー名として設定しているため、`name`が示すのはDBの主キーではなく`loginId`である。
 
 また、
 
@@ -465,6 +469,8 @@ sec:authorize="isAnonymous()"
 - 未ログイン
 
 によってHTMLの表示を切り替えることもできる。
+
+なお、`isAuthenticated()`にはRemember Meによって復元された認証も含まれる。Remember Meではない認証に限定したい場合は`isFullyAuthenticated()`を使う。
 
 そのため、ヘッダー表示のためだけにControllerやAOPから、
 
@@ -503,7 +509,7 @@ model.addAttribute("loginUser", ...);
 
 とし、`form` ではなく `button` に `dropdown-item` を指定した。
 
-ログインは画面遷移なので `<a>` を使用できるが、ログアウトはPOSTを送信するため `<form>` と `<button>` が必要になる。
+ログインは画面遷移なので `<a>` を使用できるが、今回のSpring Securityの設定ではログアウトをPOSTで送信するため、`<form>`と`<button>`を使用した。
 
 同じドロップダウン内の項目でも、処理内容によってHTML要素は異なるため、Bootstrapのclassを付ける位置を調整して見た目を揃える必要があった。
 
@@ -551,6 +557,8 @@ name="remember-me"
 
 の2つが存在することを確認できた。
 
+`JSESSIONID`はサーバー側のHTTP Sessionを識別するCookieで、`remember-me`はSessionが切れた後に認証状態を復元するためのCookieである。両者は役割が異なり、Remember Meで再認証されても、以前のSessionに保存していた`languageVariant`や`pronunciationType`などの属性まで自動的に復元されるわけではない。この問題への対応は、後日007の実装ログ末尾に追加修正として記録した。
+
 さらにSessionタイムアウト後にF5を押しても、ログイン中だけ表示されるボタンやリンクが残っていた。
 
 単に設定を追加して終わりではなく、CookieとSessionタイムアウト後の画面の両方からRemember-Me認証が機能していることを確認できた。
@@ -577,7 +585,7 @@ Spring SecurityではCSRF対策がデフォルトで有効になっている。
 th:action="@{/...}"
 ```
 
-を使用している場合は、Spring Securityが必要とするCSRFトークンが自動的にhiddenパラメーターとして追加される。
+を使用したSpring MVC・ThymeleafとSpring Securityの通常の連携環境では、フォームのPOST時に必要なCSRFトークンがhiddenパラメーターとして自動挿入される。これは`th:action`単独の機能ではなく、Spring MVCのフォーム処理とSpring Securityの連携によるもの。
 
 今回POSTしている、
 
@@ -587,7 +595,7 @@ th:action="@{/...}"
 
 はいずれも `th:action` を使用しているため、CSRFトークンを手動で記述する必要はなかった。
 
-一方、通常の `action` 属性を使用した場合には自動追加されない。
+一方、通常の`action`属性だけを記述したフォームでは、この連携による自動挿入を前提にできない。JavaScriptの`fetch()`などでPOSTする場合も、別途CSRFトークンを送る必要がある。
 
 そのため、Spring SecurityとThymeleafを組み合わせる場合は、単にURLを生成するためだけでなく、CSRF対策の面からも基本的に `th:action` を使用するようにしたい。
 
@@ -625,7 +633,7 @@ Spring Securityがその後の処理を続ける
 
 ヘッダーのユーザー情報についても、新たにAOPなどを追加するのではなくSpring Securityがすでに保持している認証情報を利用できた。
 
-CSRFについても、Thymeleafの `th:action` を使用することで、CSRFトークンを自分で毎回記述する必要がないことが分かった。
+CSRFについても、今回のSpring MVC・ThymeleafとSpring Securityの連携では、`th:action`を使用したPOSTフォームにCSRFトークンが自動挿入されることが分かった。
 
 今回の実装を通して、Spring Securityのようなフレームワークを使用する場合は、すぐに独自処理を追加するのではなく、フレームワーク側がすでに持っている機能や情報を利用できないか確認することが重要だと感じた。
 

@@ -1,4 +1,4 @@
-# 014 ユーザーメニューの実装その3 学習ログ
+# 014 ユーザーメニューの実装 その3 — ユーザー設定【学習ログ】
 
 今回はユーザーメニューその3として、主に以下の機能を実装した。
 
@@ -23,9 +23,9 @@ Session
 
 と役割を分けた点である。
 
-# 1. 各実装において工夫した点
+## 1. 設計・実装で工夫した点
 
-## 1-1. ユーザー設定をSessionだけでなくDBにも保存するようにした
+### 1-1. ユーザー設定をSessionだけでなくDBにも保存するようにした
 
 これまでは学習対象言語と表示発音記号をSessionで管理していた。
 
@@ -139,7 +139,7 @@ ${session.languageVariant}
 
 などを利用しているため、DBへ保存するようになったからといってSessionを廃止するのではなく、それぞれ別の役割を持たせる方が既存実装も活用できると考えた。
 
-## 1-2. 既存ユーザーがいるため、DBカラムを段階的に追加した
+### 1-2. 既存ユーザーがいるため、DBカラムを段階的に追加した
 
 `Users`へ最初から、
 
@@ -212,7 +212,7 @@ private PronunciationType pronunciationType =
 
 これは既存ユーザーを修正するためではなく、これから新しく作成される`Users`の初期値として利用するためである。
 
-## 1-3. ログインユーザーとゲストで設定の保存方法を分けた
+### 1-3. ログインユーザーとゲストで設定の保存方法を分けた
 
 `LanguageVariantController`では、
 
@@ -263,7 +263,7 @@ Sessionだけに保存
 
 一方、ログインユーザーについてはユーザーごとの設定としてDBへ保存することで、再ログイン後にも同じ設定を利用できる。
 
-## 1-4. 学習対象言語を変更した場合だけ中断中の問題を破棄するようにした
+### 1-4. 学習対象言語を変更した場合だけ中断中の問題を破棄するようにした
 
 学習対象言語を変更した場合は、
 
@@ -313,7 +313,7 @@ session.setAttribute(
 
 このように、設定値を変更したときにSessionをすべて初期化するのではなく、**その設定変更によって影響を受けるデータだけを破棄する**ようにした。
 
-## 1-5. 設定変更後の戻り先を`redirect`パラメータで一般化した
+### 1-5. 設定変更後の戻り先を`redirect`パラメータで一般化した
 
 学習対象言語の変更では、以前は、
 
@@ -393,7 +393,7 @@ model.addAttribute(
 
 呼び出し側が戻り先を指定し、`LanguageVariantController`は指定されたURLへ戻すという形にした。
 
-## 1-6. ログイン成功時にDBの設定をSessionへ復元するようにした
+### 1-6. ログイン成功時にDBの設定をSessionへ復元するようにした
 
 DBへ設定を保存するだけでは、再ログイン時のSessionには設定が存在しない。
 
@@ -470,7 +470,7 @@ DB
 
 ので、次回ログイン時に再びSessionへ復元できる。
 
-## 1-7. `SavedRequestAwareAuthenticationSuccessHandler`を継承して既存のログイン後遷移を維持した
+### 1-7. 既存のログイン後遷移を維持するために継承を選んだ
 
 最初は`AuthenticationSuccessHandler`を使って、
 
@@ -581,7 +581,7 @@ Spring Security既存のログイン成功後処理
 
 既存のログイン後遷移を自分で再実装せず、必要な処理だけを追加できた。
 
-## 1-8. `defaultTargetUrl`はSavedRequestがない場合の遷移先として設定した
+### 1-8. `defaultTargetUrl`はSavedRequestがない場合の遷移先として設定した
 
 `LoginSuccessHandler`のコンストラクタでは、
 
@@ -650,7 +650,7 @@ super.setDefaultTargetUrl("/");
 
 は、**ログイン前に戻るべきページが存在しなかった場合のデフォルト遷移先を設定している**。
 
-## 1-9. ログイン成功時にUsersを1回だけ取得するようにした
+### 1-9. ログイン成功時にUsersを1回だけ取得するようにした
 
 当初は、
 
@@ -694,7 +694,7 @@ PronunciationType pronunciationType =
 
 今回の処理ではユーザー情報そのものが必要なので、設定項目ごとにServiceメソッドを増やさないようにした。
 
-## 1-10. 現在選択中の設定は設定画面から再選択できないようにした
+### 1-10. 現在選択中の設定は設定画面から再選択できないようにした
 
 設定画面では、
 
@@ -756,7 +756,7 @@ Controller
 
 という二段階の処理になっている。
 
-## 1-11. 循環依存は`PasswordEncoder`のBean定義を分離して解消した
+### 1-11. Bean定義を分離して循環依存を解消した
 
 `LoginSuccessHandler`を`SecurityConfig`へ追加したところ、Spring Boot起動時に循環依存が発生した。
 
@@ -829,58 +829,15 @@ PasswordEncoder
 
 循環依存を許可する設定で回避するのではなく、Beanの配置を見直して依存関係そのものを単純化した。
 
-# 2. 気づいた点・勉強になった点
+## 2. 実装を通して理解した技術
 
-## 2-1. DBとSessionは同じ「データを保存する場所」でも役割が異なる
+### 2-1. DBとSessionの役割を区別できるようになった
 
-今回最も重要だったのは、
+第1章で整理したとおり、DBはログアウト後も残すユーザー設定、Sessionは現在の画面表示や学習処理で参照する設定を保持する。今回、永続化するだけでなく、**ログイン成功時にDBからSessionへ復元する処理まで必要**だと理解した。
 
-```text
-DB
-```
+また、既存のThymeleafやControllerがSessionを参照していたため、保存先をDBへ増やしてもSessionをなくす必要はなかった。保存する目的と利用する場面を分けて考えることが重要だと分かった。
 
-と、
-
-```text
-Session
-```
-
-の役割の違いである。
-
-Sessionへ、
-
-```java
-session.setAttribute(
-        "languageVariant",
-        LanguageVariant.TAIWAN
-);
-```
-
-と保存すれば、そのSessionが存在する間は値を利用できる。
-
-しかし、ログアウトなどでSessionが破棄されれば値も失われる。
-
-一方、DBへ、
-
-```text
-language_variant = TAIWAN
-```
-
-として保存した値は、ログアウトしても残る。
-
-そのため今回のような「ユーザーが選択した設定」については、
-
-```text
-DB
-    → 永続的な設定
-
-Session
-    → 現在利用中の設定
-```
-
-と分けるのが適していることが分かった。
-
-## 2-2. `HttpSession`は`onAuthenticationSuccess()`の引数へ自由に追加できない
+### 2-2. `HttpSession`は`onAuthenticationSuccess()`の引数へ自由に追加できない
 
 Controllerでは、
 
@@ -932,7 +889,7 @@ HttpSession session =
 
 `HttpServletRequest`から現在のHTTPリクエストに関連するSessionを取得できることを確認できた。
 
-## 2-3. `super.onAuthenticationSuccess()`によって親クラスの処理を利用できる
+### 2-3. `super.onAuthenticationSuccess()`によって親クラスの処理を利用できる
 
 `LoginSuccessHandler`では最後に、
 
@@ -975,7 +932,7 @@ SavedRequestがあれば元のページ
 
 継承を使うことで、親クラスの既存処理を残しながら、その前に自分の処理を追加できることを具体的に確認できた。
 
-## 2-4. `AuthenticationSuccessHandler`は使えないのではなく、今回は既存実装を持つクラスを継承した方が適していた
+### 2-4. `AuthenticationSuccessHandler`は使えないのではなく、今回は既存実装を持つクラスを継承した方が適していた
 
 最初に検討した`AuthenticationSuccessHandler`でも、今回の処理自体は実装できる。
 
@@ -1033,7 +990,7 @@ SavedRequestAwareAuthenticationSuccessHandler
 
 今回、インターフェースを直接実装することだけがカスタマイズではなく、**目的に合った既存の実装クラスを継承する方法もある**ことを学んだ。
 
-## 2-5. `.successHandler()`はログイン成功時に使用する処理をSpring Securityへ登録する設定である
+### 2-5. `.successHandler()`はログイン成功時に使用する処理をSpring Securityへ登録する設定である
 
 `LoginSuccessHandler`を作成しただけでは、Spring Securityが自動的にそのクラスをログイン成功時に使用するわけではない。
 
@@ -1071,7 +1028,7 @@ onAuthenticationSuccess()
 
 今回、クラスを作ることと、そのクラスをフレームワークの処理へ登録することは別であることを確認できた。
 
-## 2-6. 循環依存は実行時の無限ループではなくBean生成時の依存関係の問題である
+### 2-6. 循環依存は実行時の無限ループではなくBean生成時の依存関係の問題である
 
 今回発生した、
 
@@ -1129,70 +1086,13 @@ SpringがBeanを生成している起動時
 
 今回`PasswordEncoderConfig`を分離したことで、Beanの配置も依存関係に影響することを具体的に確認できた。
 
-## 2-7. `redirect`パラメータを使うことで遷移先を呼び出し側から指定できる
+### 2-7. 呼び出し側から遷移先を渡す設計
 
-今回の`LanguageVariantController`では、
+第1章の`redirect`パラメータの実装を通じて、共通の設定変更処理は遷移先を固定せず、呼び出し元の画面が必要な情報を渡す形にできると学んだ。これにより、通常学習メニューだけでなく復習メニューや問題一覧からも同じControllerを再利用できる。
 
-```java
-@RequestParam(required = false)
-String redirect
-```
+なお、`"redirect:" + redirect`のようにリクエストパラメータをそのまま遷移先へ利用する場合、実運用では**アプリ内の許可されたパスに限定する検証**が望ましい。これは当時の実装を変更したという記録ではなく、後から見直す際の注意点である。
 
-を受け取っている。
-
-例えば、
-
-```text
-/language-variant
-?languageVariant=TAIWAN
-&redirect=/review/menu
-```
-
-というリクエストであれば、
-
-```java
-redirect
-```
-
-には、
-
-```text
-/review/menu
-```
-
-が入る。
-
-そして、
-
-```java
-if (redirect != null) {
-    return "redirect:" + redirect;
-}
-```
-
-によって、
-
-```text
-redirect:/review/menu
-```
-
-を返す。
-
-この仕組みによって、設定変更を行うController自身が戻り先を固定するのではなく、呼び出し側が戻り先を指定できる。
-
-今回、同じ処理を複数の画面から利用するときには、
-
-```text
-処理を行う側
-    → 共通処理を担当
-
-呼び出す側
-    → その画面固有の情報を渡す
-```
-
-と役割を分けることで、特定の画面に依存しにくい実装にできることを確認できた。
-
-# 3. 今回の実装を通して
+## 3. 今回の実装を通して
 
 今回の設定機能では、単純に設定画面を追加するだけではなく、
 

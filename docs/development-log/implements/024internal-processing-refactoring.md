@@ -1,160 +1,53 @@
 # 024 内部処理のリファクタリング
 
-## 1. 概要
+## はじめに
 
-主要機能の実装完了後、アプリケーション内部に残っていた処理の重複、責務の不明確な箇所、冗長な処理、命名の不統一などを整理した。
+主要機能の実装後、Controller・Serviceを中心に、責務の分散、重複処理、不要な分岐、命名の不統一を見直した。新機能の追加ではなく、**既存の振る舞いを維持しながら、処理の目的と依存関係を分かりやすくすること**が目的である。
 
-今回のリファクタリングでは、新しい機能の追加ではなく、現在の動作を維持したままController・Serviceを中心に既存コードを見直した。
+共通化はコード量を減らすために一律に行うのではなく、複数箇所で使われ、処理に明確な名前を付けられる場合に限定した。短い分岐や一度しか使わない処理は、その場に残した方が読みやすい場合もある。
 
-単純にコード量を減らすことは目的とせず、処理の意味が明確になる場合のみ共通化やprivateメソッドへの切り出しを行い、短い処理については重複していても明示的な方が読みやすい場合はそのまま残した。
+なお、本章にはリファクタリングとは別に、ログイン時にまれに発生していた`status 999`への対策も含む。この不具合は原因が確定していないため、調査で確認できた事実と仮説を分けて記録する。
 
-## 2. エラー999への対応
+## 1. ログイン時に発生する`status 999`への対応
 
-Spring Bootを起動したまま長時間操作せず、セッションが切れた状態から再度ログインを行った際、まれに以下のJSON形式のエラー画面が表示されることがあった。
+### 1.1 発生した現象
+
+Spring Bootを起動したまま長時間操作せず、セッションが切れた後に再ログインすると、まれに次のJSON形式のエラーが表示された。
 
 ```json
 {
-    "status": 999,
-    "error": "None",
-    "message": "No message available"
+  "status": 999,
+  "error": "None",
+  "message": "No message available"
 }
 ```
 
-さらに、この状態でブラウザを再読み込みするとWhitelabel Error Pageへ遷移し、
+その画面を再読み込みすると、Whitelabel Error Pageに以下の内容が表示された。
 
 ```text
 There was an unexpected error (type=None, status=999).
 No message available
 ```
 
-と表示された。
+ブラウザでログイン画面に戻り、同じようにフォームを再送信すると正常にログインできた。通常のログインでは発生せず、再現性の低い現象だった。
 
-通常のログインでは発生せず、長時間操作しなかった後の再ログイン時に不定期で発生していたため、再現性が低い問題だった。
+### 1.2 `/error`へのアクセス許可
 
-### 2.1 `/error`へのアクセス許可
+`SecurityConfig`には`.anyRequest().authenticated()`が設定されていた一方、エラー処理に使用する`/error`は認証不要のパスとして指定していなかった。
 
-Spring Securityを使用したログイン処理で同様のstatus 999が発生した事例を確認したところ、エラー処理で使用される`/error`がSpring Securityによって保護されている場合に、正常なエラー処理が行えなくなる可能性が考えられた。
-
-現在のSecurityConfigでは、
-
-```java
-.anyRequest().authenticated()
-```
-
-を設定している一方、`/login`などとは異なり`/error`を`permitAll()`の対象としていなかった。
-
-そのため、ログイン処理中に何らかの理由で`/error`への遷移が発生した場合、
-
-```text
-セッション切れ
-    ↓
-再ログイン
-    ↓
-何らかのエラーが発生
-    ↓
-Spring Bootが /error でエラー処理を行おうとする
-    ↓
-/error が permitAll() ではない
-    ↓
-.anyRequest().authenticated() の対象になる
-    ↓
-エラー処理自体がSpring Securityの認証・認可対象になる
-    ↓
-正常にエラー処理できない
-    ↓
-status 999
-```
-
-となっている可能性が考えられた。
-
-そこでSecurityConfigへ、
+そこで、何らかのエラーが発生して`/error`に処理が転送された際、Spring Securityの保護対象となり、エラー表示の処理自体が妨げられている可能性を考えた。
 
 ```java
 .requestMatchers("/error").permitAll()
 ```
 
-を追加し、`/error`については認証状態にかかわらずアクセスできるようにした。
+を追加し、認証状態にかかわらず`/error`へアクセスできるようにした。
 
-### 2.2 最初に発生したエラーの原因は未特定
+ただし、**この変更はエラー処理経路に対する対策であり、最初のエラーの原因を特定したものではない**。通常の認証失敗は設定済みの`AuthenticationFailureHandler`が`/login`へリダイレクトするため、今回の現象が通常のパスワード誤りに起因したとも断定できない。また、エラー表示時点で認証が成功していたかどうかも確認できていない。
 
-ただし、`/error`を`permitAll()`にすることでstatus 999を防げたとしても、これだけでは根本原因を特定したことにはならない。
+### 1.3 再発時に備えたログ設定
 
-実際に確認した現象は、
-
-```text
-/loginでログインフォームを入力
-（この時点では未ログイン）
-    ↓
-フォームを送信
-    ↓
-status 999
-    ↓
-ブラウザを再読み込み
-    ↓
-Whitelabel Error Page
-    ↓
-ブラウザの「戻る」で /login へ戻る
-    ↓
-再度ログインフォームを送信
-    ↓
-正常にログイン
-```
-
-という流れだった。
-
-status 999が表示された時点で認証自体が成功していたのか、それとも認証成立前に別のエラーが発生していたのかまでは確認できていない。
-
-また、通常のログイン失敗についてはSecurityConfigで`AuthenticationFailureHandler`を設定している。
-
-```java
-.failureHandler(new AuthenticationFailureHandler() {
-
-    @Override
-    public void onAuthenticationFailure(...)
-            throws IOException {
-
-        ...
-
-        response.sendRedirect("/login");
-    }
-})
-```
-
-そのため、パスワード間違いなど通常の`AuthenticationException`であれば、
-
-```text
-ログイン失敗
-    ↓
-AuthenticationFailureHandler
-    ↓
-/loginへredirect
-```
-
-となるため、本来`/error`へ遷移する必要はない。
-
-このことから、今回のstatus 999については、
-
-```text
-ログインフォームを送信
-    ↓
-認証処理周辺のどこかで別のエラーが発生
-    ↓
-/error へのエラー処理が開始される
-    ↓
-/error 自体がSpring Securityの保護対象
-    ↓
-エラー処理を正常に完了できない
-    ↓
-status 999
-```
-
-という可能性までは考えられるものの、最初に`/error`への遷移を発生させた原因については特定できていない。
-
-### 2.3 Spring SecurityのDEBUGログを有効化
-
-status 999は不定期に発生し、意図的に再現することが難しかった。
-
-そのため、再発した場合にSpring Security内部でどのような処理が行われたのか確認できるよう、`application.yml`へ以下を追加した。
+再現性が低く、その場で詳細な原因を追跡できなかったため、`application.yml`にSpring SecurityのDEBUGログを設定した。
 
 ```yaml
 logging:
@@ -162,779 +55,196 @@ logging:
     org.springframework.security: DEBUG
 ```
 
-これにより、ログイン処理周辺について、
+これにより、再発時に認証処理、SecurityContext、フィルターによるアクセス処理の流れを調査できるようにした。**対策後に再発しないことや根本原因の解消は、元の記録では確認できていない**。今後の再発有無とログの確認を課題として残した。
 
-```text
-ログインリクエストをSecurity Filterが受け取る
-    ↓
-認証処理
-    ↓
-認証成功 / 認証失敗
-    ↓
-SecurityContextの処理
-    ↓
-URLへのアクセス
-    ↓
-Security Filterによる処理
-```
+## 2. ControllerとServiceの責務を整理する
 
-など、Spring Security内部の処理を通常より詳細に確認できる状態にした。
+Controllerではリクエストの受け取り、Modelへの値の設定、画面遷移を中心に扱い、業務ルールやデータ操作は適切なServiceへ委譲するよう見直した。
 
-### 2.4 今後の確認
+### 2.1 管理機能のForm生成と検索条件
 
-今回の対応では、
-
-```java
-.requestMatchers("/error").permitAll()
-```
-
-を追加するとともに、再発時の原因調査用としてSpring SecurityのDEBUGログを有効化した。
-
-ただし、status 999自体に再現性がないため、修正時点では問題が完全に解消したとは断定していない。
-
-今後は通常どおりアプリケーションを使用し、
-
-```text
-status 999が再発しない
-    ↓
-/errorへのアクセス許可によって問題が解消した可能性が高い
-
-status 999が再発する
-    ↓
-Spring SecurityのDEBUGログを確認
-    ↓
-最初にどの処理でエラーが発生したかを調査
-```
-
-という方針で確認を続ける。
-
-そのため、この対応ではstatus 999への対策と再発時の調査環境までを実装し、根本原因については再発時に追加調査することとした。
-
-
-## 3. ControllerとServiceの責務を整理
-
-### 3.1 AdminQuestion
-
-`AdminQuestionController`では、編集画面表示時に`OriginalQuestionDTO`から`QuestionForm`を生成する処理をController内で行っていた。
-
-DTOからFormへの変換はHTTPリクエストや画面遷移の制御ではないため、`AdminQuestionService`へ移動した。
-
-```java
-public QuestionForm createQuestionForm(
-        OriginalQuestionDTO originalQuestion) {
-
-    QuestionForm form = new QuestionForm();
-
-    form.setLanguageVariant(
-            originalQuestion.getLanguageVariant());
-    form.setJapaneseText(
-            originalQuestion.getJapaneseText());
-    form.setChineseText(
-            originalQuestion.getChineseText());
-    form.setAlternativeAnswer(
-            originalQuestion.getAlternativeAnswer());
-    form.setDifficulty(
-            originalQuestion.getDifficulty());
-    form.setStructureId(
-            originalQuestion.getStructureId());
-    form.setAllowAiVariation(
-            originalQuestion.isAllowAiVariation());
-    form.setTemplate(
-            originalQuestion.getTemplate());
-
-    return form;
-}
-```
-
-Controller側では、
+`AdminQuestionController`で行っていた`OriginalQuestionDTO`から`QuestionForm`への値のコピーを、`AdminQuestionService.createQuestionForm()`へ移した。`languageVariant`、日本語・中国語の問題文、別解、難易度、構文ID、AI変化許可、テンプレートなどの値をServiceで設定し、Controllerは完成したFormを受け取る。
 
 ```java
 QuestionForm form =
-        adminQuestionService.createQuestionForm(
-                originalQuestion);
+        adminQuestionService.createQuestionForm(originalQuestion);
 ```
 
-として、変換処理をServiceへ委譲する構成に変更した。
+同様に、`AdminStructureController`で行っていた`Structure`から`StructureForm`への変換を`AdminStructureService.createStructureForm(structureId)`へ移した。
 
-### 3.2 AdminStructure
+`AdminUserController`にあった、アカウント状態が未指定なら`AccountStatus.ALL`とする初期値補完は、`AdminUserService.getUsers()`へ移動した。検索条件の既定値というルールをService側で扱うためである。
 
-`AdminStructureController`でも、取得した`Structure`の値を`StructureForm`へコピーしていたため、同様にForm生成処理を`AdminStructureService`へ移動した。
+### 2.2 AI生成学習と生成履歴
 
-```java
-public StructureForm createStructureForm(Long structureId) {
+`AiPracticeController`が`QuestionRepository`を直接呼び、所有者IDと中国語本文から保存済み問題を検索していた処理は、`AiPracticeService.getSavedQuestionId(userId, chineseText)`へ移した。保存済みなら問題IDを、存在しなければ`null`を返すという既存の仕様は維持した。
 
-    Structure structure = getStructure(structureId);
-
-    StructureForm form = new StructureForm();
-
-    form.setName(structure.getName());
-    form.setDescriptionZhCn(
-            structure.getDescriptionZhCn());
-    form.setDescriptionZhTw(
-            structure.getDescriptionZhTw());
-
-    return form;
-}
-```
-
-Controllerは`structureId`を受け取り、Serviceから完成した`StructureForm`を取得してModelへ設定する構成とした。
-
-### 3.3 AdminUser
-
-`AdminUserController`で行っていた、
-
-```java
-if (searchDto.getAccountStatus() == null) {
-    searchDto.setAccountStatus(AccountStatus.ALL);
-}
-```
-
-を`AdminUserService.getUsers()`へ移動した。
-
-検索条件が未指定の場合に`ALL`として扱うルールをService側へ集約し、Controllerは検索条件の受け取りとService呼び出しを担当する構成とした。
-
-### 3.4 AI生成モード
-
-`AiPracticeController`が`QuestionRepository`を直接利用して、AI生成問題が保存済みか確認していた処理を`AiPracticeService`へ移動した。
-
-```java
-public Long getSavedQuestionId(
-        Long userId,
-        String chineseText) {
-
-    Optional<Question> savedQuestion =
-            questionRepository.findByOwnerIdAndChineseText(
-                    userId,
-                    chineseText);
-
-    if (savedQuestion.isPresent()) {
-        return savedQuestion.get().getQuestionId();
-    }
-
-    return null;
-}
-```
-
-また、`AiPracticeService`が`AiGenerationHistoryRepository`を直接利用して履歴の取得・削除を行う一方、保存だけを`AiGenerationHistoryService`へ委譲していた構成も整理した。
-
-AI生成履歴に関するDB操作を`AiGenerationHistoryService`へ集約し、
+また、`AiPracticeService`からAI生成履歴のRepositoryを直接操作する処理と、`AiGenerationHistoryService`へ委譲する処理が混在していたため、履歴の取得・削除・保存を`AiGenerationHistoryService`へ集約した。
 
 ```text
 AiPracticeService
-        ↓
+    ↓
 AiGenerationHistoryService
-        ↓
+    ↓
 AiGenerationHistoryRepository
 ```
 
-という依存関係に統一した。
+履歴を最大10件に保つ処理も`updateGenerationHistory()`にまとめ、古い履歴の削除と新規履歴の保存を同じServiceが担当するようにした。
 
-履歴の最大10件保持についても`AiGenerationHistoryService.updateGenerationHistory()`へまとめ、古い履歴の削除から新規履歴の保存までを同Serviceが管理するようにした。
+### 2.3 通常学習と会員登録
 
-### 3.5 Practice
+`PracticeController.getPracticeStart()`には、ログイン状態による問題取得方法の切り替えと、`sourceCondition`が未指定の場合に`ALL`とする判断が含まれていた。これらを`PracticeService.getPracticeQuestions()`へ集約し、Controllerは必要な検索条件を渡して問題一覧を受け取る構成とした。
 
-`PracticeController.getPracticeStart()`では、
-
-```text
-ログインユーザー
-    → ユーザー用問題取得
-
-非ログインユーザー
-    → 非ログイン用問題取得
-
-sourceCondition未指定
-    → ALL
-```
-
-という問題取得ルールをController側で判断していた。
-
-これを`PracticeService.getPracticeQuestions()`へ集約した。
-
-Controller側は、
-
-```java
-List<Question> questions =
-        practiceService.getPracticeQuestions(
-                userId,
-                languageVariant,
-                difficulty,
-                sourceCondition,
-                start,
-                random);
-```
-
-のみで問題セットを取得できる構成とした。
-
-### 3.6 Signup
-
-`SignupController`では、`SignupForm`から`Users` Entityを生成してServiceへ渡していた。
-
-これを変更し、Controllerは`SignupForm`をそのままServiceへ渡すようにした。
+`SignupController`では、`SignupForm`から`Users`を生成する処理を削除し、Formを`SignupService.signup(form)`へ渡すようにした。Entityの生成、一般ユーザー権限の設定、パスワードのハッシュ化、保存はServiceが担当する。
 
 ```java
 signupService.signup(form);
 ```
 
-`Users`の生成、入力値の設定、一般ユーザー権限の設定、パスワードのハッシュ化、Repositoryへの保存は`SignupService`で行う構成とした。
+## 3. Service内部の重複処理と依存関係を整理する
 
-## 4. Service内部処理の整理
+### 3.1 新規登録と更新に共通する値設定
 
-### 4.1 AdminQuestionService
-
-`addQuestion()`と`updateOneQuestion()`には、
-
-* 発音生成
-* FormからQuestionへの値設定
-* Structure取得
-* QuestionへのStructure設定
-
-という共通処理が存在していた。
-
-これを、
+`AdminQuestionService`の`addQuestion()`と`updateOneQuestion()`では、発音生成、FormからEntityへの値設定、Structureの取得・設定が重複していた。これを次のprivateメソッドへまとめた。
 
 ```java
-private void applyQuestionForm(
-        Question question,
-        QuestionForm form)
+private void applyQuestionForm(Question question, QuestionForm form)
 ```
 
-としてまとめた。
+新規登録では新しい`Question`、更新では既存の`Question`に対して同じ処理を適用する。
 
-新規登録では新しい`Question`を生成して`applyQuestionForm()`を呼び、更新では既存`Question`を取得して同じメソッドを呼ぶ構成とした。
-
-検索条件の初期値補完やEntity・DTO・Form間の単純な変換については、処理を細かく分割するとかえって追いにくくなるため、そのまま残した。
-
-### 4.2 AdminStructureService
-
-`addStructure()`と`updateStructure()`で重複していたFormからEntityへの値設定を、
-
-```java
-private void applyStructureForm(
-        Structure structure,
-        StructureForm form)
-```
-
-へまとめた。
-
-また、削除時の移行先として使用しているStructure ID `23L`を、
+`AdminStructureService`でも、追加・更新時のFormからEntityへの値設定を`applyStructureForm(Structure structure, StructureForm form)`へ集約した。また、削除時の移行先となる「その他」のStructure IDは、次の定数にした。
 
 ```java
 private static final Long OTHER_STRUCTURE_ID = 23L;
 ```
 
-として定数化した。
+「その他」が存在しない場合は通常のStructure不存在と意味が異なるため、既存の`IllegalStateException`による扱いを維持した。
 
-通常のStructure取得については既存の`getStructure()`を再利用した。
+### 3.2 AI生成処理を役割ごとに分離
 
-一方、「その他」のStructureが存在しない場合は通常のStructure不存在とは意味が異なるため、専用の`IllegalStateException`を維持した。
-
-### 4.3 AdminUserService
-
-`lockUser()`と`unlockUser()`にあった現在状態の確認処理を削除した。
-
-凍結時は、
-
-```java
-user.setAccountLocked(true);
-```
-
-凍結解除時は、
-
-```java
-user.setAccountLocked(false);
-```
-
-を直接設定する構成とした。
-
-### 4.4 AiGenerationHistoryService
-
-AI生成履歴の最大保持件数として直接記述していた`10`を、
-
-```java
-private static final int MAX_HISTORY_SIZE = 10;
-```
-
-として定数化した。
-
-また、外部から直接使用しなくなった`saveGenerationHistory()`をprivateメソッドへ変更し、外部向けの履歴更新処理を`updateGenerationHistory()`へ統一した。
-
-### 4.5 AiPracticeService
-
-特に処理が長くなっていた`generateQuestions()`を中心に整理した。
-
-生成元QuestionからAI送信用DTOを生成する処理を、
+長くなっていた`AiPracticeService.generateQuestions()`から、生成元QuestionをAI送信用DTOへ変換する処理と、そのDTOをJSONへ変換する処理を切り出した。
 
 ```java
 private List<AiGenerationSourceDto> createGenerationSources(...)
-```
-
-へ切り出した。
-
-生成元DTOをJSONへ変換する処理も、
-
-```java
 private String convertGenerationSourcesToJson(...)
 ```
 
-へ切り出した。
+Gemini API向けのStructured Outputs Schema生成も、API呼び出し本体から分離した。`AiPronunciationService.generatePronunciationWithGemini()`でも同様にSchema生成処理をprivateメソッドへ移した。
 
-Gemini API用のStructured Outputs Schema生成についても、API呼び出し本体から分離した。
-
-また、AIサービスの切り替えに使用していた、
-
-```java
-boolean useChatGPT = false;
-```
-
-を廃止し、
+さらに、AIの切り替えを`boolean useChatGPT = false`で表していた箇所をenumに変更した。
 
 ```java
 public enum AiProvider {
     CHAT_GPT,
     GEMINI
 }
+
+private static final AiProvider AI_PROVIDER = AiProvider.GEMINI;
 ```
 
-を追加した。
+API呼び出しは`switch`で選択する構成とした。真偽値では伝わりにくかった選択肢を、名前で明示できるようになった。
 
-使用するAIは、
+### 3.3 履歴・お気に入り・ユーザー情報の扱い
 
-```java
-private static final AiProvider AI_PROVIDER =
-        AiProvider.GEMINI;
-```
+- `AiGenerationHistoryService`：履歴保持件数の`10`を`MAX_HISTORY_SIZE`として定数化。外部から直接呼ばなくなった`saveGenerationHistory()`をprivate化し、更新の入口を`updateGenerationHistory()`へ統一。
+- `EvaluationService`：学習履歴のUPDATEとINSERTで重複していた値設定・保存処理をまとめ、既存Entityの取得または新規生成の後に共通処理を実行。
+- `FavoriteService`：Entityの内容が不要な存在確認を、`Optional<Favorite>`の取得からRepositoryの`existsById()`へ変更。
+- `AdminUserService`：凍結・解除時の事前状態チェックを削除し、それぞれ`setAccountLocked(true)`と`setAccountLocked(false)`を直接設定。
+- `UserAccountService`：ログインIDからユーザーを取得し、存在しなければ例外を送出する処理をprivateメソッドへ共通化。
+- `SignupService`：平文パスワードを一度Entityへ設定してから取り出す処理を廃止。Formのパスワードを直接`PasswordEncoder`へ渡し、ハッシュ化した値だけをEntityへ設定。
+- `UserDetailsServiceImpl`：生成した`UserDetails`を不要な一時変数に入れず、そのままreturn。
+- `UserQuestionService`：削除対象が所有者本人の問題であることを表すメソッド名へ変更。
 
-として明示し、API呼び出しは`switch`で選択する構成へ変更した。
+また、`PracticeService`では問題取得の入口を`getPracticeQuestions()`に統合したため、不要になった`getAvailablePracticeQuestions()`を削除した。
 
-開発中の処理時間確認に使用している`System.out.println()`については、この章では変更せず、後のAOP・ログ対応で整理することとした。
+Structure一覧の取得は、他の機能から`ReviewService.findStructures()`を利用するのではなく、Structureマスタを担当する`StructureService`へ集約した。別機能のServiceを経由する不自然な依存関係を解消した。
 
-### 4.6 AiPronunciationService
+## 4. Controller内部の命名と共通処理を整理する
 
-`generatePronunciationWithGemini()`内に直接記述していたGemini用レスポンスSchema生成処理をprivateメソッドへ切り出した。
+### 4.1 メソッド名・変数名の統一
 
-API呼び出し処理とレスポンス形式の定義を分離し、Gemini API呼び出し部分を短くした。
-
-### 4.7 EvaluationService
-
-学習履歴が存在する場合のUPDATEと、存在しない場合のINSERTで重複していた処理を整理した。
-
-既存履歴の有無によって必要なEntityを取得または生成した後、共通の値設定と保存処理を行う構成へ変更した。
-
-### 4.8 FavoriteService
-
-お気に入り登録済みかどうかを確認するためだけに`Optional<Favorite>`を取得していた処理を見直した。
-
-Entityそのものが必要ない存在確認についてはRepositoryの`existsById()`を利用する構成へ変更した。
-
-### 4.9 PracticeService
-
-責務整理によって通常学習の問題取得処理を`getPracticeQuestions()`へ統合したため、不要になった`getAvailablePracticeQuestions()`を削除した。
-
-同じ目的の問題取得メソッドが複数存在する状態を解消した。
-
-### 4.10 ReviewService / StructureService
-
-複数のServiceから利用されていたStructure一覧取得処理を確認した。
-
-`ReviewService.findStructures()`を他機能から利用する構成では責務が不自然になるため、Structureマスタの取得を担当する`StructureService`へ共通化した。
-
-これにより、Structure一覧が必要な機能は`ReviewService`を経由せず、`StructureService`を直接利用する構成とした。
-
-### 4.11 SignupService
-
-一度`Users`へ平文パスワードを設定し、その直後に取り出してハッシュ化する処理を整理した。
-
-Formから取得したパスワードを直接`PasswordEncoder`へ渡し、ハッシュ化した値のみをEntityへ設定する構成とした。
-
-### 4.12 UserAccountService
-
-複数メソッドで重複していた、
-
-```text
-loginIdからUsersを取得
-    ↓
-存在しなければ例外
-```
-
-という処理をprivateメソッドへまとめた。
-
-ユーザー情報変更処理では、この共通メソッドを利用して対象ユーザーを取得する構成へ統一した。
-
-### 4.13 UserDetailsServiceImpl
-
-`UserDetails`を一時変数へ格納してからそのままreturnしていた処理を整理し、生成した`UserDetails`を直接returnするようにした。
-
-### 4.14 UserQuestionService
-
-問題削除メソッドの名前を、実際の処理内容が分かる名前へ整理した。
-
-ユーザー自身が所有する問題だけを削除するという処理内容がメソッド名から判断できるようにした。
-
-## 5. Controller内部処理の整理
-
-### 5.1 AdminQuestionController
-
-Structure一覧取得を`StructureService`へ移したことで不要になったService依存を削除した。
-
-また、`Page<AdminQuestionListDto>`を保持する変数について、
-
-```java
-Page<AdminQuestionListDto> allFilteredQuestionList
-```
-
-から、
-
-```java
-Page<AdminQuestionListDto> questionPage
-```
-
-へ変更した。
-
-ページングされた結果であることが変数名から分かるようにした。
-
-さらに、検索結果が0件の場合、
-
-```text
-start = 1
-end   = 0
-total = 0
-```
-
-となり、画面上で「1〜0件 / 全0件」と表示される問題があった。
-
-![](../../images/0024-01.png)
-
-そこで、初期値を0とし、検索結果が存在する場合のみ開始位置と終了位置を計算するように変更した。
-
-```java
-long start = 0;
-long end = 0;
-
-if (questionPage.hasContent()) {
-    start =
-            (long) questionPage.getNumber()
-            * questionPage.getSize() + 1;
-
-    end =
-            start + questionPage.getNumberOfElements() - 1;
-}
-```
-
-そのほか、未使用の引数・importを削除した。
-
-### 5.2 AdminStructureController
-
-POSTメソッドの名前をController全体の命名規則に合わせた。
-
-```text
-addStructure()
-    → postStructureAdd()
-
-updateStructure()
-    → postStructureEdit()
-
-deleteStructure()
-    → postStructureDelete()
-```
-
-また、
-
-```java
-Page<Structure> structureList
-```
-
-を、
-
-```java
-Page<Structure> structurePage
-```
-
-へ変更した。
-
-### 5.3 AdminUserController
-
-`Page<Users>`を保持していた変数を`userList`から`userPage`へ変更した。
-
-POSTメソッドについても、
-
-```text
-lockUser()
-    → postUserLock()
-
-unlockUser()
-    → postUserUnlock()
-
-deleteUser()
-    → postUserDelete()
-```
-
-として命名規則を統一した。
-
-また、`Locale local`を`Locale locale`へ変更した。
-
-### 5.4 AiPracticeController
-
-既に存在していた、
-
-```java
-private Users getLoginUser(UserDetails loginUser)
-```
-
-を利用せず直接`UserAccountService`を呼んでいた箇所を整理し、ユーザー取得方法を統一した。
-
-また、複数箇所で繰り返していたセッションからの学習対象言語取得と`MAINLAND`へのデフォルト設定を、
-
-```java
-private LanguageVariant getLanguageVariant(
-        HttpSession session)
-```
-
-へまとめた。
-
-不要な変数の先行宣言や、使用していない`Model`引数も削除した。
-
-一方、セッションから問題一覧を取得する処理など、短くその場で意味を確認できる処理については無理にprivateメソッド化しなかった。
-
-### 5.5 LanguageVariantController
-
-メソッド名を、
-
-```text
-changeLanguageVariant()
-    → getLanguageVariantChange()
-```
-
-へ変更し、GETメソッドの命名規則に合わせた。
-
-また、
-
-```java
-LanguageVariant current
-```
-
-を、
-
-```java
-LanguageVariant currentLanguageVariant
-```
-
-へ変更した。
-
-リダイレクト判定は複数箇所に存在するものの、処理自体が短く、その場で遷移先を確認できる現在の形の方が明示的であるため、共通privateメソッドへの切り出しは行わなかった。
-
-### 5.6 PracticeController
-
-複数のGETメソッドで繰り返していた学習対象言語の取得処理をprivateメソッドへまとめた。
-
-```java
-private LanguageVariant getLanguageVariant(
-        HttpSession session)
-```
-
-として、
-
-```text
-セッションからlanguageVariantを取得
-    ↓
-存在しなければMAINLAND
-```
-
-という共通処理を一か所に集約した。
-
-また、不要な`questions`の先行宣言、使用していない`Model`引数などを削除した。
-
-POSTの評価更新メソッドについてもControllerの命名規則に合わせ、
-
-```text
-postEvaluation()
-    → postPracticeEvaluation()
-```
-
-へ変更した。
-
-ユーザー取得についても既存の`getLoginUser()`へ統一した。
-
-### 5.7 PronunciationTypeController
-
-メソッド名を、
-
-```text
-changePronunciationType()
-    → getPronunciationTypeChange()
-```
-
-へ変更した。
-
-また、
-
-```java
-PronunciationType current
-```
-
-を、
-
-```java
-PronunciationType currentPronunciationType
-```
-
-へ変更した。
-
-LanguageVariantControllerと同様、短いリダイレクト処理については共通化せず、そのまま残した。
-
-### 5.8 ReviewController
-
-`getReviewStart()`で不要だった`questions`の先行宣言を削除し、取得結果を直接変数へ代入するようにした。
-
-`getReviewResume()`で使用していなかった`Model`引数も削除した。
-
-評価更新用POSTメソッドは、
-
-```text
-postEvaluation()
-    → postReviewEvaluation()
-```
-
-へ変更し、Controllerの命名規則を統一した。
-
-ユーザー取得についても既存の`getLoginUser()`を利用するようにした。
-
-PracticeControllerとは異なり、LanguageVariant取得処理はController内で1箇所しか使用していないため、privateメソッドへの切り出しは行わなかった。
-
-### 5.9 SignupController
-
-Controller自体には大きな変更を行わなかった。
-
-バリデーションエラー時に、
-
-```java
-return getSignup(form);
-```
-
-としてGETメソッドを再利用している構成についても、そのまま維持した。
-
-ログについては後のAOP・ログ対応でまとめて確認することとした。
-
-### 5.10 UserProfileController
-
-ログインID変更後とパスワード変更後に重複していた認証状態の破棄処理を、
-
-```java
-private void clearAuthentication(
-        HttpSession session)
-```
-
-へ切り出した。
-
-```java
-SecurityContextHolder.clearContext();
-
-session.removeAttribute(
-        HttpSessionSecurityContextRepository
-                .SPRING_SECURITY_CONTEXT_KEY
-);
-```
-
-という一連の処理に「現在の認証状態を破棄する」という明確な意味があるため、privateメソッドとして共通化した。
-
-また、退会処理のControllerメソッドを、
-
-```text
-cancelMembership()
-    → postUserDelete()
-```
-
-へ変更し、POSTメソッドの命名規則に合わせた。
-
-ログインID変更・パスワード変更時の例外処理では、入力済みFormをModelへ追加してからGETメソッドを呼び出していたが、GETメソッド側でも同じFormをModelへ追加していたため、catch内の重複した`model.addAttribute()`を削除した。
-
-パスワード変更フォームについては、
-
-```text
-editpasswordForm
-```
-
-と、
-
-```text
-editPasswordForm
-```
-
-が混在していたため、`editPasswordForm`へ統一した。
-
-### 5.11 UserQuestionController
-
-一覧検索結果を保持する、
-
-```java
-Page<UserQuestionListDto> questionList
-```
-
-を、
-
-```java
-Page<UserQuestionListDto> questionPage
-```
-
-へ変更した。
-
-また、複数箇所で繰り返していたログインユーザー取得処理を、
-
-```java
-private Users getLoginUser(
-        UserDetails loginUser)
-```
-
-へまとめた。
-
-評価更新用POSTメソッドについても、
-
-```text
-toggleEvaluation()
-    → postEvaluationToggle()
-```
-
-へ変更し、Controllerの命名規則に合わせた。
-
-単一要素のList生成には`List.of()`を使用し、不要になった`Arrays`のimportを削除した。
-
-## 6. リファクタリング方針の統一
-
-今回の見直しでは、Controller全体で、
+Controllerのリクエスト処理メソッドは、原則として次の規則に合わせた。
 
 ```text
 GET  → get○○
 POST → post○○
 ```
 
-というメソッド命名規則へ統一した。
+代表的な変更は以下のとおり。
 
-また、`Page<T>`を保持する変数については、
+| 対象 | 変更前 | 変更後 |
+| --- | --- | --- |
+| AdminStructureController | `addStructure()` / `updateStructure()` / `deleteStructure()` | `postStructureAdd()` / `postStructureEdit()` / `postStructureDelete()` |
+| AdminUserController | `lockUser()` / `unlockUser()` / `deleteUser()` | `postUserLock()` / `postUserUnlock()` / `postUserDelete()` |
+| LanguageVariantController | `changeLanguageVariant()` | `getLanguageVariantChange()` |
+| PronunciationTypeController | `changePronunciationType()` | `getPronunciationTypeChange()` |
+| PracticeController | `postEvaluation()` | `postPracticeEvaluation()` |
+| ReviewController | `postEvaluation()` | `postReviewEvaluation()` |
+| UserProfileController | `cancelMembership()` | `postUserDelete()` |
+| UserQuestionController | `toggleEvaluation()` | `postEvaluationToggle()` |
 
-```text
-○○List
+`Page<T>`を保持する変数は、`questionList`、`structureList`、`userList`のような名前から、`questionPage`、`structurePage`、`userPage`へ変更した。`AdminQuestionController`の`allFilteredQuestionList`も`questionPage`へ変更し、型と変数名の意味を一致させた。
+
+そのほか、`Locale local`を`Locale locale`、`current`を`currentLanguageVariant`や`currentPronunciationType`に変更し、`editpasswordForm`と`editPasswordForm`の表記は後者へ統一した。
+
+### 4.2 重複するController処理の共通化
+
+`AiPracticeController`、`PracticeController`、`ReviewController`、`UserQuestionController`では、ログインユーザーの取得方法を既存または新設の`getLoginUser()`へ統一した。
+
+`AiPracticeController`と`PracticeController`では、セッションの`languageVariant`が未設定なら`MAINLAND`を使用する処理が複数箇所にあったため、次のメソッドへまとめた。
+
+```java
+private LanguageVariant getLanguageVariant(HttpSession session)
 ```
 
-ではなく、
+一方、`ReviewController`では同じ処理が1箇所だけだったため、無理に切り出さなかった。
 
-```text
-○○Page
+`UserProfileController`では、ログインID変更後とパスワード変更後に繰り返していた認証状態の破棄を共通化した。
+
+```java
+private void clearAuthentication(HttpSession session) {
+    SecurityContextHolder.clearContext();
+    session.removeAttribute(
+            HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+}
 ```
 
-を使用し、変数が実際に保持している型と名前を一致させた。
+この処理は「認証状態を破棄する」という明確な意味を持つため、privateメソッド化する利点がある。
 
-一方、重複しているコードをすべてprivateメソッドへ切り出すことはしなかった。
+また、同Controllerの例外処理では、再利用するGETメソッド側でもFormをModelへ追加していたため、catch内の重複した`model.addAttribute()`を削除した。
 
-認証状態の破棄や学習対象言語の取得など、複数箇所で使用され、処理自体に明確な意味を付けられるものは共通化した。
+### 4.3 不要な記述の削除と、残した処理
 
-それに対して、単純なリダイレクト判定や1箇所でしか使用しない初期値設定などは、privateメソッド化することで処理を追う場所が増えるため、現在の明示的な記述を維持した。
+`AiPracticeController`、`PracticeController`、`ReviewController`などでは、不要な変数の先行宣言、使用していない`Model`引数やimportを削除した。`UserQuestionController`では単一要素のList生成を`List.of()`へ変更し、不要になった`Arrays`のimportを削除した。
 
-また、長いメソッドについても、処理が一本道であり内容を順番に追える場合は、長さだけを理由に分割しなかった。
+一方、`LanguageVariantController`と`PronunciationTypeController`の短いリダイレクト判定は、処理をその場で確認できることを優先し、共通メソッドにはしなかった。`AiPracticeController`のセッションからの問題一覧取得や、`SignupController`でバリデーションエラー時に`getSignup(form)`を再利用する構成も維持した。
 
-## 7. 変更後
+**同じ記述が存在することだけを理由に、すべてをprivateメソッド化するわけではない**という方針で整理した。
 
-今回のリファクタリングによって、新しい機能を追加することなく、既存処理の責務と構造を整理した。
+## 5. 検索結果が0件の場合の表示を修正する
 
-特に、
+`AdminQuestionController`では、検索結果が0件の場合に開始位置が`1`、終了位置が`0`となり、画面に「1〜0件 / 全0件」と表示されていた。
+
+![](../../images/0024-01.png)
+
+そこで、開始位置と終了位置を`0`で初期化し、ページにデータがある場合だけ計算するようにした。
+
+```java
+long start = 0;
+long end = 0;
+
+if (questionPage.hasContent()) {
+    start = (long) questionPage.getNumber()
+            * questionPage.getSize() + 1;
+    end = start + questionPage.getNumberOfElements() - 1;
+}
+```
+
+これは単なる命名整理ではなく、**検索結果が空の場合の表示上の不整合を修正した変更**である。元の記録には修正コードと修正前の画像があるが、修正後の画面確認結果までは示されていない。
+
+## 6. 今回の整理で維持した方針
+
+今回の変更では、ControllerからServiceへの処理移動、Service間の依存関係の整理、共通処理の切り出し、定数化、命名規則の統一を行った。基本となる依存関係は次のとおりである。
 
 ```text
 Controller
@@ -944,12 +254,14 @@ Service
 Repository
 ```
 
-という基本的な依存関係を改めて確認し、Controllerが直接Repositoryを操作していた箇所や、特定機能のServiceを別機能から流用していた箇所を整理した。
+ただし、すべてのメソッドを短くすることや、重複を機械的にゼロにすることは目指していない。一本道で追いやすい長いメソッドや、短く明示的な条件分岐は、そのまま残した。
 
-Service内部では、複数メソッドに存在していた共通処理の集約、マジックナンバーの定数化、不要になったpublicメソッドのprivate化、不要な条件分岐や一時変数の削除を行った。
+また、開発中に利用していた`System.out.println()`、処理時間計測、ログ出力の整理は本章の対象から外し、後続のAOP・ログ対応で扱うこととした。
 
-Controller内部では、GET・POSTメソッドの命名、`Page`型変数の命名、ログインユーザー取得方法などを統一した。
+## まとめ
 
-ただし、コード量を減らすこと自体を目的とした共通化は行わず、現在の方が明示的で読みやすい処理についてはそのまま残した。
+今回のリファクタリングでは、**どの層が何を担当するのかを明確にし、コードを読むときに処理の意味を追いやすくすること**を重視した。
 
-ログ出力や`System.out.println()`、処理時間計測などについては今回の対象から外し、次章のAOP・ログ対応で改めて整理する。
+一方、`status 999`は`/error`のアクセス許可とDEBUGログ設定まで対応したものの、最初のエラーの発生原因は未特定である。リファクタリングで行った変更と、不具合に対する暫定的な対策・調査準備を混同せず、今後の確認事項として残す。
+
+元の実装記録にはリファクタリング後の包括的な回帰テスト結果は記載されていないため、本章でも動作確認済みとは断定しない。

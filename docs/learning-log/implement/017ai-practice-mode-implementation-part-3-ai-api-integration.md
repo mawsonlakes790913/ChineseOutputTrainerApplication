@@ -1,6 +1,8 @@
-# 017 AI問題生成モードの実装その3 AI生成した問題セットを取得する②API連携
+# 017 AI問題生成モードの実装その3 学習ログ｜OpenAI・Gemini API連携
 
-## 1. ChatGPTのAPIリクエスト作成
+このログでは、API連携の実装を通じて理解したSDKの仕組み、設計判断、苦戦した点を記録する。APIクライアントのSpring Bean登録は次チャプターの実装対象である。
+
+## 1. OpenAI APIのリクエスト設計とStructured Outputs
 
 前チャプターで作成した`input`をChatGPTへ送信するため、OpenAI Java SDKを使用してAPIリクエストの設定を作成した。
 
@@ -148,7 +150,7 @@ StructuredResponseCreateParams<TemporaryGeneratedQuestionListDto> params
 
 ---
 
-## 2. `TemporaryGeneratedQuestionListDto`で複数問題をラップした理由
+## 2. 複数問題を受け取るためのラッパーDTO
 
 Structured Outputsでは、
 
@@ -239,7 +241,7 @@ List<TemporaryGeneratedQuestionDto>.class
 
 ---
 
-## 3. `OpenAIClient`を使用したAPIリクエストの送信
+## 3. APIリクエストの送信とDIの理解
 
 作成した`params`を実際にOpenAI APIへ送信するため、
 
@@ -272,19 +274,7 @@ openAIClient
 
 ### 勉強になった点
 
-今回、
-
-```java
-ResponseCreateParams
-```
-
-と、
-
-```java
-OpenAIClient
-```
-
-の役割の違いを整理できた。
+リクエスト設定と通信クライアントの役割の違いを整理できた。
 
 ```text
 ResponseCreateParams
@@ -344,7 +334,7 @@ Javaコード上でコンストラクタが成立することと、Springが実�
 
 ---
 
-## 4. ChatGPTのResponseからStructured Outputsを取得
+## 4. OpenAIのレスポンス構造と二重ループ
 
 OpenAI APIから返される、
 
@@ -477,7 +467,7 @@ Response全体には生成結果以外の情報も含まれるため、使用す
 
 ---
 
-## 5. GeminiのStructured Outputs用Schemaの作成
+## 5. Geminiの1問分のSchema設計
 
 GeminiでもChatGPTと同様にStructured Outputsを利用するが、今回使用した方法では出力形式の指定方法が大きく異なった。
 
@@ -622,7 +612,7 @@ questionSchema
 
 ---
 
-## 6. Geminiのレスポンス全体のSchemaの作成
+## 6. Geminiのレスポンス全体のSchema設計
 
 1問分の`questionSchema`を作成した後、それを複数格納するレスポンス全体の構造として、
 
@@ -697,7 +687,7 @@ responseSchema
 
 ---
 
-## 7. `GenerateContentConfig`によるGeminiの生成設定
+## 7. Geminiの生成設定とMIMEタイプ
 
 作成した`responseSchema`をGeminiの生成処理で使用するため、
 
@@ -841,7 +831,7 @@ Response
 
 ---
 
-## 9. GeminiのResponseをJSONからDTOへ変換
+## 9. GeminiのJSONレスポンスをDTOへ変換
 
 Gemini APIから取得した、
 
@@ -956,15 +946,9 @@ ChatGPTではSDKから最終的にDTOとして取得するのに対し、Gemini�
 
 ---
 
-## 10. ChatGPTとGeminiの処理を同じDTOへ収束させる
+## 10. APIごとの処理を共通DTOへ収束させる
 
-ChatGPT版とGemini版ではAPI連携の方法が大きく異なるが、どちらのメソッドも最終的には、
-
-```java
-TemporaryGeneratedQuestionListDto
-```
-
-を返すようにした。
+ChatGPT版とGemini版ではAPI連携の方法が大きく異なるが、どちらのメソッドも最終的には`TemporaryGeneratedQuestionListDto`を返すようにした。
 
 現時点では、
 
@@ -1041,7 +1025,7 @@ temporaryGeneratedQuestionListDto.getQuestions();
 
 ---
 
-## 11. ChatGPTとGeminiのAPI連携を比較して分かったこと
+## 11. OpenAIとGeminiのSDKの比較
 
 今回初めて2種類の生成AI APIを実装し、同じStructured Outputsを利用する場合でもSDKによって実装方法が大きく異なることを確認した。
 
@@ -1113,7 +1097,7 @@ TemporaryGeneratedQuestionListDto
 
 ---
 
-## 12. 公式リファレンスを参照しながら実装した
+## 12. 公式リファレンスを使った調査方法
 
 GeminiのStructured Outputsを実装する際には、Googleの公式リファレンスを参照した。
 
@@ -1152,7 +1136,7 @@ Type.Known.STRING
 
 ---
 
-## 13. このチャプター全体を通して
+## 13. 振り返り
 
 ### 苦戦した点
 
@@ -1218,21 +1202,7 @@ GenerateContentResponse
 
 特にChatGPTとGeminiを両方実装したことで、同じ「生成AIへ入力を送り、構造化された回答を取得する」という目的でも、その実現方法が大きく異なることを実際のコードから確認できた。
 
-ChatGPTでは、
-
-```text
-出力形式の指定 → 簡潔
-ResponseからDTO取得 → 構造をたどる必要がある
-```
-
-のに対し、Geminiでは、
-
-```text
-出力形式の指定 → Schemaを細かく定義する必要がある
-ResponseからDTO取得 → JSONをObjectMapperで変換できる
-```
-
-という違いがあった。
+この違いは第11節の比較表に整理した。
 
 この違いがなぜSDK上でこのような形になっているのかまではまだ理解できていないが、同じ機能でもSDKによって設計や使い方が異なることを実感できた点は非常に興味深かった。
 

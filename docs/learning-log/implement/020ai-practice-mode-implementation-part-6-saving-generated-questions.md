@@ -1,54 +1,44 @@
- # 020 AI問題生成モードの実装その6 — 生成問題の保存
+# 020 AI問題生成モードの実装その6 — 生成問題の保存【学習ログ】
 
-AI問題生成モードの仕上げとして、AIが生成した問題をユーザーが気に入った場合に`Question`テーブルへ保存できるようにした。
+## はじめに
 
-保存したAI生成問題については、通常の問題と同様に理解度とお気に入りを登録できるようにする。
+AI問題生成モードの最終段階として、生成された問題をユーザーが選んで`Question`テーブルへ保存し、通常の問題と同じように理解度やお気に入りを登録できるようにした。
 
-ただし、ユーザーが保存したAI生成問題をすべてのユーザーへ公開すると、特定ユーザーの学習傾向によって`Question`テーブルの問題構成が偏る可能性がある。
+今回の作業では、単にDTOをEntityへ変換して保存するだけでは済まなかった。保存した問題を誰に公開するのか、保存前後で画面の操作をどう切り替えるのか、いったん画面を離れて戻ってきたときにどう状態を復元するのか、といった点を実装の途中で検討・修正した。
 
-例えば、あるユーザーが比較構文の問題を集中的に生成・保存すると、別ユーザーの通常学習でも比較構文ばかりが出題される可能性がある。
-
-そのため、AI生成由来の問題には所有者を設定し、保存したユーザー本人だけが利用する問題として扱う。
-
-このチャプターでは、主に以下を実装した。
-
-1. AI生成問題を`Question`へ保存する
-2. 保存した問題へ理解度・お気に入りを登録する
-3. 保存済み問題を再表示した場合の状態を復元する
-4. AI生成問題の重複判定をユーザー単位に修正する
+この学習ログでは、実装手順そのものではなく、設計判断、動作確認で見つかった問題、その修正から理解したことを振り返る。具体的な実装コードや画面のスクリーンショットは、同チャプターの実装ログを参照する。
 
 ---
 
-# 1. AI生成問題を`Question`へ保存する
+# 1. AI生成問題を保存する際のデータ設計
 
-AI問題生成モードの問題画面で使用しているのは`Question`ではなく、AIから生成した結果を格納した`AiGeneratedQuestionDto`である。
+## 1-1. 生成直後のDTOと、保存後のQuestionは役割が異なる
 
-そのため、この段階では通常学習で使用している理解度やお気に入りを直接登録できない。
+AI問題生成モードで画面に表示している問題は、当初は`AiGeneratedQuestionDto`として保持されている。まだ`Question`テーブルのレコードではないため、通常の問題と同じように理解度やお気に入りを登録することはできない。
 
-そこで、ユーザーが必要な問題だけを`Question`へ保存できるようにする。
+そこで、「この問題を保存する」ボタンを押した場合にだけ、新しい`Question`を作成する設計にした。
 
-画面には、
+ここで重要だったのは、**AIが生成した問題をすべて自動保存するのではなく、ユーザーが必要だと判断した問題だけを保存する**という区別である。生成結果を一時的に扱うDTOと、継続して学習に利用するEntityを分ける理由が、実際の機能として明確になった。
 
-```text
-この問題を保存する
-```
+また、保存する際の値にも二つの由来がある。
 
-ボタンを追加し、このボタンを押した時点で初めて`Question`へ登録する。
+| 情報 | 取得元 |
+| --- | --- |
+| 日本語文・中国語文・ピンイン・注音 | `AiGeneratedQuestionDto` |
+| 言語種別・構文・難易度 | 生成元の`Question` |
+| AI生成フラグ・所有ユーザー | 保存時に設定 |
 
-保存後は、
+生成した文章そのものと、生成元から継承する学習上の分類情報を区別して考える必要があった。
 
-- お気に入りボタン
-- HARD・GOOD・EASYの理解度ボタン
+さらに、保存したAI生成問題を再びAI生成元として利用する想定はないため、`allowAiVariation`は`false`に設定した。**データの保存だけでなく、保存後にそのデータをどう扱うかまで決める**ことが必要だった。
 
-を表示する。
+## 1-2. 問題を全ユーザーで共有すると学習内容が偏る
 
----
+今回、保存したAI生成問題をすべてのユーザーに公開する設計には問題があると考えた。
 
-## 1-1. `Question`へAI生成判定と所有者を追加
+例えば、ユーザーAが比較構文を集中的に練習し、生成した比較構文の問題を大量に保存したとする。その問題が通常の共有問題と同じ扱いになれば、ユーザーBの通常学習にも比較構文が多く登場し、問題の構成が特定ユーザーの学習傾向に左右されてしまう。
 
-AI生成由来の問題と既存問題を区別し、さらにAI生成問題の所有ユーザーを判別できるようにする。
-
-`Question`へ以下を追加した。
+そこで、`Question`へ次の情報を追加した。
 
 ```java
 @Column(name = "ai_generated", nullable = false)
@@ -59,656 +49,91 @@ private boolean aiGenerated = false;
 private Users owner;
 ```
 
-`aiGenerated`では、そのQuestionがAI生成由来かどうかを判定する。
+`aiGenerated`は通常問題とAI生成由来の問題を区別するため、`owner`は保存したユーザーを識別するための情報である。
+
+元の作業メモにも、使い勝手を向上させるために要件定義を変更することになった旨が記録されている。実装を進める中で、**DBに保存できることと、アプリ全体として適切に利用できることは別問題**だと分かった。
+
+## 1-3. `@ManyToOne`を所有関係から考える
+
+ユーザーAが問題101・102・103を所有し、ユーザーBが問題104を所有する場合、一人のユーザーは複数の問題を所有できる。一方、一つの問題の所有者は一人である。
+
+したがって、`Question`から`Users`への関連は`@ManyToOne`になる。
 
 ```text
-false
-→ 通常のQuestion
+Question 101 ─┐
+Question 102 ─┼──→ User A
+Question 103 ─┘
 
-true
-→ ユーザーが保存したAI生成Question
+Question 104 ─────→ User B
 ```
 
-`owner`には、AI生成問題を保存したユーザーを設定する。
+単にアノテーションを暗記するのではなく、**どちらのEntityから見て「多」なのかを具体的なデータで考える**と関係を理解しやすい。
 
-ユーザーとQuestionの関係は、
-
-```text
-User A
- ├─ Question 101
- ├─ Question 102
- └─ Question 103
-
-User B
- └─ Question 104
-```
-
-となる。
-
-1人のユーザーが複数のQuestionを所有できる一方、それぞれのQuestionの所有者は1人なので、`Question`側では`@ManyToOne`となる。
-
-既存のQuestionはすべて通常問題として扱うため、DBへ`ai_generated`を追加する際はデフォルトを`FALSE`とした。
-
-```sql
-ALTER TABLE question
-ADD COLUMN ai_generated BOOLEAN NOT NULL DEFAULT FALSE;
-```
-
-```text
-feat: add AI-generated flag and owner to Question
-```
+既存問題については通常問題として扱うため、`ai_generated`列の追加時に`DEFAULT FALSE`を指定した。新しい機能を導入するときには、既存レコードをどう扱うかも考慮する必要がある。
 
 ---
 
-## 1-2. AI生成問題を保存するServiceを追加
+# 2. 保存後の操作と既存機能の再利用
 
-`AiPracticeService`へ、`AiGeneratedQuestionDto`から新しい`Question`を作成する`saveGeneratedQuestion()`を追加した。
+## 2-1. 保存したQuestionのIDをフロント側へ返す理由
 
-```java
-public Question saveGeneratedQuestion(
-        Users user,
-        AiGeneratedQuestionDto aiGeneratedQuestionDto,
-        Locale locale
-        ) {
+`POST /ai-practice/save`では、Sessionに保持した`AiGeneratedQuestionDto`を取得し、`AiPracticeService.saveGeneratedQuestion()`で`Question`へ保存する。
 
-    // 同じ中国語文がすでに登録されている場合は保存しない
-    if (questionRepository.existsByChineseText(
-            aiGeneratedQuestionDto.getChineseText())) {
-
-        throw new IllegalStateException(
-                messageSource.getMessage(
-                        "aiPractice.save.error.duplicate",
-                        null,
-                        locale));
-    }
-
-    Question sourceQuestion = questionRepository
-            .findById(aiGeneratedQuestionDto.getSourceQuestionId())
-            .orElseThrow();
-
-    Question savedQuestion = new Question();
-
-    savedQuestion.setLanguageVariant(sourceQuestion.getLanguageVariant());
-    savedQuestion.setJapaneseText(aiGeneratedQuestionDto.getJapaneseText());
-    savedQuestion.setChineseText(aiGeneratedQuestionDto.getChineseText());
-    savedQuestion.setPinyin(aiGeneratedQuestionDto.getPinyin());
-    savedQuestion.setZhuyin(aiGeneratedQuestionDto.getZhuyin());
-    savedQuestion.setStructure(sourceQuestion.getStructure());
-    savedQuestion.setDifficulty(sourceQuestion.getDifficulty());
-    savedQuestion.setAllowAiVariation(false);
-    savedQuestion.setAiGenerated(true);
-    savedQuestion.setOwner(user);
-
-    return questionRepository.save(savedQuestion);
-}
-```
-
-生成された内容については、
-
-```java
-savedQuestion.setJapaneseText(aiGeneratedQuestionDto.getJapaneseText());
-savedQuestion.setChineseText(aiGeneratedQuestionDto.getChineseText());
-savedQuestion.setPinyin(aiGeneratedQuestionDto.getPinyin());
-savedQuestion.setZhuyin(aiGeneratedQuestionDto.getZhuyin());
-```
-
-として`AiGeneratedQuestionDto`から取得する。
-
-一方、
-
-```java
-savedQuestion.setLanguageVariant(sourceQuestion.getLanguageVariant());
-savedQuestion.setStructure(sourceQuestion.getStructure());
-savedQuestion.setDifficulty(sourceQuestion.getDifficulty());
-```
-
-のように、生成元問題から引き継ぐ情報は`sourceQuestion`から取得する。
-
-AI生成問題をさらにAI生成元として使用することは想定しないため、
-
-```java
-savedQuestion.setAllowAiVariation(false);
-```
-
-とする。
-
-また、
-
-```java
-savedQuestion.setAiGenerated(true);
-savedQuestion.setOwner(user);
-```
-
-としてAI生成由来であることと所有ユーザーを保存する。
-
-この時点では同じ中国語文を重複登録しないため、`QuestionRepository`へ以下も追加した。
-
-```java
-boolean existsByChineseText(String chineseText);
-```
-
----
-
-## 1-3. `/ai-practice/save`を追加
-
-`AiPracticeController`へAI生成問題保存用のPOST処理を追加した。
-
-```java
-@PostMapping("/ai-practice/save")
-@ResponseBody
-public Long postAiPracticeSave(
-        HttpSession session,
-        @RequestParam int page,
-        @AuthenticationPrincipal UserDetails loginUser,
-        Locale locale
-        ) {
-
-    // Sessionからquestions取得
-    List<AiGeneratedQuestionDto> questions =
-            (List<AiGeneratedQuestionDto>) session.getAttribute("aiPracticeQuestions");
-
-    // 現在表示する問題を取得
-    AiGeneratedQuestionDto question = questions.get(page);
-
-    Question savedQuestion = aiPracticeService.saveGeneratedQuestion(
-            getLoginUser(loginUser),
-            question,
-            locale
-            );
-
-    return savedQuestion.getQuestionId();
-}
-```
-
-Sessionに保存されている、
-
-```text
-aiPracticeQuestions
-```
-
-から現在ページの`AiGeneratedQuestionDto`を取得し、`saveGeneratedQuestion()`へ渡す。
-
-保存後は、
+保存後にControllerが返すのは、保存結果の文章ではなく、新しく採番された`questionId`である。
 
 ```java
 return savedQuestion.getQuestionId();
 ```
 
-として、新しく採番された`questionId`をJavaScriptへ返す。
+これは、保存後に理解度やお気に入りを登録するとき、対象となる`Question`をIDで指定する必要があるためである。
 
-保存後のお気に入り登録と理解度登録では`Question`のIDが必要になるためである。
-
----
-
-## 1-4. 問題画面へ保存後の操作を追加
-
-`/ai-practice/question.html`へJavaScriptを読み込む。
-
-```html
-<script th:src="@{/js/ai-practice/question.js}" defer></script>
-
-<meta name="_csrf"
-      th:content="${_csrf.token}">
-
-<meta name="_csrf_header"
-      th:content="${_csrf.headerName}">
-```
-
-日本語問題の横にはお気に入りボタンを追加する。
-
-AI生成問題は保存前には`Question`として存在しないため、初期状態では非表示にする。
-
-```html
-<!-- お気に入りボタン -->
-<!-- Question保存後に表示 -->
-<div id="favoriteArea"
-     class="d-none"
-     sec:authorize="isAuthenticated()">
-
-    <button id="favoriteButton"
-            type="button"
-            class="btn p-0 border-0 bg-transparent">
-
-        <i id="favoriteIcon"
-           class="bi bi-heart fs-2 text-secondary">
-        </i>
-
-    </button>
-
-</div>
-```
-
-さらに「この問題を保存する」ボタンを追加する。
-
-```html
-<!-- ============================= -->
-<!-- AI生成問題の保存 -->
-<!-- ============================= -->
-
-<div id="saveQuestionArea"
-     class="mt-4">
-
-    <button id="saveQuestionButton"
-            type="button"
-            class="btn btn-outline-primary"
-            th:data-page="${nextPageIndex - 1}">
-        この問題を保存する
-    </button>
-
-</div>
-```
-
-保存後に表示する理解度ボタンも初期状態では非表示にする。
-
-```html
-<!-- ============================= -->
-<!-- 保存後の操作 -->
-<!-- ============================= -->
-
-<div id="savedQuestionActions"
-     class="d-none mt-3">
-
-    <div id="evaluationArea"
-         class="mt-1 d-flex justify-content-center gap-5">
-
-        <!-- HARD -->
-        <form th:action="@{/practice/evaluation}" method="post">
-
-            <input type="hidden"
-                   name="questionId"
-                   class="savedQuestionId">
-
-            <input type="hidden"
-                   name="evaluation"
-                   value="HARD">
-
-            <input type="hidden"
-                   name="page"
-                   th:value="${nextPageIndex - 1}">
-
-            <button type="submit"
-                    class="btn btn-danger btn-lg"
-                    th:text="#{practice.question.evaluation.hard}">
-                Hard（難しかった）
-            </button>
-
-        </form>
-
-        <!-- GOOD -->
-        <form th:action="@{/practice/evaluation}" method="post">
-
-            <input type="hidden"
-                   name="questionId"
-                   class="savedQuestionId">
-
-            <input type="hidden"
-                   name="evaluation"
-                   value="GOOD">
-
-            <input type="hidden"
-                   name="page"
-                   th:value="${nextPageIndex - 1}">
-
-            <button type="submit"
-                    class="btn btn-primary btn-lg"
-                    th:text="#{practice.question.evaluation.good}">
-                Good（少し考えた）
-            </button>
-
-        </form>
-
-        <!-- EASY -->
-        <form th:action="@{/practice/evaluation}" method="post">
-
-            <input type="hidden"
-                   name="questionId"
-                   class="savedQuestionId">
-
-            <input type="hidden"
-                   name="evaluation"
-                   value="EASY">
-
-            <input type="hidden"
-                   name="page"
-                   th:value="${nextPageIndex - 1}">
-
-            <button type="submit"
-                    class="btn btn-success btn-lg"
-                    th:text="#{practice.question.evaluation.easy}">
-                Easy（余裕だった）
-            </button>
-
-        </form>
-
-    </div>
-
-</div>
-```
-
----
-
-## 1-5. JavaScriptからAI生成問題を保存
-
-`/ai-practice/question.js`を追加した。
+JavaScriptでは、このIDをお気に入りボタンの`data-question-id`と、理解度フォームのhidden要素に設定した。
 
 ```javascript
-document.addEventListener("DOMContentLoaded", () => {
+const questionId = await response.json();
 
-    const saveQuestionButton =
-        document.getElementById("saveQuestionButton");
-
-    const saveQuestionArea =
-        document.getElementById("saveQuestionArea");
-
-    const savedQuestionActions =
-        document.getElementById("savedQuestionActions");
-
-    saveQuestionButton.addEventListener("click", async () => {
-
-        const page = saveQuestionButton.dataset.page;
-
-        const response = await fetch(
-            `/ai-practice/save?page=${page}`,
-            {
-                method: "POST"
-            }
-        );
-
-        if (!response.ok) {
-            return;
-        }
-
-        // 保存された問題のquestionId
-        const questionId = await response.json();
-
-        // お気に入り用のquestionId
-        document.getElementById("favoriteButton")
-            .dataset.questionId = questionId;
-
-        // 理解度登録用のquestionId
-        document.querySelectorAll(".savedQuestionId")
-            .forEach(input => {
-                input.value = questionId;
-            });
-
-        // 保存ボタンを非表示
-        saveQuestionArea.classList.add("d-none");
-
-        // 理解度・お気に入りを表示
-        savedQuestionActions.classList.remove("d-none");
-    });
-});
-```
-
-保存ボタンを押すと、
-
-```text
-POST /ai-practice/save
-```
-
-へ現在ページを送信する。
-
-保存に成功するとControllerから新しい`questionId`が返されるため、
-
-```javascript
 document.getElementById("favoriteButton")
     .dataset.questionId = questionId;
-```
 
-としてお気に入り処理へ設定する。
-
-理解度登録用のhidden要素にも、
-
-```javascript
 document.querySelectorAll(".savedQuestionId")
     .forEach(input => {
         input.value = questionId;
     });
 ```
 
-として同じIDを設定する。
+**サーバーで新しく作られたデータを、その後の画面操作で識別するには何を返せばよいか**を考える機会になった。
 
-最後に保存ボタンを非表示にし、保存後に利用可能になる操作を表示する。
+## 2-2. 既存の理解度・お気に入り機能を再利用できた
 
-messages.propertiesにも以下を追加した。
+保存済みのAI生成問題は通常の`Question`と同じ形式になる。そのため、理解度の保存には既存の`EvaluationService.updateEvaluation()`を、お気に入りには`FavoriteService.toggleFavorite()`と`FavoriteController.toggleFavorite()`を利用できた。
 
-```properties
-aiPractice.save.error.duplicate=同じ中国語文の問題がすでに存在します。
-aiPractice.question.save=この問題を保存する
-```
+AI生成モード専用に理解度やお気に入りの保存ロジックをもう一度作る必要はなかった。
 
-```text
-feat: add saving AI-generated questions with post-save actions
-```
+ただし、理解度登録後のページ遷移はAI生成モード固有である。通常学習と同じ保存処理を使っても、現在の問題一覧はSession内の`List<AiGeneratedQuestionDto>`なので、遷移先のControllerは別に用意した。
 
----
+ここから、**データ更新の共通処理と、各モード固有の画面遷移は分けて考えられる**ことを確認できた。
 
-## 1-6. AI生成問題の保存を確認
-
-`/ai-practice/question`へアクセスすると、「問題を保存する」ボタンが表示された。
-
-![](../../images/0020-01.png)
-
-ボタンを押すと、保存ボタンが非表示になり、理解度ボタンとお気に入りボタンが表示された。
-
-![](../../images/0020-02.png)
-
-DBを確認すると、対象のAI生成問題が`Question`へ追加されていることも確認できた。
-
-![](../../images/0020-03.png)
-
-この時点では、理解度ボタンとお気に入りボタンはまだ実際の登録処理には接続していない。
+また、HTMLの理解度フォームの送信先を当初の`/practice/evaluation`から`/ai-practice/evaluation`へ修正している。既存画面を流用する場合でも、送信先や遷移先まで同じでよいとは限らない。
 
 ---
 
-# 2. 保存したAI生成問題へ理解度とお気に入りを登録する
+# 3. 保存済み問題を再表示すると操作ボタンが消えた
 
-AI生成問題を`Question`へ保存できるようになったため、保存後の問題について通常問題と同様に理解度とお気に入りを登録できるようにする。
+## 3-1. 保存直後は正常でも、ページを戻ると状態が失われる
 
-既存機能を利用できる部分については新しいServiceを作成せず、既存処理を再利用する。
+最初の実装では、保存ボタンを押すとJavaScriptで「この問題を保存する」を非表示にし、理解度とお気に入りの操作を表示していた。
 
-```text
-feat: add evaluation and favorite support for saved AI-generated questions
-```
+この動作自体は正常だった。しかし、次の問題へ進んでから「前の問題へ」で戻ると、**保存済みの問題なのに理解度・お気に入りボタンが再び隠れてしまった**。
 
----
+さらに、再度「この問題を保存する」を押しても、同一問題の重複登録チェックによって保存が拒否される。保存済みなのに保存後の操作を表示できない状態になっていた。
 
-## 2-1. AI生成問題用の理解度登録処理を追加
+原因は、最初のHTMLが保存前の状態を前提にしており、ページをGETし直した際にJavaScriptによる表示変更が引き継がれないことだった。
 
-理解度の保存自体は既存の、
+この確認を通して、**保存直後の画面が正しく動くことと、ページを再表示した際に正しい状態が復元されることは別の確認項目**だと分かった。
 
-```java
-EvaluationService.updateEvaluation()
-```
+## 3-2. GET時にDBから保存済み状態を判定する
 
-をそのまま利用できる。
-
-そのため、新しいService処理は追加しない。
-
-`AiPracticeController`へAI問題生成モード用のPOST処理を追加した。
-
-```java
-@PostMapping("/ai-practice/evaluation")
-public String postAiPracticeEvaluation(
-        @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam Long questionId,
-        @RequestParam Evaluation evaluation,
-        @RequestParam Integer page,
-        HttpSession session) {
-
-    // ユーザー情報を取得
-    Users user = userAccountService.getUserOne(
-            loginUser.getUsername());
-
-    // 理解度を保存
-    evaluationService.updateEvaluation(
-            user,
-            questionId,
-            evaluation);
-
-    // Sessionからquestions取得
-    List<AiGeneratedQuestionDto> questions =
-            (List<AiGeneratedQuestionDto>) session.getAttribute("aiPracticeQuestions");
-
-    // 最後の問題の場合
-    if (page + 1 >= questions.size()) {
-        return "redirect:/ai-practice/complete";
-    }
-
-    // 次の問題へ
-    return "redirect:/ai-practice/question?page=" + (page + 1);
-}
-```
-
-理解度登録後のページ遷移は通常学習や復習と同様だが、AI問題生成モードではSessionに保存している、
-
-```java
-List<AiGeneratedQuestionDto>
-```
-
-を基準に現在位置を判断する。
-
-HTMLで理解度フォームの送信先を、
-
-```html
-<form th:action="@{/practice/evaluation}" method="post">
-```
-
-から、
-
-```html
-<form th:action="@{/ai-practice/evaluation}" method="post">
-```
-
-へ修正した。
-
----
-
-## 2-2. お気に入り登録は既存処理を再利用
-
-お気に入りについては、すでに、
-
-```java
-FavoriteService.toggleFavorite()
-```
-
-と、
-
-```java
-FavoriteController.toggleFavorite()
-```
-
-が存在する。
-
-保存されたAI生成問題も通常の`Question`になっているため、新しいService・Controllerは追加せず既存処理をそのまま利用する。
-
-フロント側のお気に入り制御についても既存JavaScriptを利用するため、新しいお気に入り処理は追加しない。
-
----
-
-## 2-3. 理解度登録とお気に入り登録を確認
-
-AI生成問題を保存した。
-
-![](../../images/0020-04.png)
-
-理解度ボタンを押すと理解度が登録され、次の問題へ遷移した。
-
-![](../../images/0020-05.png)
-
-DBを確認すると、理解度が正常に登録されていた。
-
-![](../../images/0020-07.png)
-
-お気に入りボタンを押すとハートマークの表示が変化した。
-
-![](../../images/0020-06.png)
-
-DBでもお気に入りが正常に登録されていることを確認した。
-
-![](../../images/0020-08.png)
-
----
-
-# 3. 保存済みAI生成問題を再表示した場合の状態を復元する
-
-一度AI生成問題を保存すると、その場ではJavaScriptによって、
-
-```text
-保存ボタン
-→ 非表示
-
-お気に入り
-→ 表示
-
-理解度
-→ 表示
-```
-
-へ切り替わる。
-
-![](../../images/0020-09.png)
-
-しかし、次の問題へ移動した後に「前の問題へ」で戻ると、
-
-![](../../images/0020-10.png)
-
-保存済みであるにもかかわらず、理解度ボタンとお気に入りボタンが再び非表示になった。
-
-![](../../images/0020-11.png)
-
-これは初期HTMLでは常に保存ボタンを表示し、お気に入り・理解度を`d-none`としているためである。
-
-さらに、もう一度保存ボタンを押して表示状態を復元しようとしても、同一問題の重複保存チェックにより保存処理が失敗する。
-
-そこで、ページをGETした時点で、
-
-```text
-現在のユーザー
-+
-現在のAI生成問題のchineseText
-```
-
-から保存済みかどうかを判定するようにした。
-
-```text
-fix: restore saved AI question actions when revisiting
-```
-
----
-
-## 3-1. 保存済み問題を検索するRepositoryを追加
-
-`QuestionRepository`へ以下を追加した。
-
-```java
-Optional<Question> findByOwnerIdAndChineseText(
-        Long userId,
-        String chineseText);
-```
-
-これによって、
-
-```text
-現在のユーザーID
-+
-現在表示しているAI生成問題の中国語文
-```
-
-から、そのユーザーが以前保存した`Question`を取得できる。
-
----
-
-## 3-2. GET時に保存済み状態を取得
-
-`getAiPracticeQuestion()`で現在のユーザーを取得する。
-
-```java
-Users user = userAccountService.getUserOne(
-        loginUser.getUsername());
-```
-
-現在表示しているAI生成問題が保存済みか確認する。
+対応として、ページ表示時に現在のユーザーと問題の`chineseText`を使い、保存済みの`Question`を検索するようにした。
 
 ```java
 Optional<Question> savedQuestion =
@@ -717,113 +142,9 @@ Optional<Question> savedQuestion =
                 question.getChineseText());
 ```
 
-保存済みの場合は`questionId`を取得する。
+保存済みであれば`questionId`を取得し、さらに`FavoriteService.isFavorite()`でお気に入り状態も確認する。取得結果は`savedQuestionId`と`isFavorite`としてModelへ渡した。
 
-```java
-Long savedQuestionId = null;
-
-if (savedQuestion.isPresent()) {
-    savedQuestionId = savedQuestion.get().getQuestionId();
-}
-```
-
-さらに、保存済みの場合はお気に入り状態も取得する。
-
-```java
-boolean isFavorite = false;
-
-if (savedQuestionId != null) {
-    isFavorite = favoriteService.isFavorite(
-            user,
-            savedQuestionId);
-}
-```
-
-最後に、
-
-```java
-model.addAttribute("savedQuestionId", savedQuestionId);
-model.addAttribute("isFavorite", isFavorite);
-```
-
-としてHTMLへ渡す。
-
-これによってページ表示時点で、
-
-```text
-未保存
-保存済み
-お気に入り登録済み
-```
-
-を判定できるようになった。
-
----
-
-## 3-3. Thymeleafでお気に入りの初期状態を制御
-
-お気に入りエリアを、
-
-```html
-<div id="favoriteArea"
-     th:classappend="${savedQuestionId == null} ? 'd-none'"
-     sec:authorize="isAuthenticated()">
-
-    <button id="favoriteButton"
-            type="button"
-            class="btn p-0 border-0 bg-transparent"
-            th:data-question-id="${savedQuestionId}">
-
-        <i id="favoriteIcon"
-           class="bi fs-2"
-           th:classappend="${isFavorite}
-               ? 'bi-heart-fill text-danger'
-               : 'bi-heart text-secondary'">
-        </i>
-
-    </button>
-
-</div>
-```
-
-へ変更した。
-
-保存済みであれば、
-
-```text
-savedQuestionId != null
-```
-
-となるため、最初から`d-none`が付かない。
-
-さらに`isFavorite`から、
-
-```text
-bi-heart-fill text-danger
-```
-
-または、
-
-```text
-bi-heart text-secondary
-```
-
-を設定し、お気に入り状態も復元する。
-
----
-
-## 3-4. 理解度ボタンの初期表示を制御
-
-これまでは、
-
-```html
-<div id="savedQuestionActions"
-     class="d-none mt-3">
-```
-
-としていたため、ページを再表示すると必ず非表示になっていた。
-
-これを、
+Thymeleafでは、`savedQuestionId`の有無によって初期表示を切り替える。
 
 ```html
 <div id="savedQuestionActions"
@@ -831,170 +152,55 @@ bi-heart text-secondary
      th:classappend="${savedQuestionId == null} ? 'd-none'">
 ```
 
-へ変更した。
+理解度フォームのhidden要素にも`th:value="${savedQuestionId}"`を設定することで、保存済み問題を再表示した直後から正しいIDを使えるようにした。
 
-さらにHARD・GOOD・EASYの各フォームについて、
+## 3-3. ThymeleafとJavaScriptには異なる役割がある
 
-```html
-<input type="hidden"
-       name="questionId"
-       class="savedQuestionId"
-       th:value="${savedQuestionId}">
-```
+最終的に、同じボタンの表示切り替えでも二つの経路が存在することになった。
 
-として、保存済みQuestionのIDを初期状態から設定する。
+| タイミング | 判定・制御 |
+| --- | --- |
+| ページをGETした時点ですでに保存済み | DB検索の結果をもとにThymeleafで初期表示を決定 |
+| 現在の画面で初めて保存した直後 | POST成功後にJavaScriptで表示を切り替え |
 
----
+つまり、Thymeleafは**画面を描画する時点の状態**を、JavaScriptは**画面を表示した後に発生した操作の結果**を反映する。
 
-## 3-5. 保存ボタンの初期表示を制御
+今回の不具合は、この二つの役割を区別していなかったことによって表面化した。画面の状態をJavaScriptだけで切り替えても、その状態を永続化したデータから復元できなければ、再表示時に整合性が取れなくなる。
 
-保存ボタンについても、
+## 3-4. 後日同じ問題が生成されても保存済みと判定できる
 
-```html
-<div id="saveQuestionArea"
-     class="mt-4"
-     th:classappend="${savedQuestionId != null} ? 'd-none'">
-```
+保存済み判定では、現在の生成回や生成日時ではなく、ユーザーIDと`chineseText`を使う。
 
-へ変更した。
+例えば、9月1日に生成した「這個蘋果多少錢」を保存し、9月2日に同じ文章が再び生成された場合でも、同じユーザーであれば過去に保存した`Question`を取得できる。
 
-これによって画面には以下の2つの制御経路が存在する。
+そのため、ユーザーが以前保存したことを覚えていなくても、保存ボタンを隠し、理解度・お気に入りを最初から利用可能な状態にできる。
 
-### ページ表示時点ですでに保存済みの場合
-
-```text
-GET /ai-practice/question
-↓
-savedQuestionIdを取得
-↓
-Thymeleaf
-↓
-保存ボタンを非表示
-↓
-お気に入り・理解度を表示
-```
-
-### 現在の画面で初めて保存した場合
-
-```text
-保存ボタンを押す
-↓
-POST /ai-practice/save
-↓
-保存成功
-↓
-JavaScript
-↓
-保存ボタンを非表示
-↓
-お気に入り・理解度を表示
-```
+これは単なる表示不具合の修正にとどまらず、**過去の保存データを再利用して、ユーザーに重複操作をさせない仕組み**にもなった。
 
 ---
 
-## 3-6. 保存済み状態の復元を確認
+# 4. 重複判定はユーザー単位で考える必要があった
 
-AI生成問題を保存した。
+## 4-1. `chineseText`だけで検索すると他ユーザーの保存を妨げる
 
-![](../../images/0020-12.png)
-
-次の問題へ遷移した。
-
-![](../../images/0020-13.png)
-
-その後、前の問題へ戻ると、保存ボタンではなく理解度ボタンとお気に入りボタンが正常に表示された。
-
-![](../../images/0020-14.png)
-
----
-
-## 3-7. 過去に生成・保存した同一問題も自動判定できるようになった
-
-保存済み判定では生成日時や現在の生成回ではなく、
-
-```text
-ユーザーID
-+
-chineseText
-```
-
-を利用している。
-
-そのため、例えば9月1日に、
-
-```text
-這個蘋果多少錢
-```
-
-を生成して保存し、9月2日にAIが再びまったく同じ文章を生成した場合でも、
-
-```text
-同じユーザー
-+
-同じchineseText
-```
-
-から9月1日に保存したQuestionを取得できる。
-
-その結果、ページを開いた時点から、
-
-```text
-保存ボタンを非表示
-お気に入りボタンを表示
-理解度ボタンを表示
-過去のお気に入り状態を復元
-```
-
-できる。
-
-ユーザー自身が過去にその問題を保存したか覚えている必要はなく、アプリ側で自動的に保存済み問題として扱えるようになった。
-
----
-
-# 4. 重複判定をユーザー単位に修正
-
-保存済み状態の復元を実装したことで、もう1つ問題が見つかった。
-
-当初の`saveGeneratedQuestion()`では、
+最初の保存処理では、次のように中国語文だけで重複判定していた。
 
 ```java
-if (questionRepository.existsByChineseText(
-        aiGeneratedQuestionDto.getChineseText())) {
+questionRepository.existsByChineseText(
+        aiGeneratedQuestionDto.getChineseText());
 ```
 
-としていた。
+しかし、AI生成問題は保存したユーザーだけが所有する設計である。
 
-この条件では、
+元の作業メモでは、ユーザーAが「原本不靈光的腦袋就變得更笨」を保存した後、ユーザーBにも同じ文章が生成される例を考えている。
 
-```text
-Questionテーブル全体
-```
+このとき、Bにとっては未保存の問題である。それなのに`Question`テーブル全体を検索すると、Aの保存した問題が見つかってBも保存できなくなる。
 
-に同じ`chineseText`が存在するかだけを判定する。
+ここで、**「同じ問題が存在する」ことと「このユーザーが同じ問題を保存済みである」ことは異なる**と気づいた。
 
-しかし、AI生成問題はユーザーごとに所有する仕様である。
+## 4-2. 保存済み状態の復元に使ったRepositoryを再利用する
 
-例えばユーザーAが、
-
-```text
-原本不靈光的腦袋就變得更笨
-```
-
-というAI生成問題を保存した後、ユーザーBにも偶然まったく同じ問題が生成された場合、ユーザーBにとっては未保存の問題である。
-
-それにもかかわらず`existsByChineseText()`ではユーザーAのQuestionが見つかるため、ユーザーBも保存できなくなる。
-
-そこで重複判定をユーザー単位へ修正した。
-
-```text
-fix: scope AI-generated question duplicate check by user
-```
-
----
-
-## 4-1. 既存の`findByOwnerIdAndChineseText()`を再利用
-
-保存済み状態の復元ですでに追加した、
+この修正では、前節の画面状態復元で追加したRepositoryメソッドを再利用できた。
 
 ```java
 Optional<Question> findByOwnerIdAndChineseText(
@@ -1002,34 +208,15 @@ Optional<Question> findByOwnerIdAndChineseText(
         String chineseText);
 ```
 
-をそのまま利用する。
-
-以前の、
+保存時の重複判定も、次のように変更した。
 
 ```java
-// 同じ中国語文がすでに登録されている場合は保存しない
-if (questionRepository.existsByChineseText(
-        aiGeneratedQuestionDto.getChineseText())) {
-
-    throw new IllegalStateException(
-            messageSource.getMessage(
-                    "aiPractice.save.error.duplicate",
-                    null,
-                    locale));
-}
-```
-
-を削除し、
-
-```java
-// 同じユーザーが同じ中国語文をすでに保存している場合は保存しない
 Optional<Question> existingQuestion =
         questionRepository.findByOwnerIdAndChineseText(
                 user.getId(),
                 aiGeneratedQuestionDto.getChineseText());
 
 if (existingQuestion.isPresent()) {
-
     throw new IllegalStateException(
             messageSource.getMessage(
                     "aiPractice.save.error.duplicate",
@@ -1038,51 +225,44 @@ if (existingQuestion.isPresent()) {
 }
 ```
 
-へ変更した。
+これにより、同じユーザーが同じ文章を二度保存することは防ぎつつ、別のユーザーが同じ文章を自分の問題として保存することは可能になった。
 
-これによって、
+この修正で特に重要なのは、**重複の定義はデータの内容だけでは決まらず、アプリの所有者・公開範囲の仕様に依存する**という点である。
 
-```text
-ユーザーA + 問題X
-→ 保存可能
-
-ユーザーA + 問題Xを再保存
-→ 保存不可
-
-ユーザーB + 問題X
-→ 保存可能
-```
-
-というAI生成問題の所有者仕様に合った重複判定になった。
+なお、今回の記録にあるのはアプリケーション側の検索による重複判定である。同時リクエストに対するDB制約まで実装したという記録はないため、そこは今回の実装済み事項には含めない。
 
 ---
 
-# 5. AI問題生成モードの実装完了
+# 5. 今回の実装を通して学んだこと
 
-これでAI問題生成モードについて、
+## 5-1. 保存機能の追加は、データの利用範囲の設計でもある
 
-```text
-条件を指定
-↓
-生成元Questionを抽出
-↓
-AIへ生成元問題・template・generationHistoryを送信
-↓
-AI問題を生成
-↓
-問題画面で学習
-↓
-気に入った問題をQuestionへ保存
-↓
-理解度・お気に入りを登録
-↓
-保存したユーザー専用の問題として利用
-```
+最初はAI生成問題を`Question`へ追加することが目的だった。しかし、実際には保存後の所有者、他ユーザーへの影響、既存問題との区別まで考える必要があった。
 
-という一連の流れを実装できた。
+特に、あるユーザーが大量に保存した問題が別ユーザーの学習内容に影響する可能性を考え、`aiGenerated`と`owner`を追加した点は、今回の重要な設計判断だった。
 
-また、保存済みのAI生成問題についても、ページを再表示した場合や後日のAI生成で同一問題が再び登場した場合に、自動的に保存済み状態を復元できるようになった。
+## 5-2. 初回操作だけでなく、画面を戻る・再表示する動作も確認する
 
-AI生成問題は所有ユーザー単位で管理するため、他ユーザーが保存した問題によって通常学習用の問題構成が影響を受けない設計とした。
+保存直後には正常に表示されたボタンが、ページを戻ると消えてしまった。これは、保存直後の動作確認だけでは発見できない問題だった。
 
-これをもってAI問題生成モードの実装を完了した。
+画面の初期状態をDBから復元する仕組みを追加したことで、JavaScriptによる操作直後の更新と、Thymeleafによる再描画時の状態復元を整理できた。
+
+## 5-3. 既存機能を再利用しつつ、モード固有の処理を分離する
+
+理解度やお気に入りの保存処理は既存のServiceを再利用できた。一方、理解度登録後のページ遷移はAI問題生成モード固有のControllerで扱う必要があった。
+
+共通化すべき部分と分離すべき部分を、実際のデータと画面遷移の違いから判断できた。
+
+## 5-4. 一度決めた検索条件も仕様に照らして見直す
+
+`existsByChineseText()`による重複判定は、一見すると同じ問題の二重登録を防ぐ合理的な処理に見える。しかし、所有者を持つ問題では判定範囲が広すぎた。
+
+「何を同一とみなすのか」を、ユーザーの立場とデータの所有関係から考え直す必要があった。
+
+## まとめ
+
+今回の020では、AI生成問題を`Question`へ保存する機能を完成させる過程で、**DTOとEntityの役割分担、ユーザー単位のデータ所有、既存Serviceの再利用、画面状態の復元、重複判定の範囲**を整理できた。
+
+AI問題生成モードは、条件指定から問題生成、学習、必要な問題の保存、理解度・お気に入り登録まで一連の操作がつながった。
+
+一方、実装が動いた後に画面を戻って確認したことで新たな問題が見つかり、その修正から重複判定の設計も見直すことになった。**機能を一度動かすだけで終わらせず、実際の利用の流れを追って検証することの重要性**が、今回の最も大きな学びだった。

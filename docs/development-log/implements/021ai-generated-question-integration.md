@@ -1,5 +1,22 @@
 # 021 AI生成問題の既存学習機能への統合
 
+> このログは実装・変更を時系列で記録したものです。途中のコードや仕様は、その後の開発によって変更されている場合があります。現在の実装はソースコードを参照してください。
+
+## 概要
+
+AI問題生成モードで保存した問題を、通常学習・未学習問題・復習・問題一覧に統合した。通常問題とAI生成問題を区別し、ログインユーザーが所有するAI生成問題だけを参照・削除できるようにする。
+
+| 対象 | 主な変更 |
+| --- | --- |
+| 通常学習 | 生成元フィルター、件数取得、問題抽出、AIバッジ |
+| 未学習問題 | 所有するAI生成問題を抽出対象に追加 |
+| 共通条件 | `PracticeSearchCondition`を`QuestionSourceCondition`へ改名 |
+| 出題範囲 | 生成元変更時に件数・範囲を再計算 |
+| 復習 | 生成元条件とAIバッジを追加 |
+| 問題一覧 | 生成元フィルター、表示、本人所有問題の削除 |
+
+---
+
 前チャプターまでで、AI問題生成モードで生成した問題を`Question`テーブルへ保存し、保存したユーザー本人が利用できるようになった。
 
 AI生成由来の問題は、
@@ -40,7 +57,12 @@ AI生成由来の問題のみ
 
 ---
 
-# 1. 通常学習へAI生成問題を統合
+## 1. 通常学習へAI生成問題を統合
+
+### 目的
+
+通常問題と本人所有のAI生成問題を出題条件に応じて取得し、メニューの件数と実際の出題対象を一致させる。
+
 
 通常学習には、
 
@@ -68,7 +90,7 @@ AI生成由来の問題のみ
 
 ---
 
-## 1-1. 通常学習メニューの問題数を変更
+### 1-1. 通常学習メニューの問題数を変更
 
 ```text
 git commit -m "feat: add AI-generated question filter to practice menu"
@@ -78,7 +100,7 @@ git commit -m "feat: add AI-generated question filter to practice menu"
 
 これまではログイン状態に関係なく`Question`全体を対象としていたが、AI生成問題の導入後はユーザーによって利用可能な問題が異なる。
 
-### `QuestionRepository.java`
+#### `QuestionRepository.java`
 
 非ログインユーザー向けの問題数取得では、AI生成由来の問題を除外する。
 
@@ -117,7 +139,7 @@ OR (ai_generated = true AND owner_user_id = :userId)
 
 ---
 
-## 1-2. 問題の生成元を表すEnumを追加
+### 1-2. 問題の生成元を表すEnumを追加
 
 ログインユーザーは、通常問題と自分のAI生成問題の両方を利用できる。
 
@@ -134,16 +156,6 @@ public enum PracticeSearchCondition {
 
 それぞれ、
 
-```text
-ALL
-→ 通常問題 + 自分のAI生成問題
-
-ORIGINAL_ONLY
-→ 通常問題のみ
-
-GENERATED_ONLY
-→ 自分のAI生成問題のみ
-```
 
 を表す。
 
@@ -151,9 +163,9 @@ GENERATED_ONLY
 
 ---
 
-## 1-3. 生成元条件をRepositoryへ追加
+### 1-3. 生成元条件をRepositoryへ追加
 
-### `QuestionRepository.java`
+#### `QuestionRepository.java`
 
 ```java
 @Query(value = """
@@ -196,7 +208,7 @@ owner_user_id = :userId
 
 ---
 
-## 1-4. `PracticeService`でログイン状態によって件数取得を分岐
+### 1-4. `PracticeService`でログイン状態によって件数取得を分岐
 
 `countPracticeQuestions()`へユーザーIDと生成元条件を渡せるようにする。
 
@@ -254,39 +266,12 @@ userId != null
 
 ---
 
-## 1-5. `/practice/count`を追加
+### 1-5. `/practice/count`を追加
 
 生成元条件を変更したとき、画面上の問題数も動的に更新する必要がある。
 
-### `PracticeController.java`
+#### `PracticeController.java`
 
-```java
-@PreAuthorize("isAuthenticated()")
-@GetMapping("/practice/count")
-@ResponseBody
-public PracticeMenuDto getPracticeCount(
-        HttpSession session,
-        @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam(name = "searchCondition", required = false)
-                PracticeSearchCondition searchCondition) {
-
-    Users user = getLoginUser(loginUser);
-    Long userId = user.getId();
-
-    LanguageVariant languageVariant =
-            (LanguageVariant) session.getAttribute("languageVariant");
-
-    if (languageVariant == null) {
-        languageVariant = LanguageVariant.MAINLAND;
-    }
-
-    return practiceService.countPracticeQuestions(
-            userId,
-            languageVariant,
-            searchCondition
-    );
-}
-```
 
 `@ResponseBody`を使用することで、取得した`PracticeMenuDto`をJavaScriptへ返す。
 
@@ -298,7 +283,7 @@ public PracticeMenuDto getPracticeCount(
 
 を付与する。
 
-### `SecurityConfig.java`
+#### `SecurityConfig.java`
 
 メソッド単位の認証制御を有効にする。
 
@@ -313,105 +298,24 @@ public class SecurityConfig {
 
 ---
 
-## 1-6. 通常学習メニューへ問題の生成元を追加
+### 1-6. 通常学習メニューへ問題の生成元を追加
 
-### `/practice/menu.html`
+#### `/practice/menu.html`
 
 ログインユーザーにのみ生成元条件を表示する。
 
-```html
-<div class="card"
-     style="width: 400px;"
-     sec:authorize="isAuthenticated()">
-
-    <div class="card-header"
-         th:text="#{practice.menu.sourceCondition.title}">
-        問題の生成元
-    </div>
-
-    <div class="card-body">
-
-        <div class="form-check">
-            <input class="form-check-input"
-                   type="radio"
-                   name="sourceCondition"
-                   value="ALL"
-                   id="sourceAll"
-                   checked>
-
-            <label class="form-check-label"
-                   for="sourceAll"
-                   th:text="#{practice.menu.sourceCondition.all}">
-                すべて
-            </label>
-        </div>
-
-        <div class="form-check">
-            <input class="form-check-input"
-                   type="radio"
-                   name="sourceCondition"
-                   value="ORIGINAL_ONLY"
-                   id="sourceOriginal">
-
-            <label class="form-check-label"
-                   for="sourceOriginal"
-                   th:text="#{practice.menu.sourceCondition.originalOnly}">
-                AI生成由来の問題を除外する
-            </label>
-        </div>
-
-        <div class="form-check">
-            <input class="form-check-input"
-                   type="radio"
-                   name="sourceCondition"
-                   value="GENERATED_ONLY"
-                   id="sourceGenerated">
-
-            <label class="form-check-label"
-                   for="sourceGenerated"
-                   th:text="#{practice.menu.sourceCondition.generatedOnly}">
-                AI生成由来の問題のみ出題する
-            </label>
-        </div>
-
-    </div>
-
-</div>
-```
 
 問題数部分にはJavaScriptから更新できるようIDを付与する。
 
-```html
-<span>
-    <span th:text="#{practice.menu.difficulty.beginner}"></span>
 
-    <span id="beginnerCount"
-          th:text="${practiceMenu.beginnerCount}">
-    </span>
+#### `messages.properties`
 
-    <span th:text="#{practice.menu.difficulty.countSuffix}"></span>
-</span>
-```
-
-### `messages.properties`
-
-```properties
-practice.menu.difficulty.beginner=初級：
-practice.menu.difficulty.intermediate=中級：
-practice.menu.difficulty.advanced=上級：
-practice.menu.difficulty.countSuffix=問
-
-practice.menu.sourceCondition.title=問題の生成元
-practice.menu.sourceCondition.all=すべて
-practice.menu.sourceCondition.originalOnly=AI生成由来の問題を除外する
-practice.menu.sourceCondition.generatedOnly=AI生成由来の問題のみ出題する
-```
 
 ---
 
-## 1-7. 生成元条件変更時に問題数を更新
+### 1-7. 生成元条件変更時に問題数を更新
 
-### `/practice/menu.js`
+#### `/practice/menu.js`
 
 ```javascript
 const sourceConditions =
@@ -476,7 +380,7 @@ AI生成由来の問題のみを選択すると、自分が所有するAI生成�
 
 ---
 
-## 1-8. 実際の問題取得にも生成元条件を反映
+### 1-8. 実際の問題取得にも生成元条件を反映
 
 ```text
 git commit -m "feat: integrate AI-generated questions into practice sessions"
@@ -484,7 +388,7 @@ git commit -m "feat: integrate AI-generated questions into practice sessions"
 
 件数表示だけでなく、実際の問題取得にも同じ条件を適用する。
 
-### `QuestionRepository.java`
+#### `QuestionRepository.java`
 
 非ログインの場合はAI生成問題を除外する。
 
@@ -583,11 +487,11 @@ if (userId != null) {
 
 ---
 
-## 1-9. AI生成問題へバッジを表示
+### 1-9. AI生成問題へバッジを表示
 
 通常学習中にAI生成由来の問題を判別できるよう、難易度の横へAIバッジを表示する。
 
-### `/practice/question.html`
+#### `/practice/question.html`
 
 ```html
 <!-- AI生成由来 -->
@@ -599,7 +503,7 @@ if (userId != null) {
 
 AI問題生成モードについても表示を統一する。
 
-### `/ai-practice/question.html`
+#### `/ai-practice/question.html`
 
 ```html
 <span class="badge bg-black">
@@ -615,7 +519,12 @@ AI生成由来の問題を出題対象にして通常学習を開始すると、
 
 ---
 
-# 2. 未学習問題へAI生成問題を統合
+## 2. 未学習問題へAI生成問題を統合
+
+### 目的
+
+学習履歴のないAI生成問題も、所有者・言語条件を満たす場合は未学習問題として扱う。
+
 
 ```text
 git commit -m "feat: include AI-generated questions in unlearned practice"
@@ -633,9 +542,9 @@ git commit -m "feat: include AI-generated questions in unlearned practice"
 
 未学習モードでは生成元による絞り込みは行わず、そのユーザーが利用可能な問題をすべて対象とする。
 
-## 2-1. Repositoryを修正
+### 2-1. Repositoryを修正
 
-### `QuestionRepository.java`
+#### `QuestionRepository.java`
 
 ```java
 @Query(value = """
@@ -693,69 +602,17 @@ List<Question> findUnlearnedQuestionsByUserIdAndDifficulty(
 
 ---
 
-## 2-2. Service・Controllerへ`languageVariant`を渡す
+### 2-2. Service・Controllerへ`languageVariant`を渡す
 
-### `PracticeService.java`
+#### `PracticeService.java`
 
-```java
-public NewPracticeCountDto countNewPracticeQuestions(
-        Long userId,
-        LanguageVariant languageVariant) {
-
-    NewPracticeCountDto count = new NewPracticeCountDto();
-
-    long beginnerCount =
-            questionRepository.countUnlearnedQuestions(
-                    userId,
-                    languageVariant.name(),
-                    Difficulty.BEGINNER.name()
-            );
-
-    count.setBeginnerCount(beginnerCount);
-
-    long intermediateCount =
-            questionRepository.countUnlearnedQuestions(
-                    userId,
-                    languageVariant.name(),
-                    Difficulty.INTERMEDIATE.name()
-            );
-
-    count.setIntermediateCount(intermediateCount);
-
-    long advancedCount =
-            questionRepository.countUnlearnedQuestions(
-                    userId,
-                    languageVariant.name(),
-                    Difficulty.ADVANCED.name()
-            );
-
-    count.setAdvancedCount(advancedCount);
-
-    return count;
-}
-```
 
 問題取得でも`languageVariant`をRepositoryへ渡す。
 
-```java
-public List<Question> getNewQuestions(
-        Long userId,
-        LanguageVariant languageVariant,
-        List<Difficulty> difficulty) {
-
-    return questionRepository
-            .findUnlearnedQuestionsByUserIdAndDifficulty(
-                    userId,
-                    languageVariant.name(),
-                    searchConditionConverter
-                            .convertDifficulty(difficulty)
-            );
-}
-```
 
 ---
 
-## 2-3. 未学習問題数表示を修正
+### 2-3. 未学習問題数表示を修正
 
 通常学習側の件数表示を、
 
@@ -794,7 +651,12 @@ practice.menu.difficulty.countSuffix=問
 
 ---
 
-# 3. 生成元条件を共通化
+## 3. 生成元条件を共通化
+
+### 目的
+
+通常学習以外でも同じ条件を使えるよう、生成元を表すEnumの名前を変更する。
+
 
 ```text
 git commit -m "refactor: rename PracticeSearchCondition to QuestionSourceCondition"
@@ -835,7 +697,12 @@ sourceCondition
 
 ---
 
-# 4. 生成元変更時の出題範囲を修正
+## 4. 生成元変更時の出題範囲を修正
+
+### 目的
+
+生成元フィルターの変更に応じて、問題数だけでなく選択可能な出題範囲も更新する。
+
 
 ```text
 git commit -m "fix: update practice ranges when source condition changes"
@@ -855,9 +722,9 @@ git commit -m "fix: update practice ranges when source condition changes"
 
 原因は、JavaScriptで件数だけを更新し、出題範囲を更新していなかったためである。
 
-## 4-1. `updateRanges()`を追加
+### 4-1. `updateRanges()`を追加
 
-### `/practice/menu.js`
+#### `/practice/menu.js`
 
 ```javascript
 function updateRanges(selectId, ranges) {
@@ -926,7 +793,12 @@ updateRanges(
 
 ---
 
-# 5. 復習モードへAI生成問題を統合
+## 5. 復習モードへAI生成問題を統合
+
+### 目的
+
+復習対象の抽出・件数表示に生成元条件を反映し、AI生成問題を識別できるようにする。
+
 
 ```text
 git commit -m "feat: add question source filter to review mode"
@@ -946,9 +818,9 @@ AI生成由来の問題のみ
 
 ---
 
-## 5-1. 復習のRepositoryへ生成元条件を追加
+### 5-1. 復習のRepositoryへ生成元条件を追加
 
-### `StudyHistoryRepository.java`
+#### `StudyHistoryRepository.java`
 
 問題数取得と問題取得の両方へ以下の条件を追加する。
 
@@ -985,7 +857,7 @@ String sourceCondition
 
 ---
 
-## 5-2. `ReviewService`へ生成元条件を追加
+### 5-2. `ReviewService`へ生成元条件を追加
 
 問題数取得と問題取得の両方で、
 
@@ -1015,7 +887,7 @@ sourceCondition.name()
 
 ---
 
-## 5-3. `ReviewController`へ生成元条件を追加
+### 5-3. `ReviewController`へ生成元条件を追加
 
 `/review/count`と`/review/start`の両方で、
 
@@ -1032,82 +904,18 @@ QuestionSourceCondition sourceCondition
 
 ---
 
-## 5-4. 復習メニューへ問題の生成元を追加
+### 5-4. 復習メニューへ問題の生成元を追加
 
-### `/review/menu.html`
+#### `/review/menu.html`
 
-```html
-<div class="col-md-6 mb-4">
-
-    <div class="card h-100">
-
-        <div class="card-header"
-             th:text="#{practice.menu.sourceCondition.title}">
-            問題の生成元
-        </div>
-
-        <div class="card-body">
-
-            <label class="form-check mb-2">
-
-                <input class="form-check-input"
-                       type="radio"
-                       name="sourceCondition"
-                       value="ALL"
-                       id="sourceAll"
-                       checked>
-
-                <span class="form-check-label"
-                      th:text="#{practice.menu.sourceCondition.all}">
-                    すべて
-                </span>
-
-            </label>
-
-            <label class="form-check mb-2">
-
-                <input class="form-check-input"
-                       type="radio"
-                       name="sourceCondition"
-                       value="ORIGINAL_ONLY"
-                       id="sourceOriginal">
-
-                <span class="form-check-label"
-                      th:text="#{practice.menu.sourceCondition.originalOnly}">
-                    AI生成由来の問題を除外する
-                </span>
-
-            </label>
-
-            <label class="form-check">
-
-                <input class="form-check-input"
-                       type="radio"
-                       name="sourceCondition"
-                       value="GENERATED_ONLY"
-                       id="sourceGenerated">
-
-                <span class="form-check-label"
-                      th:text="#{practice.menu.sourceCondition.generatedOnly}">
-                    AI生成由来の問題のみ出題する
-                </span>
-
-            </label>
-
-        </div>
-
-    </div>
-
-</div>
-```
 
 生成元条件の追加に合わせて、既存の検索条件カードの配置も調整した。
 
 ---
 
-## 5-5. 復習の問題数更新へ生成元条件を追加
+### 5-5. 復習の問題数更新へ生成元条件を追加
 
-### `/review/menu.js`
+#### `/review/menu.js`
 
 件数更新を監視する対象へ、
 
@@ -1144,7 +952,7 @@ params.append(
 
 ---
 
-## 5-6. 復習問題へAIバッジを追加
+### 5-6. 復習問題へAIバッジを追加
 
 ```text
 git commit -m "feat: add AI-generated badge to review questions"
@@ -1152,7 +960,7 @@ git commit -m "feat: add AI-generated badge to review questions"
 
 通常学習と同様に、AI生成由来の問題をひと目で判別できるようにする。
 
-### `/review/question.html`
+#### `/review/question.html`
 
 ```html
 <!-- AI生成由来 -->
@@ -1166,7 +974,12 @@ git commit -m "feat: add AI-generated badge to review questions"
 
 ---
 
-# 6. 問題一覧へAI生成問題を統合
+## 6. 問題一覧へAI生成問題を統合
+
+### 目的
+
+所有するAI生成問題の検索・表示・削除を既存の問題一覧へ追加する。
+
 
 問題一覧では、
 
@@ -1177,56 +990,22 @@ git commit -m "feat: add AI-generated badge to review questions"
 
 ---
 
-# 6-1. AI生成由来の問題を表示対象にする
+### 6-1. AI生成由来の問題を表示対象にする
 
 ```text
 git commit -m "feat: integrate AI-generated questions into question list"
 ```
 
-## 6-1-1. `UserQuestionListDto`へAI生成判定を追加
+### 6-1-1. `UserQuestionListDto`へAI生成判定を追加
 
-```java
-public interface UserQuestionListDto {
-
-    Long getQuestionId();
-
-    String getJapaneseText();
-
-    String getChineseText();
-
-    String getAlternativeAnswer();
-
-    String getStructureName();
-
-    String getStructureDescriptionZhCn();
-
-    String getStructureDescriptionZhTw();
-
-    Difficulty getDifficulty();
-
-    Evaluation getEvaluation();
-
-    boolean isFavorite();
-
-    boolean isAiGenerated();
-
-    String getPinyin();
-
-    String getZhuyin();
-
-    String getAlternativeAnswerPinyin();
-
-    String getAlternativeAnswerZhuyin();
-}
-```
 
 `isAiGenerated()`によって一覧画面で通常問題とAI生成問題を判別できる。
 
 ---
 
-## 6-1-2. 問題一覧Repositoryへ生成元条件を追加
+### 6-1-2. 問題一覧Repositoryへ生成元条件を追加
 
-### `QuestionRepository.java`
+#### `QuestionRepository.java`
 
 SELECT句へ、
 
@@ -1273,22 +1052,8 @@ String sourceCondition
 
 ---
 
-## 6-1-3. `UserQuestionService`へ生成元条件を追加
+### 6-1-3. `UserQuestionService`へ生成元条件を追加
 
-```java
-public Page<UserQuestionListDto> getFilteredUserQuestionList(
-        long userId,
-        List<Difficulty> difficulties,
-        List<Evaluation> evaluations,
-        StudyCondition studyCondition,
-        FavoriteCondition favoriteCondition,
-        QuestionSourceCondition sourceCondition,
-        List<Long> structureIds,
-        List<LanguageVariant> languageVariants,
-        String japaneseKeyword,
-        String chineseKeyword,
-        Pageable pageable) {
-```
 
 生成元が未指定の場合は、
 
@@ -1310,7 +1075,7 @@ sourceCondition.name()
 
 ---
 
-## 6-1-4. `UserQuestionController`へ生成元条件を追加
+### 6-1-4. `UserQuestionController`へ生成元条件を追加
 
 GET `/user/question/list`で、
 
@@ -1334,48 +1099,12 @@ model.addAttribute(
 
 ---
 
-## 6-1-5. 問題一覧へ生成元フィルターを追加
+### 6-1-5. 問題一覧へ生成元フィルターを追加
 
-### `/user/question/list.html`
+#### `/user/question/list.html`
 
 学習状況・お気に入りと並べて生成元条件を表示する。
 
-```html
-<div class="col-md-4">
-
-    <label class="form-label fw-bold"
-           th:text="#{practice.menu.sourceCondition.title}">
-        問題の生成元
-    </label>
-
-    <select class="form-select"
-            name="sourceCondition">
-
-        <option value="ALL"
-                th:selected="${selectedSourceCondition == null
-                    or selectedSourceCondition.name() == 'ALL'}"
-                th:text="#{practice.menu.sourceCondition.all}">
-            すべて
-        </option>
-
-        <option value="ORIGINAL_ONLY"
-                th:selected="${selectedSourceCondition != null
-                    and selectedSourceCondition.name() == 'ORIGINAL_ONLY'}"
-                th:text="#{practice.menu.sourceCondition.originalOnly}">
-            AI生成由来の問題を除外する
-        </option>
-
-        <option value="GENERATED_ONLY"
-                th:selected="${selectedSourceCondition != null
-                    and selectedSourceCondition.name() == 'GENERATED_ONLY'}"
-                th:text="#{practice.menu.sourceCondition.generatedOnly}">
-            AI生成由来の問題のみ
-        </option>
-
-    </select>
-
-</div>
-```
 
 これによって、
 
@@ -1390,7 +1119,7 @@ model.addAttribute(
 
 ---
 
-## 6-1-6. 問題一覧へ生成元を表示
+### 6-1-6. 問題一覧へ生成元を表示
 
 表の難易度と詳細の間へ生成元列を追加する。
 
@@ -1414,7 +1143,7 @@ model.addAttribute(
 
 通常問題の場合は空セルとなる。
 
-### `messages.properties`
+#### `messages.properties`
 
 ```properties
 user.question.list.source=生成元
@@ -1428,7 +1157,7 @@ user.question.list.source=生成元
 
 ---
 
-# 6-2. AI生成由来の問題を削除できるようにする
+### 6-2. AI生成由来の問題を削除できるようにする
 
 ```text
 git commit -m "feat: allow users to delete their AI-generated questions"
@@ -1448,19 +1177,19 @@ AI生成由来
 
 ---
 
-## 6-2-1. 関連レコードを先に削除
+### 6-2-1. 関連レコードを先に削除
 
 `favorite`と`study_history`は`question`を外部キー参照している。
 
 削除時にCASCADEされる設計ではないため、`question`を削除する前に関連レコードを削除する。
 
-### `FavoriteRepository.java`
+#### `FavoriteRepository.java`
 
 ```java
 void deleteByQuestionQuestionId(Long questionId);
 ```
 
-### `StudyHistoryRepository.java`
+#### `StudyHistoryRepository.java`
 
 ```java
 void deleteByStudyHistoryKeyQuestionId(Long questionId);
@@ -1468,7 +1197,7 @@ void deleteByStudyHistoryKeyQuestionId(Long questionId);
 
 ---
 
-## 6-2-2. `UserQuestionService`へ削除処理を追加
+### 6-2-2. `UserQuestionService`へ削除処理を追加
 
 複数テーブルの削除を1つの処理として実行するため、`@Transactional`を付与する。
 
@@ -1533,7 +1262,7 @@ AI生成問題では所有者が設定される設計であり、通常問題に
 
 ---
 
-## 6-2-3. 削除後も検索条件とページを維持する
+### 6-2-3. 削除後も検索条件とページを維持する
 
 問題一覧では複数の検索条件とページングを使用している。
 
@@ -1547,51 +1276,8 @@ AI生成問題では所有者が設定される設計であり、通常問題に
 
 そこで、削除前に開いていたURLを保存し、削除後にそのURLへ戻す。
 
-### `UserQuestionController.getUserQuestionList()`
+#### `UserQuestionController.getUserQuestionList()`
 
-```java
-@GetMapping("/user/question/list")
-public String getUserQuestionList(
-        @AuthenticationPrincipal UserDetails loginUser,
-        @PageableDefault(page = 0, size = 50)
-                Pageable pageable,
-        @RequestParam(required = false)
-                List<Difficulty> difficulties,
-        @RequestParam(required = false)
-                List<Evaluation> evaluations,
-        @RequestParam(required = false)
-                StudyCondition studyCondition,
-        @RequestParam(required = false)
-                FavoriteCondition favoriteCondition,
-        @RequestParam(required = false)
-                QuestionSourceCondition sourceCondition,
-        @RequestParam(required = false)
-                List<Long> structureIds,
-        @RequestParam(required = false)
-                List<LanguageVariant> languageVariants,
-        @RequestParam(required = false, defaultValue = "")
-                String japaneseKeyword,
-        @RequestParam(required = false, defaultValue = "")
-                String chineseKeyword,
-        HttpSession session,
-        HttpServletRequest request,
-        Model model) {
-
-    // 現在のURLを取得
-    String currentUrl = request.getRequestURI();
-
-    if (request.getQueryString() != null) {
-        currentUrl += "?" + request.getQueryString();
-    }
-
-    model.addAttribute(
-            "currentUrl",
-            currentUrl
-    );
-
-    // 以下既存処理...
-}
-```
 
 例えば現在のURLが、
 
@@ -1637,9 +1323,9 @@ difficulties=BEGINNER&page=2
 
 ---
 
-## 6-2-4. AI生成問題削除用POSTを追加
+### 6-2-4. AI生成問題削除用POSTを追加
 
-### `UserQuestionController.java`
+#### `UserQuestionController.java`
 
 ```java
 @PostMapping("/user/question/delete")
@@ -1698,9 +1384,9 @@ return "redirect:" + returnUrl;
 
 ---
 
-## 6-2-5. 問題一覧へ削除ボタンを追加
+### 6-2-5. 問題一覧へ削除ボタンを追加
 
-### `/user/question/list.html`
+#### `/user/question/list.html`
 
 一覧へ削除列を追加する。
 
@@ -1713,33 +1399,6 @@ return "redirect:" + returnUrl;
 
 削除ボタンはAI生成由来の問題にだけ表示する。
 
-```html
-<td class="text-center">
-
-    <form th:if="${question.aiGenerated}"
-          th:action="@{/user/question/delete}"
-          method="post">
-
-        <input type="hidden"
-               name="questionId"
-               th:value="${question.questionId}">
-
-        <input type="hidden"
-               name="returnUrl"
-               th:value="${currentUrl}">
-
-        <button type="submit"
-                class="btn btn-dark btn-sm"
-                th:onclick="|return confirm('#{user.question.delete.confirm}')|">
-
-            <i class="bi bi-trash"></i>
-
-        </button>
-
-    </form>
-
-</td>
-```
 
 ```html
 th:if="${question.aiGenerated}"
@@ -1753,27 +1412,12 @@ th:if="${question.aiGenerated}"
 
 ---
 
-## 6-2-6. 削除成功メッセージを表示
+### 6-2-6. 削除成功メッセージを表示
 
 一覧画面の上部へFlash Attributeの表示領域を追加する。
 
-```html
-<div th:if="${successMessage}"
-     class="alert alert-success alert-dismissible fade show"
-     role="alert">
 
-    <span th:text="${successMessage}"></span>
-
-    <button type="button"
-            class="btn-close"
-            data-bs-dismiss="alert"
-            aria-label="Close">
-    </button>
-
-</div>
-```
-
-### `messages.properties`
+#### `messages.properties`
 
 ```properties
 user.question.list.delete=削除
@@ -1783,7 +1427,7 @@ user.question.delete.success=問題を削除しました。
 
 ---
 
-## 6-2-7. AI生成問題の削除を確認
+### 6-2-7. AI生成問題の削除を確認
 
 問題一覧を表示すると、
 
@@ -1813,7 +1457,7 @@ OKを押すと問題が削除され、検索条件を維持したまま同じ問
 
 ---
 
-# 7. 実装結果
+## 7. 実装結果
 
 このチャプターによって、前チャプターで保存できるようになったAI生成由来の問題を、既存の学習機能へ統合できた。
 

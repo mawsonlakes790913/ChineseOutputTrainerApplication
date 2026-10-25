@@ -1,59 +1,27 @@
 # 003 言語設定機能の実装
 
-ここでは、以下の2種類の言語設定機能を実装する。
+サイトの表示言語と、問題の学習対象言語を別々に設定できるようにする。
 
-* **サイト表示言語**
+| 設定 | 選択肢 | 用途 |
+| --- | --- | --- |
+| サイト表示言語 | 日本語 / English / 简体中文 / 繁體中文（初期実装時） | メニューや説明文の表示 |
+| 学習対象言語 | `MAINLAND` / `TAIWAN` | 大陸普通話と台湾華語（國語）の切り替え |
 
-  * サイト上の説明文やボタン、メニューなどに表示する言語を設定する。
-* **学習対象言語**
+このログは当初の実装と、その後の追加・修正を時系列で記録している。途中のコードは後続の変更によって置き換えられている場合がある。
 
-  * 実際に学習する中国語を、大陸普通話または台湾華語（國語）から設定する。
+**補足：英語表示は初期段階で導入したが、その後採用を取りやめた。** 以下の`messages_en.properties`や英語切り替え用UIは、初期実装の記録として掲載しているものであり、現在の採用機能を示すものではない。
 
-```text
-003 言語設定機能の実装
-    ├─ サイト表示言語
-    │   ├─ 日本語
-    │   ├─ English
-    │   ├─ 简体中文
-    │   └─ 繁體中文
-    │
-    └─ 学習対象言語
-        ├─ MAINLAND
-        └─ TAIWAN
-```
+## 1. サイト表示言語の切り替えを追加
 
----
+**Commit:** `feat: add multilingual display language switching`
 
-# 1. サイト表示言語設定
+### 1.1 メッセージファイルの準備
 
-```bash
-git commit -m "feat: add multilingual display language switching"
-```
+画面の固定文言をHTMLから分離し、言語別の`messages*.properties`で管理する。デフォルトは日本語とし、英語・簡体字・繁体字のファイルを追加した。アプリ名「中文造句工坊」はブランド名として共通表示のままとする。
 
-## 1.1 使用するフォルダ・ファイル
+対象ファイル：`messages.properties`、`messages_en.properties`、`messages_zh_CN.properties`、`messages_zh_TW.properties`。
 
-```text
-src/main/java/
-└── io.github.mawsonlakes790913.chineseoutputforge/
-    └── config/
-        └── LocaleConfig.java          ← 新規作成
-
-src/main/resources/
-├── messages.properties               ← 新規作成（デフォルト・日本語）
-├── messages_en.properties            ← 新規作成
-├── messages_zh_CN.properties         ← 新規作成
-└── messages_zh_TW.properties         ← 新規作成
-```
-
-HTMLに直接記述していた固定文言を、言語ごとのプロパティファイルから読み込むように変更する。
-
----
-
-# 2. デフォルトメッセージの作成
-
-## 2.1 messages.properties
-
-デフォルトの表示言語を日本語とする。
+日本語のメッセージは以下のとおり。
 
 ```properties
 # home.html
@@ -69,9 +37,7 @@ about.backToTop=Topへ戻る
 header.greeting.guest=こんにちは、ゲストさん
 ```
 
-`中文造句工坊` はブランド名として全言語共通にするため、propertiesには移さない。
-
-## 2.2 home.html
+`home.html`では、タイトル・説明文・リンク文字列をメッセージキーから取得する。`about.html`と`header.html`も同様に変更した。
 
 ```html
 <h1 class="mb-3"
@@ -95,19 +61,7 @@ header.greeting.guest=こんにちは、ゲストさん
 </div>
 ```
 
-```html
-th:text="#{キー名}"
-```
-
-によって、`messages.properties` 内の対応するメッセージを取得する。
-
-`about.html`、`header.html`についても同様に変更する。
-
----
-
-# 3. 多言語メッセージの作成
-
-## 3.1 messages_en.properties
+**英語のメッセージ（後に廃止した初期実装）**
 
 ```properties
 # home.html
@@ -123,7 +77,7 @@ about.backToTop=Back to Top
 header.greeting.guest=Hello, Guest
 ```
 
-## 3.2 messages_zh_CN.properties
+**簡体字中国語のメッセージ**
 
 ```properties
 # home.html
@@ -139,7 +93,7 @@ about.backToTop=返回首页
 header.greeting.guest=你好，Guest
 ```
 
-## 3.3 messages_zh_TW.properties
+**繁体字中国語のメッセージ**
 
 ```properties
 # home.html
@@ -155,55 +109,9 @@ about.backToTop=返回首頁
 header.greeting.guest=你好，Guest
 ```
 
----
+### 1.2 Localeの設定
 
-# 4. Localeによる表示言語の切り替え
-
-Localeを使用して、4つの `messages*.properties` を切り替える。
-
-| 表示言語    | Locale  | 読み込まれるファイル                  |
-| ------- | ------- | --------------------------- |
-| 日本語     | `ja`    | `messages.properties`       |
-| English | `en`    | `messages_en.properties`    |
-| 简体中文    | `zh_CN` | `messages_zh_CN.properties` |
-| 繁體中文    | `zh_TW` | `messages_zh_TW.properties` |
-
-以下の仕組みを使用する。
-
-* `SessionLocaleResolver`
-
-  * 現在のLocaleをSessionに保持する。
-* `LocaleChangeInterceptor`
-
-  * `?lang=en` などのリクエストパラメータを検知してLocaleを変更する。
-
-処理の流れは以下となる。
-
-```text
-ユーザー
-  ↓
-表示言語を選択
-  ↓
-?lang=zh_TW
-  ↓
-LocaleChangeInterceptor
-  ↓
-Localeを zh_TW に変更
-  ↓
-SessionLocaleResolver
-  ↓
-LocaleをSessionに保持
-  ↓
-messages_zh_TW.properties
-  ↓
-Thymeleafの #{...} が繁體中文になる
-```
-
----
-
-# 5. LocaleConfigの実装
-
-## 5.1 LocaleConfig.java
+`LocaleConfig`で`SessionLocaleResolver`と`LocaleChangeInterceptor`を設定する。表示言語はSessionに保持し、URLの`lang`パラメータによって切り替える。未指定時の表示言語は日本語とした。
 
 ```java
 @Configuration
@@ -239,40 +147,7 @@ public class LocaleConfig implements WebMvcConfigurer {
 }
 ```
 
-`localeResolver()` では `SessionLocaleResolver` を使用し、デフォルトLocaleを日本語に設定する。
-
-```java
-resolver.setDefaultLocale(Locale.JAPANESE);
-```
-
-`localeChangeInterceptor()` では、表示言語変更用のリクエストパラメータを `lang` とする。
-
-```java
-interceptor.setParamName("lang");
-```
-
-例えば、
-
-```text
-?lang=en
-```
-
-というリクエストが送信されると、Localeが英語へ変更される。
-
-作成した `LocaleChangeInterceptor` は以下でSpring MVCへ登録する。
-
-```java
-@Override
-public void addInterceptors(InterceptorRegistry registry) {
-    registry.addInterceptor(localeChangeInterceptor());
-}
-```
-
----
-
-# 6. 表示言語切り替えUIの実装
-
-当初は `header.html` に表示言語切り替え用のドロップダウンを配置した。
+表示言語の切り替えUIは当初`header.html`のドロップダウンに配置した。現在のLocaleに合わせて選択中の言語名を表示する。中国語は`zh_CN`と`zh_TW`を区別する。
 
 ```html
 <div class="dropdown">
@@ -322,38 +197,9 @@ public void addInterceptors(InterceptorRegistry registry) {
 </div>
 ```
 
-現在のLocaleによって、ドロップダウンの表示も変更する。
+### 1.3 動作確認
 
-日本語と英語は、
-
-```text
-#locale.language
-```
-
-中国語の簡体字・繁体字については、
-
-```text
-#locale.toString()
-```
-
-を使用して `zh_CN` / `zh_TW` を判定する。
-
----
-
-# 7. 表示言語の実行確認
-
-以下のURLから表示言語を切り替えられることを確認した。
-
-```text
-http://localhost:8080/?lang=en
-→ English
-
-http://localhost:8080/?lang=zh_CN
-→ 简体中文
-
-http://localhost:8080/?lang=zh_TW
-→ 繁體中文
-```
+`?lang=en`、`?lang=zh_CN`、`?lang=zh_TW`でそれぞれの表示言語に切り替わることを確認した。
 
 ![](../../images/0003-01.png)
 
@@ -361,7 +207,7 @@ http://localhost:8080/?lang=zh_TW
 
 ![](../../images/0003-03.png)
 
-日本語Localeについては、システムLocaleへのフォールバックを無効化するため `application.yml` に以下を追加した。
+日本語表示の確認にあたり、システムLocaleへのフォールバックを無効化する設定を`application.yml`に追加した。
 
 ```yaml
 spring:
@@ -369,67 +215,19 @@ spring:
     fallback-to-system-locale: false
 ```
 
-設定後、
-
-```text
-http://localhost:8080/?lang=ja
-```
-
-で日本語表示を確認した。
+`?lang=ja`で日本語表示を確認した。
 
 ![](../../images/0003-04.png)
 
 ![](../../images/0003-05.png)
 
----
+## 2. 学習対象言語の切り替えを追加
 
-# 8. 学習対象言語設定
+**Commit:** `feat: add study language switching`
 
-```bash
-git commit -m "feat: add study language switching"
-```
+### 2.1 言語種別とController
 
-学習対象言語として以下の2種類を扱う。
-
-```text
-MAINLAND → 大陸普通話
-TAIWAN   → 台湾華語（國語）
-```
-
-選択した学習対象言語はSessionへ保存する。
-
-```text
-?languageVariant=MAINLAND
-    ↓
-LanguageVariant.MAINLAND
-    ↓
-Sessionに保存
-```
-
----
-
-# 9. 学習対象言語のファイル構成
-
-```text
-src/main/java/
-└── io.github.mawsonlakes790913.chineseoutputforge/
-    ├── controller/
-    │   └── LanguageVariantController.java
-    │
-    └── constant/
-        └── LanguageVariant.java
-
-src/main/resources/
-└── static/
-    └── js/
-        └── header.js
-```
-
----
-
-# 10. LanguageVariantの実装
-
-## 10.1 LanguageVariant.java
+学習対象言語は表示言語と独立させ、`LanguageVariant`で`MAINLAND`（大陸普通話）と`TAIWAN`（台湾華語）を管理する。
 
 ```java
 public enum LanguageVariant {
@@ -438,16 +236,7 @@ public enum LanguageVariant {
 }
 ```
 
-学習対象言語をEnumとして管理する。
-
-```text
-MAINLAND → 大陸普通話
-TAIWAN   → 台湾華語（國語）
-```
-
----
-
-# 11. LanguageVariantControllerの実装
+初期実装の`LanguageVariantController`は、選択された値をSessionの`languageVariant`へ保存し、Home画面に戻す構成とした。同じ言語を選択した場合は更新しない。**このGET方式は後の修正でPOST方式に変更している。**
 
 ```java
 @Controller
@@ -474,35 +263,9 @@ public class LanguageVariantController {
 }
 ```
 
-例えば、
+### 2.2 ヘッダーの切り替えUI
 
-```text
-/language-variant?languageVariant=MAINLAND
-```
-
-へアクセスすると、
-
-```java
-@RequestParam LanguageVariant languageVariant
-```
-
-によって `languageVariant` パラメータを `LanguageVariant` 型として受け取る。
-
-選択された値は、
-
-```java
-session.setAttribute("languageVariant", languageVariant);
-```
-
-によってSessionへ保存する。
-
-学習対象言語を変更した後はHome画面へ戻す。
-
----
-
-# 12. 学習対象言語の切り替えUI
-
-`header.html` に学習対象言語のドロップダウンを追加する。
+`header.html`に学習対象言語のドロップダウンを追加する。選択中の言語はチェック付きで表示し、再選択できないようにした。Session未設定時は普通話を表示する。
 
 ```html
 <div class="d-flex align-items-center gap-2">
@@ -576,23 +339,7 @@ session.setAttribute("languageVariant", languageVariant);
 </div>
 ```
 
-現在選択中の言語には `✓` を表示し、選択できない状態にする。
-
----
-
-# 13. 学習言語変更時の確認ダイアログ
-
-学習対象言語を変更する際に確認ダイアログを表示する。
-
-HTML側では確認メッセージを `data-confirm-message` に設定し、JavaScript側で処理する。
-
-## 13.1 layout.html
-
-```html
-<script th:src="@{/js/header.js}"></script>
-```
-
-## 13.2 header.js
+言語変更前には確認ダイアログを表示する。確認文言をHTMLの`data-confirm-message`へ格納し、`header.js`でクリック時に読み取る。キャンセルされた場合は画面遷移を中止する。
 
 ```javascript
 document.querySelectorAll('.language-variant-link').forEach(link => {
@@ -607,27 +354,15 @@ document.querySelectorAll('.language-variant-link').forEach(link => {
 });
 ```
 
-`.language-variant-link` を持つリンクがクリックされたとき、
+`layout.html`でJavaScriptを読み込む。
 
-```javascript
-this.dataset.confirmMessage
+```html
+<script th:src="@{/js/header.js}"></script>
 ```
 
-から確認メッセージを取得する。
+確認メッセージも4言語に対応させた。
 
-キャンセルされた場合は、
-
-```javascript
-event.preventDefault();
-```
-
-によってリンク遷移を中止する。
-
----
-
-# 14. 学習言語変更メッセージの多言語化
-
-## 14.1 messages.properties
+**日本語**
 
 ```properties
 header.studyLanguage=学習言語
@@ -635,7 +370,7 @@ header.studyLanguage.confirmMainland=学習言語を普通話に切り替えま�
 header.studyLanguage.confirmTaiwan=学習言語を國語に切り替えますか？\n切り替えると、現在のトレーニングは終了し、ホーム画面に戻ります。
 ```
 
-## 14.2 messages_en.properties
+**英語**
 
 ```properties
 header.studyLanguage=Study Language
@@ -643,7 +378,7 @@ header.studyLanguage.confirmMainland=Switch the study language to Mandarin?\nYou
 header.studyLanguage.confirmTaiwan=Switch the study language to Taiwanese Mandarin?\nYour current training session will end, and you will return to the Home page.
 ```
 
-## 14.3 messages_zh_CN.properties
+**簡体字**
 
 ```properties
 header.studyLanguage=学习语言
@@ -651,7 +386,7 @@ header.studyLanguage.confirmMainland=要将学习语言切换为普通话吗？\
 header.studyLanguage.confirmTaiwan=要将学习语言切换为国语吗？\n切换后，当前训练将结束，并返回首页。
 ```
 
-## 14.4 messages_zh_TW.properties
+**繁体字**
 
 ```properties
 header.studyLanguage=學習語言
@@ -659,46 +394,23 @@ header.studyLanguage.confirmMainland=要將學習語言切換為普通話嗎？\
 header.studyLanguage.confirmTaiwan=要將學習語言切換為國語嗎？\n切換後，目前的練習將結束，並返回首頁。
 ```
 
-## 14.5 実行確認
+### 2.3 動作確認
 
-学習対象言語を正常に切り替えられることを確認した。
-
-### 普通話
+普通話と國語を切り替え、ヘッダーの表示が更新されることを確認した。
 
 ![](../../images/0003-06.png)
 
-### 國語
-
 ![](../../images/0003-07.png)
 
----
+## 3. ヘッダーUIの再構成
 
-# 15. ヘッダーのUI修正
+**Commit:** `refactor: reorganize header UI`
 
-```bash
-git commit -m "refactor: reorganize header UI"
-```
+表示言語と学習対象言語を追加したため、ヘッダーを「アプリ名 / 学習言語 / ユーザーアイコン / ハンバーガーメニュー」の構成に変更する。表示言語の切り替えはハンバーガーメニュー内へ移動した。
 
-表示言語・学習対象言語の実装後、ヘッダーを以下の構成へ整理する。
+### 3.1 Bootstrap Iconsの導入
 
-```text
-中文造句工坊    学習言語 🇹🇼 國語 ▼    👤    ☰
-```
-
-変更内容は以下。
-
-* 学習対象言語はヘッダー上に表示
-* 表示言語はハンバーガーメニューへ移動
-* 「こんにちは、ゲストさん」をユーザーアイコンへ変更
-* ハンバーガーメニューを追加
-
-現時点ではログイン機能やユーザーDBを実装していないため、ユーザーアイコンはUIのみ実装する。
-
----
-
-# 16. Bootstrap Iconsの導入
-
-## 16.1 pom.xml
+ユーザーアイコンとメニューアイコンの表示にBootstrap Iconsを使用するため、`pom.xml`へ依存関係を追加した。
 
 ```xml
 <dependency>
@@ -708,9 +420,7 @@ git commit -m "refactor: reorganize header UI"
 </dependency>
 ```
 
-## 16.2 layout.html
-
-Bootstrap IconsのCSSを読み込む。
+共通レイアウトからアイコン用CSSを読み込む。
 
 ```html
 <!-- Bootstrap Icons -->
@@ -718,17 +428,9 @@ Bootstrap IconsのCSSを読み込む。
       th:href="@{/webjars/bootstrap-icons/font/bootstrap-icons.css}">
 ```
 
----
+### 3.2 ユーザーアイコンとメニュー
 
-# 17. ユーザーアイコンの追加
-
-これまで表示していた、
-
-```text
-こんにちは、ゲストさん
-```
-
-を削除し、ユーザーアイコンへ置き換える。
+暫定表示の「こんにちは、ゲストさん」をユーザーアイコンに置き換える。認証機能は未実装のため、この時点では見た目のみを用意した。
 
 ```html
 <!-- ユーザーアイコン -->
@@ -739,20 +441,7 @@ Bootstrap IconsのCSSを読み込む。
 </button>
 ```
 
-現時点ではユーザーアイコン自体の機能は実装しない。
-
----
-
-# 18. 表示言語切り替えをハンバーガーメニューへ移動
-
-表示言語切り替えをヘッダー上のドロップダウンからハンバーガーメニュー内へ移動する。
-
-ハンバーガーメニューには現時点で、
-
-* このアプリについて
-* 表示言語切り替え
-
-を配置する。
+ハンバーガーメニューには「このアプリについて」と4言語の表示切り替えを配置する。選択中の言語にはチェックを付ける。
 
 ```html
 <!-- ハンバーガーアイコン -->
@@ -822,397 +511,43 @@ Bootstrap IconsのCSSを読み込む。
 </div>
 ```
 
-現在選択されている表示言語には `✓` を表示する。
+### 3.3 動作確認
 
----
-
-# 19. ヘッダーUI修正後の実行確認
-
-`http://localhost:8080/` にアクセスし、修正後のヘッダーを確認した。
+Home画面で新しいヘッダー構成を確認した。
 
 ![](../../images/0003-08.png)
 
-現在のヘッダーは以下の構成となる。
+## 4. 追加修正（2026年9月19日）：表示言語変更時のクエリパラメータを維持
 
-```text
-中文造句工坊       学習言語 🇹🇼 國語 ▼       👤    ☰
-```
+**Commit:** `fix: preserve query parameters when switching display language`
 
-```text
-中文造句工坊
-    ↓
-Home
+### 4.1 発生した問題
 
-学習言語
-    ↓
-MAINLAND / TAIWAN の切り替え
+初期実装の表示言語リンクは`th:href="@{?lang=ja}"`のように`lang`のみを指定していた。その後、ページ番号・検索条件・パスワードリセット用トークンをURLで扱う画面が増え、言語変更時に既存パラメータが失われる不具合が発生した。
 
-👤
-    ↓
-ユーザー関連機能用
-
-☰
-    ├─ このアプリについて
-    └─ 表示言語
-        ├─ 日本語
-        ├─ English
-        ├─ 简体中文
-        └─ 繁體中文
-```
-
----
-
-# 追加修正(9月19日) - 表示言語切り替え時のクエリパラメータ維持
-
-```text
-git commit -m "fix: preserve query parameters when switching display language"
-```
-
-チャプター003で表示言語切り替え機能を実装した時点では、表示言語のリンクを以下のように設定していた。
-
-```html
-th:href="@{?lang=ja}"
-```
-
-当時実装済みだったページでは、この方法でも問題なく表示言語を切り替えることができた。
-
-しかし、その後アプリケーションの機能を追加し、検索条件やページ番号、トークンなどをクエリパラメータとして使用するページが増えたことで、表示言語切り替え時に問題が発生するようになった。
-
-## 不具合の発生例
-
-### 問題ページ
-
-#### 表示言語変更前
-
-5問目を表示している。
+**問題ページ：** 5問目から言語を変更すると1問目に戻る。
 
 ![](../../images/0003-16.png)
 
-#### 表示言語変更後
-
-表示言語を変更すると、ページ番号を表すクエリパラメータが失われ、1問目に戻ってしまう。
-
 ![](../../images/0003-17.png)
 
-### 問題一覧ページ
-
-#### 表示言語変更前
-
-検索条件を指定した結果、67件の問題が表示されている。
+**問題一覧ページ：** 検索条件が失われ、全件表示へ戻る。
 
 ![](../../images/0003-18.png)
 
-#### 表示言語変更後
-
-表示言語を変更すると、検索条件を表すクエリパラメータが失われ、検索条件が初期化されて全件表示に戻ってしまう。
-
 ![](../../images/0003-19.png)
-## 問題点
 
-チャプター003の実装後に追加した以下のページで、表示言語を切り替えると不具合が発生した。
+パスワードリセットページでも`token`が失われ、`400 Bad Request`が発生していた。
 
-- 通常学習モードのメニューページおよび問題ページ
-- 復習モードのメニューページおよび問題ページ
-- AI生成モードのメニューページおよび問題ページ
-- 問題一覧ページ
-- パスワードリセット関連のページ群
+例えば、`/review/question?page=5&difficulty=HARD`で日本語に切り替えると、従来は`/review/question?lang=ja`となっていた。修正後は`/review/question?page=5&difficulty=HARD&lang=ja`とし、既存の条件を維持する。
 
-具体的には、学習モードや問題一覧ページでは、表示言語を切り替えると画面上で指定していた検索条件などがリセットされたり、複数ページある問題一覧で1ページ目に戻ったりする。
+### 4.2 修正方針
 
-また、パスワードリセット関連のページでは、表示言語を切り替えることで必要なパラメータが失われ、`400 Bad Request`が発生する。
+各ページが使用するパラメータを`header.html`に列挙すると、機能追加のたびに共通ヘッダーの修正が必要になる。そこで、JavaScriptで現在のURLを取得し、既存のクエリパラメータを維持したまま`lang`だけを書き換える方式を採用した。
 
-## 原因
+### 4.3 `header.html`の変更
 
-原因は、`header.html`の表示言語切り替えリンクを以下のように実装していたことにある。
-
-```html
-th:href="@{?lang=ja}"
-```
-
-この書き方では、現在のURLに設定されているクエリパラメータを引き継がず、`lang`だけを指定したURLが生成される。
-
-例えば、現在のURLが、
-
-```text
-/review/question?page=5&difficulty=HARD
-```
-
-だった場合に日本語へ切り替えると、
-
-```text
-/review/question?lang=ja
-```
-
-となり、`page=5`や`difficulty=HARD`が失われる。
-
-そのため、検索条件やページ番号をクエリパラメータで管理しているページでは、表示言語を切り替えた際に条件がリセットされたり、1ページ目へ戻ったりしていた。
-
-また、パスワードリセット画面では、URLに含まれる`token`がパスワードリセット対象を識別するために必要となる。
-
-```text
-/reset-password?token=xxxxxxxx
-```
-
-この状態で表示言語を切り替えると、
-
-```text
-/reset-password?lang=ja
-```
-
-となって`token`が失われる。
-
-その結果、必須の`token`を取得できなくなり、`400 Bad Request`が発生していた。
-
-つまり、表示言語切り替え機能そのものではなく、**表示言語切り替え時に現在のクエリパラメータを維持していなかったこと**が原因だった。
-
-## 修正案
-
-表示言語を切り替える際に、現在のURLに含まれているクエリパラメータを維持したまま、`lang`だけを追加・変更するように修正する。
-
-例えば、
-
-```text
-/review/question?page=5&difficulty=HARD
-```
-
-で日本語へ切り替えた場合は、
-
-```text
-/review/question?page=5&difficulty=HARD&lang=ja
-```
-
-となるようにする。
-
-同様にパスワードリセット画面でも、
-
-```text
-/reset-password?token=xxxxxxxx
-```
-
-から表示言語を切り替えた場合、
-
-```text
-/reset-password?token=xxxxxxxx&lang=ja
-```
-
-として`token`を維持する。
-
-ただし、
-
-問題一覧ページでは、
-
-```text
-?page=5&difficulty=HARD
-```
-
-パスワードリセット画面では、
-
-```text
-?token=xxxxxxxx
-```
-
-のように、それぞれ異なるパラメータを使用しているので、`header.html`で、
-
-```html
-page=...
-difficulty=...
-token=...
-```
-
-のように、必要なパラメータを一つずつ指定して表示言語切り替え用のURLを作る方法では、ページごとにどのパラメータが必要なのかを考慮しなければならない。
-
-さらに、今後新しい検索条件などを追加した場合、そのたびに`header.html`側も修正する必要がある。
-
-そこで、`header.html`で表示言語切り替え用のリンクを生成する際に、特定のパラメータを一つずつ指定するのではなく、**現在のリクエストが持っているクエリパラメータをまとめて引き継ぎ、`lang`だけを追加・変更する**方法にする。
-
-例えば、
-
-```text
-/review/question?page=5&difficulty=HARD
-```
-
-であれば、
-
-```text
-page=5
-difficulty=HARD
-```
-
-をそのまま維持し、
-
-```text
-lang=ja
-```
-
-だけを追加して、
-
-```text
-/review/question?page=5&difficulty=HARD&lang=ja
-```
-
-とする。
-
-これによって、ページごとに使用しているクエリパラメータの種類を`header.html`側で意識する必要がなくなる。
-
-## 修正対象
-
-今回の不具合は、`header.html`の表示言語切り替えリンクで現在のクエリパラメータを引き継いでいないことが原因である。
-
-そのため、基本的には**`header.html`側の修正だけで対応できる**。
-
-先ほども言ったように、現在の、
-
-```html
-th:href="@{?lang=ja}"
-```
-
-のような`lang`だけを指定している設定を、**現在のリクエストが持っているクエリパラメータを引き継ぎ、`lang`だけを追加・変更する**ように修正する。
-
-```text
-修正前
-
-/review/question?page=5&difficulty=HARD
-        ↓ 表示言語を変更
-/review/question?lang=ja
-```
-
-```text
-修正後
-
-/review/question?page=5&difficulty=HARD
-        ↓ 表示言語を変更
-/review/question?page=5&difficulty=HARD&lang=ja
-```
-
-### 各ControllerでSessionへ保存する必要はない
-
-`page`や検索条件、`token`などは、すでに現在のURLにクエリパラメータとして含まれており、現在のHTTPリクエストから取得できる。
-
-そのため、各Controllerで、
-
-```java
-session.setAttribute(...);
-```
-
-を使用してクエリパラメータを一度Sessionへ退避し、表示言語切り替え後に復元する処理を追加する必要はない。
-
-今回必要なのは、**現在のリクエストにすでに存在しているクエリパラメータを、`header.html`の表示言語切り替えリンクでも失わないようにすること**である。
-
-これにより、各Controllerに表示言語切り替え専用のSession管理処理を追加せず、共通の`header.html`側だけで対応できる。
-
-## 実装
-
-現在のコード(日本語)
-
-```html
-<li>
-    <a class="dropdown-item"
-       th:href="@{?lang=ja}">
-        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
-    </a>
-</li>
-```
-
-ここを、現在のクエリパラメータを全部引き継いだURLを作る形に変更する。
-
-### Thymeleafだけではきれいなコードではない
-
-Thymeleafでは現在のリクエストパラメータを${param}で取得できる。
-
-```html
-<a th:href="@{/review/question(
-        page=${param.page},
-        difficulty=${param.difficulty},
-        lang='ja'
-    )}">
-    日本語
-</a>
-```
-
-ただし、見てもわかるようにth:hrefだけで対応する場合、現在のクエリパラメータをすべて維持しながらlangだけを変更するには、引き継ぐパラメータを個別に指定する必要がある。
-
-確かに上記のコードは、
-
-/review/question?page=5&difficulty=HARD
-
-なら、
-
-/review/question?page=5&difficulty=HARD&lang=ja
-
-を作れる。
-
-しかし別ページが、
-
-/practice/question?page=3&structureIds=1&structureIds=5&favoriteCondition=FAVORITED
-
-なら、そのページ用に、
-
-```html
-<a th:href="@{/practice/question(
-        page=${param.page},
-        structureIds=${param.structureIds},
-        favoriteCondition=${param.favoriteCondition},
-        lang='ja'
-    )}">
-    日本語
-</a>
-```
-のように必要なパラメータを列挙することになる。
-
-さらにパスワードリセットでは、
-
-```html
-<a th:href="@{/reset-password(
-        token=${param.token},
-        lang='ja'
-    )}">
-    日本語
-</a>
-```
-
-となる。
-
-つまり問題は、共通のheader.htmlなのに、
-
-このページでは page
-このページでは difficulty
-このページでは structureIds
-このページでは favoriteCondition
-このページでは token
-...
-
-と、各ページが使用するクエリパラメータをheader側が知る必要が出てくることである。
-
-なので今回はリンククリック時にJavaScriptで現在のURLのlangだけを書き換える方法がシンプルである。
-
-### JavaScript
-
-現在のURLを丸ごと取得
-        ↓
-既存のクエリパラメータはそのまま
-        ↓
-langだけ追加・変更
-
-するメソッドを作成する。
-
-`header.html`の各表示言語切り替えリンクには、切り替え先の言語を`data-lang`属性として設定する。
-
-リンクがクリックされたらJavaScriptで`data-lang`の値を取得し、現在のURLの`lang`だけを追加・変更したURLへ遷移する。
-
-### /layout/header.html
-
-変更前
-
-```html
-<li>
-    <a class="dropdown-item"
-       th:href="@{?lang=ja}">
-        <span th:if="${#locale.language == 'ja'}">✓ </span>日本語
-    </a>
-</li>
-```
-
-変更後
+表示言語リンクに`display-language-link`クラスと切り替え先を示す`data-lang`属性を付ける。ほかの言語も同じ形式とした。
 
 ```html
 <li>
@@ -1224,23 +559,11 @@ langだけ追加・変更
 </li>
 ```
 
-`th:href`によるURLの生成をやめ、`display-language-link`クラスを追加する。
+### 4.4 `header.js`の変更
 
-また、`data-lang`属性に切り替え先の言語を設定する。
+クリックされたリンクから`data-lang`を取得し、`URL.searchParams.set()`で現在のURLの`lang`を追加・更新する。`window.location.href`への代入によって変更後のURLへ移動する。
 
-他の表示言語についても同様に、
-
-```html
-data-lang="en"
-data-lang="zh_CN"
-data-lang="zh_TW"
-```
-
-を設定する。
-
-### /layout/header.js
-
-```JavaScript
+```javascript
 document.querySelectorAll(".display-language-link").forEach(link => {
 
     link.addEventListener("click", function(event) {
@@ -1259,147 +582,41 @@ document.querySelectorAll(".display-language-link").forEach(link => {
 });
 ```
 
-`document.querySelectorAll()`で、`display-language-link`クラスを持つすべての表示言語切り替えリンクを取得する。
-
-リンクがクリックされたら、`new URL(window.location.href)`によって現在のURL全体を取得する。
-
-```JavaScript
-const url = new URL(window.location.href);
-```
-
-この時点では、現在のURLに含まれているクエリパラメータもそのまま保持されている。
-
-次に、
-
-```JavaScript
-url.searchParams.set("lang", this.dataset.lang);
-```
-
-によって、クリックされたリンクの`data-lang`から切り替え先の言語を取得し、`lang`を追加・変更する。
-
-`set()`を使用するため、すでに`lang`が存在する場合は値を変更し、存在しない場合は新しく追加される。
-
-最後に、
-
-```JavaScript
-window.location.href = url.toString();
-```
-
-で変更後のURLへ遷移する。
-
-これにより、
-
-```text
-/review/question?page=5&difficulty=HARD
-```
-
-で表示言語を日本語へ切り替えた場合、
-
-```text
-/review/question?page=5&difficulty=HARD&lang=ja
-```
-
-となり、既存のクエリパラメータを維持したまま表示言語を変更できる。
-
-### layout.html
-
-共通の`layout.html`で`header.js`を読み込む。
-
-`defer`を指定することで、HTMLの解析が完了した後にJavaScriptを実行し、`header.html`の表示言語切り替えリンクにクリックイベントを設定できるようにする。
+`layout.html`では、HTML解析後にイベントを登録できるよう`defer`付きで`header.js`を読み込む。
 
 ```html
 <script th:src="@{/js/layout/header.js}" defer></script>
 ```
 
-## 実行
+### 4.5 動作確認
 
-修正後、これまで表示言語を変更するとクエリパラメータが失われていたページで動作確認を行う。
-
-### 問題画面
-
-#### 表示言語変更前
-
-5問目を表示している状態で、日本語から繁體中文へ表示言語を切り替える。
+**問題画面：** 日本語から繁體中文へ切り替えても、5問目の表示を維持できた。
 
 ![](../../images/0003-10.png)
 
-#### 表示言語変更後
-
-繁體中文へ切り替えても5問目のままとなり、ページ番号が維持されている。
-
 ![](../../images/0003-11.png)
 
-### 問題一覧ページ
-
-#### 表示言語変更前
-
-検索条件を指定した結果、80件の問題が表示されている。
+**問題一覧ページ：** 表示言語を変更しても、検索結果80件と指定条件を維持できた。
 
 ![](../../images/0003-12.png)
 
-#### 表示言語変更後
-
-表示言語を切り替えても80件のままとなり、指定していた検索条件が引き継がれている。
-
 ![](../../images/0003-13.png)
 
-### パスワードリセットページ群
-
-#### 表示言語変更前
-
-パスワードリセット用の`token`を含むURLでページを表示する。
+**パスワードリセット画面：** `token`を維持でき、言語変更後も画面を表示できた。
 
 ![](../../images/0003-14.png)
 
-#### 表示言語変更後
-
-表示言語を切り替えても`token`が維持され、`400 Bad Request`が発生せず正常にページを表示できる。
-
 ![](../../images/0003-15.png)
 
-## @ResponseBodyで取得した件数などはやはり初期化される
+**対象外：** `@ResponseBody`で取得した件数など、URLに含まれない画面上の状態は引き継がれない。これらの維持には別の状態管理が必要となるため、今回の修正範囲には含めない。
 
-今回の修正によって、URLに含まれているクエリパラメータは表示言語を切り替えても維持できるようになった。
+## 5. 追加修正：学習対象言語切り替え時の405エラーに対応
 
-一方、`@ResponseBody`を使用して取得している問題数など、**URLのクエリパラメータとして保持されていない画面上の状態については、表示言語を切り替えると初期化される**。
+**Commit:** `fix: use POST requests for language variant switching`
 
-今回のJavaScriptで維持しているのは、あくまで現在のURLに含まれている情報である。
+### 5.1 発生した問題と原因
 
-```JavaScript
-const url = new URL(window.location.href);
-
-url.searchParams.set("lang", this.dataset.lang);
-```
-
-そのため、JavaScriptによって画面上で選択した条件をControllerへ送信し、`@ResponseBody`で結果だけを取得している場合、その状態が現在のURLに含まれていなければ引き継ぐことはできない。
-
-これらの状態まで維持する場合は、URLへの反映やSessionなどを利用した別の状態管理が必要になる。
-
-今回は、**表示言語切り替え時に現在のURLのクエリパラメータが失われる問題の修正**を目的としているため、`@ResponseBody`で取得した件数などの維持については修正対象外とする。
-
----
-
-# 20. 次にやること
-
-**学習モードの実装**
-
-今回作成した学習対象言語設定を利用し、実際の問題データや学習処理を実装していく。
-
----
-
----
-
-# 21. 追加修正 - 学習対象言語切り替え時の405エラーを修正
-
-```bash
-git commit -m "fix: use POST requests for language variant switching"
-```
-
-## 修正の背景
-
-学習対象言語をヘッダーから切り替えようとした際に、`405 Method Not Allowed`が発生した。
-
-Spring Bootのログには、以下の内容が出力されていた。
+ヘッダーで学習対象言語を切り替えると`405 Method Not Allowed`が発生した。ヘッダーの`<a>`リンクがGETリクエストを送信する一方、後に変更されたControllerは`@PostMapping("/language-variant")`でPOSTのみを受け付けていたため、HTTPメソッドが一致していなかった。
 
 ```text
 Securing GET /language-variant?languageVariant=MAINLAND&redirect=
@@ -1408,53 +625,15 @@ Resolved [org.springframework.web.HttpRequestMethodNotSupportedException:
 Request method 'GET' is not supported]
 ```
 
-このログから、`/language-variant`にGETリクエストが送信されているものの、Controller側ではGETが許可されていないことが確認できた。
+### 5.2 修正方針
 
-## 原因
+この段階の学習対象言語の切り替えは、ログインユーザーのDB設定更新、学習Sessionの破棄、言語設定の更新を伴う。状態変更の操作であるため、ControllerのPOST方式を維持し、画面側をフォーム送信に変更する。
 
-`header.html`では、学習対象言語の切り替えを`<a>`タグで実装していた。
+### 5.3 `header.html`の変更
 
-```html
-<a class="dropdown-item language-variant-link"
-   th:href="@{/language-variant(
-       languageVariant='MAINLAND',
-       redirect=${languageVariantRedirect}
-   )}">
-    🇨🇳 普通话
-</a>
-```
+普通話・國語それぞれのリンクをPOSTフォームへ置き換え、変更先の`languageVariant`と戻り先の`redirect`をhiddenフィールドで送る。確認メッセージは送信ボタンの`data-confirm-message`へ移した。
 
-`<a>`タグをクリックすると、ブラウザはGETリクエストを送信する。
-
-一方、`LanguageVariantController.java`では、言語切り替え処理を次のように定義していた。
-
-```java
-@PostMapping("/language-variant")
-```
-
-そのため、HTML側から送信されるHTTPメソッドとController側で受け付けるHTTPメソッドが一致せず、405エラーが発生していた。
-
-また、`header.js`では確認ダイアログを表示していたが、「OK」が選択された場合はリンクの通常動作を継続するだけであり、HTTPメソッドをPOSTへ変更する処理は存在しなかった。
-
-## 修正方針
-
-学習対象言語の変更では、以下の処理が実行される。
-
-- ログイン中のユーザーについて、DBに保存されている学習対象言語を更新する。
-- 中断中の通常学習データをSessionから削除する。
-- 変更後の学習対象言語をSessionに保存する。
-
-これらはアプリケーションの状態を変更する処理であるため、GETではなくPOSTを使用する構成を維持することにした。
-
-そこで、Controllerの`@PostMapping`は変更せず、HTMLとJavaScriptをPOST送信に対応させる。
-
-## 修正内容
-
-### 1. `header.html`の修正
-
-従来の`<a>`タグを、`method="post"`を指定した`<form>`に変更した。
-
-#### 普通話への切り替え
+**普通話への切り替え**
 
 ```html
 <form th:if="${session.languageVariant != null
@@ -1479,7 +658,7 @@ Request method 'GET' is not supported]
 </form>
 ```
 
-#### 台湾華語への切り替え
+**國語への切り替え**
 
 ```html
 <form th:if="${session.languageVariant == null
@@ -1504,30 +683,9 @@ Request method 'GET' is not supported]
 </form>
 ```
 
-変更後は、`languageVariant`と`redirect`をhiddenフィールドで送信する。
+### 5.4 `header.js`の変更
 
-また、ThymeleafとSpring SecurityのCSRF連携が有効な場合、`th:action`を使用したPOSTフォームにはCSRFトークンが自動的に追加される。
-
-これにより、Spring SecurityのCSRF保護を維持しながら言語変更リクエストを送信できる。
-
-### 2. `header.js`の修正
-
-従来は、`.language-variant-link`を持つリンクのクリックイベントを監視していた。
-
-```javascript
-document.querySelectorAll('.language-variant-link').forEach(link => {
-    link.addEventListener('click', function(event) {
-
-        const message = this.dataset.confirmMessage;
-
-        if (!confirm(message)) {
-            event.preventDefault();
-        }
-    });
-});
-```
-
-修正後は、`.language-variant-form`を持つフォームの送信イベントを監視する。
+従来のリンククリック監視から、`.language-variant-form`の`submit`イベント監視へ変更する。確認ダイアログでキャンセルされた場合のみフォーム送信を中止する。
 
 ```javascript
 document.querySelectorAll('.language-variant-form').forEach(form => {
@@ -1542,38 +700,9 @@ document.querySelectorAll('.language-variant-form').forEach(form => {
 });
 ```
 
-変更後の処理は以下のとおり。
+### 5.5 `LanguageVariantController`の戻り先判定
 
-- 言語切り替えボタンを押すと、フォームの`submit`イベントが発生する。
-- `data-confirm-message`から確認メッセージを取得する。
-- 「OK」が選択された場合はPOSTリクエストを送信する。
-- 「キャンセル」が選択された場合は`event.preventDefault()`で送信を中止する。
-
-これにより、従来の確認ダイアログを維持したまま、POST送信に対応した。
-
-### 3. `LanguageVariantController.java`の修正
-
-Controllerでは、言語切り替え後のリダイレクト先を`redirect`パラメータから取得している。
-
-しかし、ログには次のリクエストが記録されていた。
-
-```text
-GET /language-variant?languageVariant=MAINLAND&redirect=
-```
-
-この場合、`redirect`には`null`ではなく空文字列が渡される可能性がある。
-
-従来の実装では、以下のように`null`のみを判定していた。
-
-```java
-if (redirect != null) {
-    return "redirect:" + redirect;
-}
-```
-
-この条件では空文字列も有効なリダイレクト先として扱われてしまう。
-
-そこで、`isBlank()`を追加し、空文字列や空白のみの場合はトップ画面へ戻るように変更した。
+`redirect`が未指定の場合だけでなく、空文字列や空白のみの場合もトップ画面へ戻す。`null`判定だけでは空文字列を有効な戻り先として扱ってしまうため、`isBlank()`を追加した。
 
 ```java
 if (redirect != null && !redirect.isBlank()) {
@@ -1583,7 +712,7 @@ if (redirect != null && !redirect.isBlank()) {
 return "redirect:/";
 ```
 
-また、現在の学習対象言語と変更先の言語が同じ場合についても、同様の判定を適用した。
+同じ学習対象言語を選択した場合にも、同じ判定を適用した。
 
 ```java
 if (languageVariant == currentLanguageVariant) {
@@ -1593,44 +722,16 @@ if (languageVariant == currentLanguageVariant) {
 }
 ```
 
-これにより、リダイレクト先が未指定の場合でもトップ画面へ戻るようにした。
+### 5.6 確認状況
 
-## 修正後の処理の流れ
+GETとPOSTの不一致を解消するための実装修正を記録した。**元のログには修正後の実機動作確認結果が記載されていないため、確認済みとは扱わない。**
 
-```text
-ヘッダーで学習対象言語を選択
-    ↓
-header.js
-（確認ダイアログを表示）
-    ↓
-「OK」を選択
-    ↓
-HTMLフォームをPOST送信
-    ↓
-POST /language-variant
-    ↓
-LanguageVariantController
-    ↓
-現在の学習対象言語と比較
-    ↓
-変更が必要な場合
-    ├─ ログイン中ならDBの言語設定を更新
-    ├─ 中断中の通常学習データを削除
-    └─ SessionのlanguageVariantを更新
-    ↓
-リダイレクト先を判定
-    ├─ 有効なredirectあり → 指定された画面
-    └─ 未指定・空文字列 → トップ画面
-```
+## 6. 英語表示の採用取りやめ
 
-## 修正結果
+初期実装では英語をサイト表示言語の一つとして追加し、`messages_en.properties`とヘッダーの切り替え項目を用意した。しかし、開発途中で英語表示を採用しない方針に変更した。
 
-今回の修正により、学習対象言語の切り替えをGETリクエストからPOSTリクエストへ変更し、Controller側の`@PostMapping`と一致する構成にした。
+この章に掲載した英語のメッセージ定義や`English`の選択肢は、**当時実装した内容を示す履歴**であり、現在も英語表示を提供しているという意味ではない。
 
-また、確認ダイアログの処理をフォーム送信イベントへ変更し、従来の操作方法を維持した。
+## 7. 次にやること
 
-さらに、`redirect`が空文字列の場合にも対応し、リダイレクト先が指定されていない場合はトップ画面へ戻るようにした。
-
-**学習対象言語の変更処理をPOSTに統一し、405エラーの原因となっていたHTTPメソッドの不一致を解消する構成に修正した。**
-
-※ 上記は実装変更の内容をまとめたものであり、修正後の動作確認結果については別途記録する。
+学習対象言語の設定を通常学習機能の問題取得・表示へ組み込む。

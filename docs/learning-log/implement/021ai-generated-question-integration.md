@@ -199,44 +199,7 @@ GENERATED_ONLY
 
 ### 勉強になった点
 
-このQuery自体は、これまで問題一覧などで実装した、
-
-```sql
-AND (
-    :studyCondition = 'ALL'
-
-    OR (
-        :studyCondition = 'LEARNED_ONLY'
-        AND sh.question_id IS NOT NULL
-        AND sh.evaluation IN (:evaluations)
-    )
-
-    OR (
-        :studyCondition = 'UNLEARNED_ONLY'
-        AND sh.question_id IS NULL
-    )
-)
-```
-
-や、
-
-```sql
-AND (
-    :favoriteCondition = 'ALL'
-
-    OR (
-        :favoriteCondition = 'FAVORITED'
-        AND f.question_id IS NOT NULL
-    )
-
-    OR (
-        :favoriteCondition = 'NOT_FAVORITED'
-        AND f.question_id IS NULL
-    )
-)
-```
-
-と同じ考え方で書くことができた。
+このQuery自体は、以前に実装した`studyCondition`（学習状況）や`favoriteCondition`（お気に入り）の複数条件検索と同じ考え方で書くことができた。
 
 以前であればこのような複数条件を持つQueryを書くだけでもかなり時間がかかったと思うが、既存の検索機能で同じ形式を何度も実装していたため、今回は短時間で組み立てることができた。
 
@@ -645,25 +608,7 @@ QuestionSourceCondition sourceCondition
 
 Repositoryの件数取得と問題取得の両方へ、
 
-```sql
-AND (
-    (:sourceCondition = 'ALL'
-        AND (
-            (q.ai_generated = true AND q.owner_user_id = :userId)
-            OR q.ai_generated = false
-        )
-    )
-    OR (:sourceCondition = 'ORIGINAL_ONLY'
-        AND q.ai_generated = false
-    )
-    OR (:sourceCondition = 'GENERATED_ONLY'
-        AND (
-            q.ai_generated = true
-            AND q.owner_user_id = :userId
-        )
-    )
-)
-```
+`ALL`・`ORIGINAL_ONLY`・`GENERATED_ONLY`の3条件を適用し、AI生成問題については`owner_user_id = :userId`で所有者を限定した。
 
 を追加した。
 
@@ -1182,25 +1127,7 @@ AI生成由来か
 
 特に今回の中心となったのは、
 
-```sql
-AND (
-    (:sourceCondition = 'ALL'
-        AND (
-            (q.ai_generated = true AND q.owner_user_id = :userId)
-            OR q.ai_generated = false
-        )
-    )
-    OR (:sourceCondition = 'ORIGINAL_ONLY'
-        AND q.ai_generated = false
-    )
-    OR (:sourceCondition = 'GENERATED_ONLY'
-        AND (
-            q.ai_generated = true
-            AND q.owner_user_id = :userId
-        )
-    )
-)
-```
+`ALL`・`ORIGINAL_ONLY`・`GENERATED_ONLY`の3条件を適用し、AI生成問題については`owner_user_id = :userId`で所有者を限定した。
 
 という生成元による絞り込みと、
 
@@ -1216,7 +1143,7 @@ model.addAttribute("currentUrl", currentUrl);
 
 によって削除後も元の検索結果へ戻す処理だった。
 
-前者については、これまで`studyCondition`や`favoriteCondition`などの複数条件を持つ検索Queryを何度も実装してきた経験があったため、今回はかなり短時間で書くことができた。:contentReference[oaicite:0]{index=0}
+前者については、これまで`studyCondition`や`favoriteCondition`などの複数条件を持つ検索Queryを何度も実装してきた経験があったため、今回はかなり短時間で書くことができた。
 
 一方、後者は今回初めて扱う方法だった。
 

@@ -1,90 +1,65 @@
-# 016 AI問題生成モードの実装その2 AI生成した問題セットを取得する①プロンプトの作成
+# 016 AI問題生成モードの実装その2 — AI生成用入力の作成
 
-このチャプターでは、AI問題生成モードで使用する生成元問題を取得し、AI APIへ送信するための入力を作成する。
+## 1. 目的と実装範囲
 
-主に以下を実装する。
+015で作成したAI問題生成メニューの検索条件を使い、AI生成元の`Question`を最大50問取得し、APIに渡す入力文字列を構築する。
 
-1. AI生成元となる問題を最大50問取得する
-2. AIへ送信する生成元問題用DTOを作成する
-3. AIから生成結果を受け取るDTOを作成する
-4. 共通プロンプト・言語別プロンプトを読み込む
-5. 生成元問題をJSONへ変換する
-6. プロンプトと生成元問題を組み合わせ、APIへ送信する入力を作成する
+今回実装する処理は次のとおり。
 
----
+1. 条件に合う生成元問題を最大50問取得する。
+2. AI送信用DTOと生成結果受信用DTOを定義する。
+3. 共通プロンプトと普通話・國語別のLanguage Profileをファイルから読み込む。
+4. `Question`を送信用DTOに変換し、JSON文字列を作成する。
+5. 共通プロンプト・言語別プロンプト・JSONを連結する。
 
-## 1. AI生成元問題を最大50問取得
+**この時点ではChatGPT・Gemini APIへの実際のリクエストと生成結果の変換は未実装**である。
 
-AI問題生成メニューで指定された条件から、AI生成元として使用する`Question`を最大50問取得する。
+## 2. 生成元Questionを最大50問取得
 
-### QuestionRepository.java
+### 2-1. `QuestionRepository`
+
+015で作成した件数検索と同じ絞り込み条件を使用し、対象となる問題そのものを取得する`findAiGenerationSourceQuestions()`を追加した。
 
 ```java
 @Query(value = """
         SELECT q.*
         FROM question q
         JOIN study_history sh
-        ON (
-            q.question_id = sh.question_id
-            AND sh.user_id = :userId
-        )
+          ON q.question_id = sh.question_id
+         AND sh.user_id = :userId
         LEFT JOIN favorite f
-        ON (
-            q.question_id = f.question_id
-            AND f.user_id = :userId
-        )
+          ON q.question_id = f.question_id
+         AND f.user_id = :userId
         WHERE q.difficulty IN (:difficulties)
-        AND sh.evaluation IN (:evaluations)
-        AND (
-            :favoriteCondition = 'ALL'
-            OR (
-                :favoriteCondition = 'FAVORITED'
-                AND f.question_id IS NOT NULL
-            )
-            OR (
-                :favoriteCondition = 'NOT_FAVORITED'
-                AND f.question_id IS NULL
-            )
-        )
-        AND q.structure_id IN (:structureIds)
-        AND q.language_variant = :languageVariant
-        AND q.allow_ai_variation = true
+          AND sh.evaluation IN (:evaluations)
+          AND (
+                :favoriteCondition = 'ALL'
+             OR (:favoriteCondition = 'FAVORITED'
+                 AND f.question_id IS NOT NULL)
+             OR (:favoriteCondition = 'NOT_FAVORITED'
+                 AND f.question_id IS NULL)
+          )
+          AND q.structure_id IN (:structureIds)
+          AND q.language_variant = :languageVariant
+          AND q.allow_ai_variation = true
         ORDER BY RANDOM()
         LIMIT 50
-        """,
-        nativeQuery = true)
+        """, nativeQuery = true)
 List<Question> findAiGenerationSourceQuestions(
-
-        @Param("userId")
-        long userId,
-
-        @Param("difficulties")
-        List<String> difficulties,
-
-        @Param("evaluations")
-        List<String> evaluations,
-
-        @Param("favoriteCondition")
-        String favoriteCondition,
-
-        @Param("structureIds")
-        List<Long> structureIds,
-
-        @Param("languageVariant")
-        String languageVariant
-);
+        @Param("userId") long userId,
+        @Param("difficulties") List<String> difficulties,
+        @Param("evaluations") List<String> evaluations,
+        @Param("favoriteCondition") String favoriteCondition,
+        @Param("structureIds") List<Long> structureIds,
+        @Param("languageVariant") String languageVariant);
 ```
 
-難易度・理解度・お気に入り・構文・言語の条件に一致し、`allow_ai_variation = true`となっている問題を取得する。
+- `study_history`をユーザーID付きでJOINし、そのユーザーの理解度を検索する。
+- `favorite`はLEFT JOINし、お気に入りの有無で絞り込む。
+- 言語と`allow_ai_variation = true`は内部条件として必ず適用する。
+- `ORDER BY RANDOM()`で候補をランダム化し、`LIMIT 50`で取得件数を制限する。
 
-```sql
-ORDER BY RANDOM()
-LIMIT 50
-```
-
-を指定することで、生成元問題をランダムに選択し、APIへ送信する問題数を最大50問に制限する。
-
-### AiPracticeService.java
+### 2-2. `AiPracticeService`
 
 ```java
 public List<Question> findAiGenerationSourceQuestions(
@@ -95,7 +70,6 @@ public List<Question> findAiGenerationSourceQuestions(
         List<Long> structureIds,
         LanguageVariant languageVariant) {
 
-    // 文法・構造
     if (structureIds == null || structureIds.isEmpty()) {
         structureIds = structureRepository.findAllStructureIds();
     }
@@ -110,135 +84,95 @@ public List<Question> findAiGenerationSourceQuestions(
 }
 ```
 
-構文が指定されていない場合はすべての`structureId`を取得する。
+構文の未指定時は全構文IDを補完する。難易度・理解度・お気に入りの未指定時処理と文字列変換は、015の追加修正で責務を集約した`SearchConditionConverter`に任せる。
 
-その後、Enumで受け取った難易度・理解度・お気に入り条件などをRepositoryへ渡せる形式へ変換し、`findAiGenerationSourceQuestions()`を呼び出す。
+## 3. AI生成用DTOの定義
 
----
+`Question`エンティティをそのまま外部APIへ渡さず、用途ごとにDTOを分ける。
 
-## 2. AIへ送信するDTOを作成
-
-### AiGenerationSourceDto.java
+### 3-1. `AiGenerationSourceDto` — AIへの送信用
 
 ```java
 @Data
 public class AiGenerationSourceDto {
-
     private int sourceIndex;
-
     private String japaneseText;
-
     private String chineseText;
-
     private String template;
-
     private SubjectType subjectType;
-
     private VerbVariation verbVariation;
 }
 ```
 
-`Question`をそのままAIへ送信するのではなく、AI問題生成に必要な情報だけを格納する送信用DTOを作成する。
+元の日本語・中国語、改変可能な箇所を表す`template`、生成条件を送る。`sourceIndex`は送信リスト内の位置を示し、AIの回答を元の`Question`に対応付けるための識別子として使用する。
 
-`sourceIndex`は、AIから生成結果が返された際に生成元の`Question`と対応付けるために使用する。
-
----
-
-## 3. AI生成結果を受け取るDTOを作成
-
-### TemporaryGeneratedQuestionDto.java
+### 3-2. `TemporaryGeneratedQuestionDto` — AIからの1問分の回答
 
 ```java
 @Data
 public class TemporaryGeneratedQuestionDto {
-
     private Long sourceIndex;
-
     private String japaneseText;
-
     private String chineseText;
-
     private String pinyin;
-
     private String zhuyin;
 }
 ```
 
-AIが生成した1問分の結果を受け取るDTOを作成する。
+生成された日本語・中国語・発音情報と、生成元に対応する`sourceIndex`を受け取る。
 
-`sourceIndex`によって、どの生成元問題から生成された結果なのかをJava側で特定できるようにする。
-
-### TemporaryGeneratedQuestionListDto.java
+### 3-3. `TemporaryGeneratedQuestionListDto` — 複数回答の受け皿
 
 ```java
 @Data
 public class TemporaryGeneratedQuestionListDto {
-
     private List<TemporaryGeneratedQuestionDto> questions;
 }
 ```
 
-AIへ最大50問をまとめて送信するため、返された複数の`TemporaryGeneratedQuestionDto`をまとめて受け取るDTOを作成する。
+複数問を一括生成した場合の回答全体を受け取るためのDTO。
 
-### AiGeneratedQuestionDto.java
+### 3-4. `AiGeneratedQuestionDto` — アプリ内で使用する生成問題
 
 ```java
 @Data
 public class AiGeneratedQuestionDto {
-
     private Long sourceQuestionId;
-
     private String japaneseText;
-
     private String chineseText;
-
     private String pinyin;
-
     private String zhuyin;
-
     private Difficulty difficulty;
 }
 ```
 
-AI問題生成モードの問題画面で使用するDTOを作成する。
+APIの一時的な回答形式とは分離し、アプリ内で使用する情報を保持する。`sourceIndex`から生成元を特定した後は、元の問題の`questionId`を`sourceQuestionId`として保持する設計とした。**この変換処理そのものは今回未実装**。
 
-APIから直接受け取る`TemporaryGeneratedQuestionDto`とは異なり、最終的な`AiGeneratedQuestionDto`では生成元Questionの`questionId`を`sourceQuestionId`として保持する。
+## 4. 共通プロンプトとLanguage Profileを準備
 
----
+AIに渡すルールを、全言語共通のものと言語ごとのものに分けて管理する。
 
-## 4. AI問題生成用プロンプトを用意
+| ファイル | 役割 |
+|---|---|
+| `resources/prompts/ai-question-generation-common.txt` | 全言語共通の生成ルール |
+| `resources/prompts/language-profile-mainland.txt` | 普通話の字体・語彙・言い回し・発音ルール |
+| `resources/prompts/language-profile-taiwan.txt` | 國語の字体・語彙・言い回し・発音ルール |
 
-AI問題生成では、共通ルールと学習対象言語ごとのLanguage Profileを別ファイルとして管理する。
-
-### 共通プロンプト
-
-`resources/prompts/ai-question-generation-common.txt`
+共通プロンプトの内容：
 
 ![](../../images/0016-01.png)
 
-AI問題生成全体で共通して使用するルールを定義する。
-
-### 普通話用Language Profile
-
-`resources/prompts/language-profile-mainland.txt`
+普通話用Language Profile：
 
 ![](../../images/0016-02.png)
 
-普通話で問題を生成する場合の字体・語彙・言い回し・発音などのルールを定義する。
-
-### 國語用Language Profile
-
-`resources/prompts/language-profile-taiwan.txt`
+國語用Language Profile：
 
 ![](../../images/0016-03.png)
 
-國語で問題を生成する場合の字体・語彙・言い回し・発音などのルールを定義する。
+## 5. `AiPromptService`でプロンプトを読み込む
 
----
-
-## 5. プロンプトファイルを読み込む
-
-### AiPromptService.java
+プロンプトの読み込み処理を`AiPracticeService`から分離し、専用の`AiPromptService`を作成した。
 
 ```java
 @Service
@@ -246,240 +180,97 @@ public class AiPromptService {
 
     private static final String COMMON_PROMPT_PATH =
             "prompts/ai-question-generation-common.txt";
-
     private static final String MAINLAND_PROFILE_PATH =
             "prompts/language-profile-mainland.txt";
-
     private static final String TAIWAN_PROFILE_PATH =
             "prompts/language-profile-taiwan.txt";
 
     private final MessageSource messageSource;
 
-    // AI問題生成の共通プロンプトを取得する
     public String getCommonPrompt(Locale locale) {
-
         return readPromptFile(COMMON_PROMPT_PATH, locale);
     }
 
-    // LanguageVariantに対応するLanguage Profileを取得する
     public String getLanguageProfile(
-            LanguageVariant languageVariant,
-            Locale locale) {
+            LanguageVariant languageVariant, Locale locale) {
 
         if (languageVariant == LanguageVariant.MAINLAND) {
             return readPromptFile(MAINLAND_PROFILE_PATH, locale);
         }
-
         if (languageVariant == LanguageVariant.TAIWAN) {
             return readPromptFile(TAIWAN_PROFILE_PATH, locale);
         }
-
         throw new IllegalArgumentException(
                 "Unsupported language variant: " + languageVariant);
     }
 
-    // classpath上のプロンプトファイルを読み込む
-    private String readPromptFile(
-            String path,
-            Locale locale) {
-
-        ClassPathResource resource =
-                new ClassPathResource(path);
-
-        try (InputStream inputStream =
-                resource.getInputStream()) {
-
+    private String readPromptFile(String path, Locale locale) {
+        ClassPathResource resource = new ClassPathResource(path);
+        try (InputStream inputStream = resource.getInputStream()) {
             return new String(
                     inputStream.readAllBytes(),
                     StandardCharsets.UTF_8);
-
         } catch (IOException e) {
-
             throw new IllegalStateException(
                     messageSource.getMessage(
                             "ai.prompt.error.read",
-                            new Object[] { path },
-                            locale),
+                            new Object[] { path }, locale),
                     e);
         }
     }
 }
 ```
 
-`AiPromptService`では、共通プロンプトと言語別Language Profileの読み込みを担当する。
+`getLanguageProfile()`は`LanguageVariant`に応じて読み込むファイルを切り替える。共通の`readPromptFile()`は、`ClassPathResource`から取得した`InputStream`をUTF-8文字列に変換する。読み込みに失敗した場合は、ロケールに応じたエラーメッセージを使用して`IllegalStateException`を送出する。
 
-`getCommonPrompt()`では共通プロンプトを取得する。
+## 6. `AiPracticeService.generateQuestions()`で入力を構築
 
-`getLanguageProfile()`では`LanguageVariant`を確認し、
-
-- `MAINLAND` → `language-profile-mainland.txt`
-- `TAIWAN` → `language-profile-taiwan.txt`
-
-を読み込む。
-
-`readPromptFile()`では`ClassPathResource`から対象ファイルの`InputStream`を取得し、
+### 6-1. `Question`を送信用DTOに変換
 
 ```java
-new String(
-        inputStream.readAllBytes(),
-        StandardCharsets.UTF_8);
-```
-
-によってファイル全体をUTF-8の`String`として読み込む。
-
-ファイルの読み込みに失敗した場合は、`MessageSource`からエラーメッセージを取得して`IllegalStateException`を送出する。
-
----
-
-## 6. AIへ送信する入力を作成
-
-### AiPracticeService.generateQuestions()
-
-```java
-public List<AiGeneratedQuestionDto> generateQuestions(
-        List<Question> sourceQuestions,
-        LanguageVariant languageVariant,
-        Locale locale) {
-
-    // AI問題生成の共通ルールを取得
-    String commonPrompt =
-            aiPromptService.getCommonPrompt(locale);
-
-    // 言語別ルールを取得
-    String languageProfile =
-            aiPromptService.getLanguageProfile(
-                    languageVariant,
-                    locale);
-
-    // A. ソース問題を取得
-    List<AiGenerationSourceDto> generationSources =
-            new ArrayList<>();
-
-    for (int i = 0; i < sourceQuestions.size(); i++) {
-
-        Question sourceQuestion =
-                sourceQuestions.get(i);
-
-        AiGenerationSourceDto source =
-                new AiGenerationSourceDto();
-
-        source.setSourceIndex(i);
-        source.setJapaneseText(
-                sourceQuestion.getJapaneseText());
-        source.setChineseText(
-                sourceQuestion.getChineseText());
-        source.setTemplate(
-                sourceQuestion.getTemplate());
-        source.setSubjectType(
-                sourceQuestion.getSubjectType());
-        source.setVerbVariation(
-                sourceQuestion.getVerbVariation());
-
-        generationSources.add(source);
-    }
-
-    // B. 生成元問題をJSON形式に変換
-    String generationSourcesJson;
-
-    try {
-
-        generationSourcesJson =
-                objectMapper.writeValueAsString(
-                        generationSources);
-
-    } catch (JsonProcessingException e) {
-
-        throw new IllegalStateException(
-                messageSource.getMessage(
-                        "ai.generation.error.json",
-                        null,
-                        locale),
-                e);
-    }
-
-    // C. AIへ送信する入力を作成
-    String input =
-            commonPrompt
-            + "\n\n"
-            + languageProfile
-            + "\n\n"
-            + "## 生成元問題\n"
-            + generationSourcesJson;
-
-    // D. 各APIと連携し問題を生成する
-    // ChatGPTで生成(未実装)
-    TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto =
-            generateQuestionsWithChatGPT(input, locale);
-
-    // Geminiで生成(未実装)
-    TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto =
-            generateQuestionsWithGemini(input, locale);
-}
-```
-
-### A. 生成元Questionを送信用DTOへ変換
-
-```java
-List<AiGenerationSourceDto> generationSources =
-        new ArrayList<>();
+List<AiGenerationSourceDto> generationSources = new ArrayList<>();
 
 for (int i = 0; i < sourceQuestions.size(); i++) {
-
-    Question sourceQuestion =
-            sourceQuestions.get(i);
-
-    AiGenerationSourceDto source =
-            new AiGenerationSourceDto();
+    Question sourceQuestion = sourceQuestions.get(i);
+    AiGenerationSourceDto source = new AiGenerationSourceDto();
 
     source.setSourceIndex(i);
-    source.setJapaneseText(
-            sourceQuestion.getJapaneseText());
-    source.setChineseText(
-            sourceQuestion.getChineseText());
-    source.setTemplate(
-            sourceQuestion.getTemplate());
-    source.setSubjectType(
-            sourceQuestion.getSubjectType());
-    source.setVerbVariation(
-            sourceQuestion.getVerbVariation());
+    source.setJapaneseText(sourceQuestion.getJapaneseText());
+    source.setChineseText(sourceQuestion.getChineseText());
+    source.setTemplate(sourceQuestion.getTemplate());
+    source.setSubjectType(sourceQuestion.getSubjectType());
+    source.setVerbVariation(sourceQuestion.getVerbVariation());
 
     generationSources.add(source);
 }
 ```
 
-`sourceQuestions`の`Question`を1件ずつ取り出し、AI問題生成に必要な情報を`AiGenerationSourceDto`へ詰め替える。
+`sourceQuestions`の各要素からAI生成に必要な項目を取り出し、`sourceIndex`を付与する。これにより、送信する順序とAIから返される結果を対応付けられる。
 
-また、各問題に`sourceIndex`を設定し、AIから結果が返された際に生成元問題を特定できるようにする。
-
-### B. 生成元問題をJSONへ変換
+### 6-2. `ObjectMapper`でJSONに変換
 
 ```java
 String generationSourcesJson;
-
 try {
-
     generationSourcesJson =
-            objectMapper.writeValueAsString(
-                    generationSources);
-
+            objectMapper.writeValueAsString(generationSources);
 } catch (JsonProcessingException e) {
-
     throw new IllegalStateException(
             messageSource.getMessage(
-                    "ai.generation.error.json",
-                    null,
-                    locale),
+                    "ai.generation.error.json", null, locale),
             e);
 }
 ```
 
-`ObjectMapper.writeValueAsString()`を使用して、`List<AiGenerationSourceDto>`をJSON形式の`String`へ変換する。
+`List<AiGenerationSourceDto>`をAPI送信用のJSON文字列にする。変換失敗時は`JsonProcessingException`を捕捉し、アプリケーション側の例外として送出する。
 
-JSON変換に失敗した場合は`JsonProcessingException`を捕捉し、`IllegalStateException`を送出する。
-
-### C. APIへ送信する入力を作成
+### 6-3. プロンプトとJSONを結合
 
 ```java
+String commonPrompt = aiPromptService.getCommonPrompt(locale);
+String languageProfile =
+        aiPromptService.getLanguageProfile(languageVariant, locale);
+
 String input =
         commonPrompt
         + "\n\n"
@@ -489,63 +280,46 @@ String input =
         + generationSourcesJson;
 ```
 
-以下の3つを連結し、AI APIへ送信する入力を1つの`String`として作成する。
+`input`は次の3つを連結した文字列である。
 
-- `commonPrompt`：AI問題生成の共通ルール
-- `languageProfile`：普通話・國語それぞれの生成ルール
-- `generationSourcesJson`：JSON形式に変換した生成元問題
+1. **共通プロンプト**：全言語共通の制約
+2. **Language Profile**：普通話または國語の固有ルール
+3. **生成元問題のJSON**：最大50問分の送信用DTO
 
-### D. API連携用メソッドへ入力を渡す
+### 6-4. API連携は次チャプターで実装
 
-```java
-// ChatGPTで生成(未実装)
-TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto =
-        generateQuestionsWithChatGPT(input, locale);
+元ログでは、`input`と`locale`を`generateQuestionsWithChatGPT()`または`generateQuestionsWithGemini()`に渡す構想を記載した。ただし、この時点では両メソッドは未実装であり、**どちらを呼び出すかの選択、APIレスポンスの受信、`AiGeneratedQuestionDto`への変換は今回の完成範囲に含めない**。
 
-// Geminiで生成(未実装)
-TemporaryGeneratedQuestionListDto temporaryGeneratedQuestionListDto =
-        generateQuestionsWithGemini(input, locale);
-```
+なお、元ログの末尾にある両API呼び出しは処理の予定を示す説明用断片で、同名の`temporaryGeneratedQuestionListDto`を連続宣言しているため、そのまま実行できる完成コードではない。
 
-作成した`input`と`Locale`をAPI連携用メソッドへ渡す。
+## 7. エラーメッセージ
 
-このチャプターではAPI連携部分自体は未実装とし、次のチャプターで実装する。
-
----
-
-## 7. エラーメッセージを追加
-
-### messages.properties
+`messages.properties`に以下を追加した。
 
 ```properties
 ai.prompt.error.read=プロンプトファイルの読み込みに失敗しました: {0}
 ai.generation.error.json=AI生成元問題のJSON変換に失敗しました。
 ```
 
-プロンプトファイルの読み込み失敗時と、生成元問題のJSON変換失敗時に使用するメッセージを追加する。
-
----
-
-## 実装後の処理の流れ
+## 8. 今回の到達点
 
 ```text
-AI問題生成条件
+メニュー画面で指定した検索条件
     ↓
 QuestionRepository
     ↓
-最大50問のList<Question>を取得
+最大50問の List<Question>
     ↓
-List<AiGenerationSourceDto>へ変換
+List<AiGenerationSourceDto> に変換（sourceIndexを付与）
     ↓
-JSON文字列へ変換
+ObjectMapperでJSON文字列へ変換
     ↓
-共通プロンプトを取得
-    +
-Language Profileを取得
+共通プロンプト ＋ Language Profile ＋ JSON
     ↓
-API送信用inputを作成
+APIへ渡す入力文字列 input
     ↓
-ChatGPT / Gemini API連携処理へ渡す
+ChatGPT / Gemini API連携（次チャプター）
 ```
 
-この時点で、生成元QuestionとプロンプトをAI APIへ送信できる形まで実装した。
+**生成元問題の取得とAPI送信用入力の作成までを実装した。** 実際のAPI呼び出し、生成結果の受信、生成元Questionとの紐付け、問題画面での出題は次の段階で実装する。
+

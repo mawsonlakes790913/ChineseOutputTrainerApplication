@@ -1,80 +1,18 @@
 # 011 復習モードの実装 その3 - Structureによる出題条件の追加
 
-復習モードに、文法・構造（Structure）による出題条件を追加する。
+復習モードに文法・構造（`Structure`）による絞り込みを追加する。当初は`Question.structure`の文字列を利用したが、文法の説明を表示する要件が生じたため、`Structure`のマスタ化、`Question`との関連付け、既存60問の移行も実施した。
 
-あわせて、これまで `Question` の文字列フィールドとして管理していた `structure` を独立したマスタテーブルへ変更し、復習メニューから各文法・構造の説明を確認できるようにする。
+本ログでは、当初の実装から設計変更までの流れを記録する。
 
----
+## 1. Structureを復習条件に追加する
 
-## 1. 復習メニューにStructureによる絞り込みを追加
+理解度・難易度・お気に入りに加え、可能補語や把構文などの文法・構造で復習問題を絞り込めるようにした。複数の構造を組み合わせて復習できるようチェックボックスを採用し、「すべて選択」「すべて解除」も設けた。
 
-`/review/menu` に文法・構造による絞り込み条件を追加する。
+当初は`Question`の文字列カラムから一覧を取得していたが、後述するマスタ化に伴い取得元を変更した。
 
-### QuestionRepository
+## 2. 選択肢の表示領域を制御する
 
-登録されている文法・構造を取得するため、`findDistinctStructures()` を追加した。
-
-```java
-@Query(value = """
-        SELECT DISTINCT structure
-        FROM question
-        ORDER BY structure
-        """, nativeQuery = true)
-List<String> findDistinctStructures();
-```
-
-### ReviewService
-
-```java
-public List<String> findStructures() {
-    return questionRepository.findDistinctStructures();
-}
-```
-
-### ReviewController
-
-`/review/menu` 表示時に文法・構造一覧をModelへ追加する。
-
-```java
-model.addAttribute(
-        "structures",
-        reviewService.findStructures());
-```
-
-### /review/menu.html
-
-文法・構造を複数選択できるチェックボックスを追加した。
-
-あわせて、
-
-- すべて選択
-- すべて解除
-
-の操作を追加した。
-
-### /review/menu.js
-
-文法・構造のチェック状態を `/review/count` へ送信し、選択状態が変更された場合に問題数を再取得するようにした。
-
-また、「すべて選択」「すべて解除」操作にも `updateCount()` を追加した。
-
-### 実行確認
-
-`/review/menu` に文法・構造の選択欄が表示され、選択状態に応じて問題数が変化することを確認した。
-
-![](../../images/0011-01.png)
-
-![](../../images/0011-02.png)
-
-![](../../images/0011-03.png)
-
----
-
-## 2. 文法・構造欄を折りたたみ可能にする
-
-文法・構造の選択肢が増えても復習メニューが縦に長くなりすぎないよう、文法・構造欄を折りたたみ可能にした。
-
-### /static/css/review/menu.css
+Structureは当時20種類あり、全件表示すると復習メニューが縦に長くなるため、初期表示の高さを制限し、「すべて表示」で展開する構成にした。
 
 ```css
 .structure-list {
@@ -87,72 +25,41 @@ model.addAttribute(
 }
 ```
 
-### /review/menu.html
-
-文法・構造一覧に `structureList` を設定する。
-
-```html
-<div id="structureList"
-     class="d-flex flex-wrap gap-2 structure-list">
-```
-
-一覧の下に表示切替ボタンを追加する。
-
-```html
-<div class="text-center mt-3">
-
-    <button type="button"
-            id="toggleStructures"
-            class="btn btn-link btn-sm"
-            th:data-show-text="#{review.menu.structure.showAll}"
-            th:data-hide-text="#{review.menu.structure.collapse}"
-            th:text="#{review.menu.structure.showAll}">
-        すべて表示
-    </button>
-
-</div>
-```
-
-### /review/menu.js
-
 ```javascript
-const structureList =
-    document.getElementById("structureList");
-
-const toggleStructuresButton =
-    document.getElementById("toggleStructures");
-
-toggleStructuresButton.addEventListener("click", () => {
-
-    const expanded =
-        structureList.classList.toggle("expanded");
-
-    toggleStructuresButton.textContent =
-        expanded
-            ? toggleStructuresButton.dataset.hideText
-            : toggleStructuresButton.dataset.showText;
-});
+const expanded = structureList.classList.toggle("expanded");
 ```
 
-### 実行確認
+HTMLで対象要素を定義し、CSSで表示状態を定め、JavaScriptで`expanded`クラスを切り替える。
 
-初期状態では文法・構造欄が折りたたまれ、「すべて表示」を押すことで全件表示できることを確認した。
+## 3. Structureをマスタ化する理由
 
-![](../../images/0011-04.png)
+変更前の`Question`は、文法・構造名を文字列として直接保持していた。
 
-![](../../images/0011-05.png)
+```java
+@Column(name = "structure", nullable = false)
+private String structure;
+```
 
----
+この設計でも絞り込みは可能であり、当初は次のSQLで選択肢を取得した。
 
-## 3. Structureをマスタテーブル化
+```sql
+SELECT DISTINCT structure
+FROM question
+ORDER BY structure
+```
 
-`Question.structure` に文字列として保持していた文法・構造を、独立した `Structure` Entityとして管理するように変更する。
+しかし、「可能補語」「比例複文」などの名称だけでは学習者が意味を思い出せない場合がある。選択肢に説明を付けることを検討した結果、Structureを名称・説明を持つ独立したマスタデータとして管理する方針に変更した。
 
-設計変更に伴い、実装前にrequirementsフォルダ内の関連設計書を更新した。
+## 4. StructureテーブルとEntityの追加
 
-設計変更の詳細についてはrequirementsフォルダ内の各ファイルに記載する。
+次のカラムを持つ`structure`テーブルを追加した。
 
-### Structure.java
+| カラム | 用途 |
+|---|---|
+| `structure_id` | 主キー |
+| `name` | 文法・構造名（重複不可） |
+| `description_zh_cn` | 大陸普通話向けの説明 |
+| `description_zh_tw` | 台湾華語向けの説明 |
 
 ```java
 @Entity
@@ -177,44 +84,27 @@ public class Structure {
 }
 ```
 
-### StructureRepository
+同じ文法・構造が重複登録されないよう、`name`にUNIQUE制約を設けた。
+
+説明を2種類に分けたのは、説明文に「因为～所以～／因為～所以～」など学習対象言語に応じた中国語表現を含めるためである。切り替え基準はサイトの表示言語ではなく、Sessionの`languageVariant`とした。
+
+## 5. QuestionとStructureを関連付ける
+
+`Question`側の文字列フィールドを、`Structure`への多対一の関連へ変更した。
 
 ```java
-public interface StructureRepository
-        extends JpaRepository<Structure, Long> {
-}
+@ManyToOne
+@JoinColumn(name = "structure_id", nullable = false)
+private Structure structure;
 ```
 
-### Structureマスタデータの登録
+1つのStructureには複数のQuestionが属するため、Question側は`@ManyToOne`となる。`@JoinColumn`はQuestionテーブルにある外部キーカラム`structure_id`を指定する。
 
-既存の `question.structure` に登録されている20種類の文法・構造を `structure` テーブルへ登録した。
+## 6. 既存60問のデータを移行する
 
-```sql
-INSERT INTO structure
-    (name, description_zh_cn, description_zh_tw)
-VALUES
-...
-;
-```
+既存Questionには`structure_id`が存在しないため、最初から`nullable = false`にせず、旧文字列カラムと新しい外部キーカラムを一時的に共存させた。
 
-各Structureについて、
-
-- 文法・構造名
-- 大陸普通話向け説明
-- 台湾華語向け説明
-
-を保持する。
-
-### Question.java
-
-変更前：
-
-```java
-@Column(name = "structure", nullable = false)
-private String structure;
-```
-
-変更後：
+**移行時の一時的なEntity定義**
 
 ```java
 @ManyToOne
@@ -222,11 +112,7 @@ private String structure;
 private Structure structure;
 ```
 
-この時点では既存データ移行のため `nullable = false` は設定しない。
-
-### 既存データの移行
-
-旧 `structure` カラムの文字列と `structure.name` を対応させ、既存60問へ `structure_id` を設定した。
+Structureマスタのデータを用意した後、旧カラムの文字列とマスタの名称を照合して外部キーを設定した。
 
 ```sql
 UPDATE question q
@@ -235,63 +121,20 @@ FROM structure s
 WHERE q.structure = s.name;
 ```
 
-移行結果を確認する。
-
-```sql
-SELECT
-    q.question_id,
-    q.structure AS old_structure,
-    q.structure_id,
-    s.name AS new_structure
-FROM question q
-LEFT JOIN structure s
-    ON q.structure_id = s.structure_id
-ORDER BY q.question_id;
-```
-
-![](../../images/0011-06.png)
-
-![](../../images/0011-07.png)
-
-移行漏れがないことを確認後、旧カラムを削除した。
+全60問の対応付けを確認してから旧カラムを削除した。
 
 ```sql
 ALTER TABLE question
 DROP COLUMN structure;
 ```
 
-削除後、60問すべてについてStructureとの関連を取得できることを確認した。
+最後にEntityの`@JoinColumn(name = "structure_id", nullable = false)`へ変更した。DB側のNOT NULL制約も適用されていることを確認する必要がある。
 
-```sql
-SELECT
-    q.question_id,
-    q.structure_id,
-    s.name
-FROM question q
-JOIN structure s
-    ON q.structure_id = s.structure_id
-ORDER BY q.question_id;
-```
+**移行順序**：新カラム追加（NULL許可）→既存データの紐付け→移行結果確認→旧カラム削除→必須制約の適用。既存データを維持したままリレーションへ移行するための重要な手順だった。
 
-![](../../images/0011-08.png)
+## 7. Structure一覧の取得と画面の送信値を変更する
 
-最後に `Question.structure` を必須関連に変更した。
-
-```java
-@ManyToOne
-@JoinColumn(name = "structure_id", nullable = false)
-private Structure structure;
-```
-
----
-
-## 4. 復習機能を新しいStructure構造へ対応
-
-Structureのマスタ化に伴い、復習メニュー表示、問題数取得、問題取得処理を `structure_id` ベースへ変更する。
-
-### 4.1 復習メニュー表示
-
-`ReviewService` が `StructureRepository` を使用するように変更した。
+マスタ化前は`QuestionRepository`から文字列をDISTINCTで取得していたが、変更後は`StructureRepository`から直接取得する。
 
 ```java
 public List<Structure> findStructures() {
@@ -299,126 +142,41 @@ public List<Structure> findStructures() {
 }
 ```
 
-不要になった `QuestionRepository.findDistinctStructures()` は削除した。
-
-`/review/menu.html` では、Structure EntityからIDと名称を取得するよう変更した。
+HTMLのチェックボックスでは、表示には名称を使い、送信値にはIDを使う。
 
 ```html
-<label th:each="structure : ${structures}"
-       class="bg-light rounded px-3 py-2">
-
-    <input class="form-check-input me-2"
-           type="checkbox"
-           name="structureIds"
-           th:value="${structure.structureId}"
-           checked>
-
-    <span th:text="${structure.name}">
-        文法・構造
-    </span>
-
-</label>
+<input type="checkbox"
+       name="structureIds"
+       th:value="${structure.structureId}">
+<span th:text="${structure.name}"></span>
 ```
 
-`/review/menu.js` についても、`structures` ではなく `structureIds` を送信するよう変更した。
+例えば「可能補語」を表示しつつ、検索条件としては対応する`structure_id`を送信する。
 
-### 実行確認
+## 8. 件数取得と問題取得の両方にStructure条件を追加する
 
-`/review/menu` でStructure一覧がこれまでどおり表示されることを確認した。
-
-![](../../images/0011-09.png)
-
-### 4.2 問題数取得
-
-`StudyHistoryRepository.countReviewQuestions()` のStructure条件をIDベースへ変更した。
+復習メニューに表示する問題数と、開始時に取得する問題セットが一致するよう、件数取得クエリと問題取得クエリの両方に同じ条件を追加した。
 
 ```sql
 AND q.structure_id IN (:structureIds)
 ```
 
-引数も変更する。
+今回はIDの一致だけを判定するため、SQL上で`structure`テーブルをJOINする必要はない。名称や説明などマスタ側の列を検索条件に利用する場合は別途JOINを検討する。
 
-```java
-@Param("structureIds") List<Long> structureIds
-```
+## 9. Structureの説明をTooltipで表示する
 
-`ReviewService.countReviewQuestions()` および `ReviewController.getReviewCount()` についても `List<Long> structureIds` を受け渡すよう変更した。
-
-### 実行確認
-
-Structureの選択状態に応じて問題数が正しく更新されることを確認した。
-
-![](../../images/0011-10.png)
-
-### 4.3 復習問題取得
-
-`StudyHistoryRepository.findReviewQuestions()` にStructure IDによる絞り込みを追加した。
-
-```sql
-AND q.structure_id IN (:structureIds)
-```
-
-引数にもStructure IDを追加した。
-
-```java
-@Param("structureIds") List<Long> structureIds
-```
-
-`ReviewService.getQuestion()` にも `structureIds` を追加し、Repositoryへ渡すよう変更した。
-
-`ReviewController.getReviewStart()` では、
-
-```java
-@RequestParam(name = "structureIds", required = false)
-List<Long> structureIds
-```
-
-として選択されたStructure IDを受け取り、`ReviewService` へ渡すよう変更した。
-
-これにより、復習メニューで指定したStructure条件が実際に取得される復習問題にも反映されるようになった。
-
----
-
-## 5. 文法・構造の説明を表示
-
-復習メニューの各文法・構造にカーソルを合わせると、Structureに登録されている説明を表示するようにした。
-
-### /review/menu.html
-
-Bootstrap Tooltipを設定する。
+文法・構造の選択肢にBootstrapのTooltipを追加した。説明文はSessionの学習対象言語に応じて切り替える。
 
 ```html
-<label th:each="structure : ${structures}"
-       class="bg-light rounded px-3 py-2"
-       data-bs-toggle="tooltip"
-       data-bs-placement="top"
-       th:data-bs-title="${session.languageVariant != null
-                           && session.languageVariant.name() == 'TAIWAN'
-                           ? structure.descriptionZhTw
-                           : structure.descriptionZhCn}">
+data-bs-toggle="tooltip"
+data-bs-placement="top"
+th:data-bs-title="${session.languageVariant != null
+                    && session.languageVariant.name() == 'TAIWAN'
+                    ? structure.descriptionZhTw
+                    : structure.descriptionZhCn}"
 ```
-
-現在の学習対象言語に応じて使用する説明を切り替える。
-
-```text
-MAINLAND
-└── descriptionZhCn
-
-TAIWAN
-└── descriptionZhTw
-```
-
-`languageVariant` が `null` の場合は `descriptionZhCn` を使用する。
-
-### /review/menu.js
-
-Bootstrap Tooltipを初期化する。
 
 ```javascript
-// =========================
-// 文法・構造の説明
-// =========================
-
 const tooltipTriggerList =
     document.querySelectorAll('[data-bs-toggle="tooltip"]');
 
@@ -426,12 +184,6 @@ tooltipTriggerList.forEach(element => {
     new bootstrap.Tooltip(element);
 });
 ```
-
-`data-bs-toggle="tooltip"` が設定されている要素を取得し、それぞれにBootstrap Tooltipを生成する。
-
-### /static/css/review/menu.css
-
-Tooltipを読みやすいサイズに調整する。
 
 ```css
 .tooltip-inner {
@@ -442,494 +194,59 @@ Tooltipを読みやすいサイズに調整する。
 }
 ```
 
-### 実行確認
+HTMLで説明内容を設定し、JavaScriptでTooltipを初期化、CSSで読みやすさを調整した。
 
-`/review/menu` の各文法・構造にカーソルを合わせると、現在の学習対象言語に対応した説明がTooltipとして表示されることを確認した。
+## 10. 実装の振り返り
 
-![](../../images/0011-11.png)
+今回の開発は、当初の文字列設計で復習メニューと問題取得を実装した後、Structureの説明表示を検討したことで、要件定義・DB・Entity・既存処理を見直すことになった。
 
----
+設計変更は大きく2回あった。
 
-## 実装結果
+1. `Question.structure`（文字列）を独立した`Structure`マスタへの参照に変更。
+2. 説明を単一の`description`ではなく、普通話向けと台湾華語向けの2種類に変更。
 
-復習モードにStructureによる絞り込みを追加した。
+要件定義の段階で利用方法を十分に考えられていなかった点は反省材料である。一方、実際に文法名を画面へ並べてみたからこそ、「名前だけでは分かりにくい」「説明が必要」という要求に気づいた。
 
-また、Structureを独立したマスタテーブルとして管理する構造へ変更し、既存60問のデータを新しい構造へ移行した。
-
-これに伴って復習メニュー、問題数取得、復習問題取得を `structure_id` ベースへ変更した。
-
-さらに、復習メニューでは各Structureの説明を現在の学習対象言語に応じて表示できるようにした。
+まだ既存問題が60問で関連機能も限定されていたため、変更を先送りせず、requirementsまで遡って修正した。設計変更が生じたことだけでなく、**発見した要求に対して、どの段階で修正するのが適切か判断すること**が重要だと感じた。
 
 ---
 
-# 追加修正　8月28日
+# 追加修正：8月28日 — 学習対象言語による絞り込み
 
-```bash
-git commit -m "feat: add language variant filter to review menu"
-```
-
-※実装内容に先のチャプターの内容が含まれている。
-
-## 問題点
-
-復習メニューでは、学習対象言語別に復習対象問題を絞り込むことができなかった。
-
-![](../../images/0011-12.png)
-
-そのため、過去に普通話と國語の両方を学習したことがあるユーザーが`/review/menu`へアクセスすると、現在設定している学習対象言語に関係なく、普通話と國語の復習対象問題がすべて問題件数に含まれていた。
-
-そこで、問題一覧画面と同様に以下の仕様へ変更する。
-
-- 復習メニューで学習対象言語別にフィルターをかけられるようにする
-- 初期表示では、現在設定している学習対象言語だけを選択状態にする
-- 選択された学習対象言語だけを問題件数の集計および実際の復習問題取得の対象にする
-
-![](../../images/0011-13.png)
-
-## 1. `StudyHistoryRepository`に学習対象言語の検索条件を追加
-
-復習対象問題の件数取得と問題取得の両方で、選択された学習対象言語による絞り込みを行えるようにする。
-
-### `countReviewQuestions`
-
-復習対象問題数を取得するSQLに、`question.language_variant`による検索条件を追加する。
-
-```java
-@Query(value = """
-        SELECT COUNT(*)
-        FROM study_history sh
-        JOIN question q
-        ON sh.question_id = q.question_id
-        LEFT JOIN favorite f
-        ON sh.user_id = f.user_id
-        AND sh.question_id = f.question_id
-        WHERE sh.user_id = :userId
-        AND q.language_variant IN (:languageVariants)
-        AND sh.evaluation IN (:evaluations)
-        AND q.difficulty IN (:difficulties)
-        AND (
-            :favoriteCondition = 'ALL'
-            OR (
-                :favoriteCondition = 'FAVORITED'
-                AND f.question_id IS NOT NULL
-            )
-            OR (
-                :favoriteCondition = 'NOT_FAVORITED'
-                AND f.question_id IS NULL
-            )
-        )
-        AND q.structure_id IN (:structureIds)
-        """, nativeQuery = true)
-long countReviewQuestions(
-        @Param("userId") Long userId,
-        @Param("languageVariants") List<String> languageVariants,
-        @Param("evaluations") List<String> evaluations,
-        @Param("difficulties") List<String> difficulties,
-        @Param("favoriteCondition") String favoriteCondition,
-        @Param("structureIds") List<Long> structureIds
-);
-```
-
-以下の条件を追加した。
+復習メニューに普通話・國語の複数選択を追加した。問題数取得と問題取得の両方に、次の条件を設定した。
 
 ```sql
 AND q.language_variant IN (:languageVariants)
 ```
 
-また、メソッドの引数にも以下を追加した。
+`=`ではなく`IN`を使用し、普通話のみ・國語のみ・両方を選択できるようにした。Controllerでは`List<LanguageVariant>`で受け取り、ServiceでDB比較用の文字列へ変換する。
 
 ```java
-@Param("languageVariants") List<String> languageVariants
+@RequestParam(name = "languageVariants", required = false)
+List<LanguageVariant> languageVariants
 ```
 
-`IN`を使用することで、普通話のみ、國語のみ、または両方を検索対象にできる。
-
-### `findReviewQuestions`
-
-実際に復習する問題を取得するSQLにも、同じ学習対象言語の条件を追加する。
+復習メニューを開いたときはSessionに保存された現在の学習対象言語を初期選択とし、必要に応じて両方へ変更できるようにした。
 
 ```java
-@Query(value = """
-        SELECT q.*
-        FROM study_history sh
-        JOIN question q
-          ON sh.question_id = q.question_id
-        LEFT JOIN favorite f
-          ON sh.user_id = f.user_id
-         AND sh.question_id = f.question_id
-        WHERE sh.user_id = :userId
-          AND q.language_variant IN (:languageVariants)
-          AND sh.evaluation IN (:evaluations)
-          AND q.difficulty IN (:difficulties)
-          AND (
-              :favoriteCondition = 'ALL'
-              OR (
-                  :favoriteCondition = 'FAVORITED'
-                  AND f.question_id IS NOT NULL
-              )
-              OR (
-                  :favoriteCondition = 'NOT_FAVORITED'
-                  AND f.question_id IS NULL
-              )
-          )
-          AND q.structure_id IN (:structureIds)
-        """, nativeQuery = true)
-List<Question> findReviewQuestions(
-        @Param("userId") Long userId,
-        @Param("languageVariants") List<String> languageVariants,
-        @Param("evaluations") List<String> evaluations,
-        @Param("difficulties") List<String> difficulties,
-        @Param("favoriteCondition") String favoriteCondition,
-        @Param("structureIds") List<Long> structureIds
-);
-```
+LanguageVariant languageVariant =
+        (LanguageVariant) session.getAttribute("languageVariant");
 
-これにより、画面上の問題件数だけでなく、実際に出題される問題にも同じ学習対象言語の検索条件が適用される。
-
-## 2. `ReviewService`に学習対象言語を追加
-
-Repositoryへ学習対象言語を渡せるように、`ReviewService`の件数取得処理と問題取得処理を修正する。
-
-### `countReviewQuestions`
-
-引数に`List<LanguageVariant> languageVariants`を追加する。
-
-```java
-// 復習出題数取得
-public long countReviewQuestions(
-        Long userId,
-        List<LanguageVariant> languageVariants,
-        List<Evaluation> evaluations,
-        List<Difficulty> difficulties,
-        FavoriteCondition favoriteCondition,
-        List<Long> structureIds) {
-
-    // ここで変換する
-    List<String> convertedLanguageVariants =
-            searchConditionConverter.convertLanguageVariant(languageVariants);
-
-    List<String> convertedDifficulties =
-            searchConditionConverter.convertDifficulty(difficulties);
-
-    List<String> convertedEvaluations =
-            searchConditionConverter.convertEvaluation(evaluations);
-
-    String convertedFavoriteCondition =
-            searchConditionConverter.convertFavoriteCondition(favoriteCondition);
-
-    return studyHistoryRepository.countReviewQuestions(
-            userId,
-            convertedLanguageVariants,
-            convertedEvaluations,
-            convertedDifficulties,
-            convertedFavoriteCondition,
-            structureIds
-    );
+if (languageVariant == null) {
+    languageVariant = LanguageVariant.MAINLAND;
 }
-```
 
-Controllerから受け取った`List<LanguageVariant>`を`SearchConditionConverter`で`List<String>`へ変換し、Repositoryへ渡す。
-
-### `getQuestion`
-
-実際の復習問題取得処理にも`languageVariants`を追加する。
-
-```java
-// 問題取得
-public List<Question> getQuestion(
-        Long userId,
-        List<LanguageVariant> languageVariants,
-        List<Evaluation> evaluations,
-        List<Difficulty> difficulties,
-        FavoriteCondition favoriteCondition,
-        List<Long> structureIds,
-        boolean random) {
-
-    List<Question> extractedQuestions =
-            studyHistoryRepository.findReviewQuestions(
-                    userId,
-                    searchConditionConverter.convertLanguageVariant(languageVariants),
-                    searchConditionConverter.convertEvaluation(evaluations),
-                    searchConditionConverter.convertDifficulty(difficulties),
-                    searchConditionConverter.convertFavoriteCondition(favoriteCondition),
-                    structureIds
-            );
-
-    // シャッフルする
-    if (random) {
-        Collections.shuffle(extractedQuestions);
-    }
-
-    return extractedQuestions;
-}
-```
-
-これにより、復習開始時にも選択された学習対象言語だけを取得できるようになった。
-
-## 3. `ReviewController#getReviewCount`で学習対象言語を受け取る
-
-`/review/count`で、画面から送信された`languageVariants`を受け取れるようにする。
-
-```java
-@GetMapping("/review/count")
-@ResponseBody
-public long getReviewCount(
-        @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam(name = "languageVariants", required = false)
-            List<LanguageVariant> languageVariants,
-        @RequestParam(name = "evaluations", required = false)
-            List<Evaluation> evaluations,
-        @RequestParam(name = "difficulties", required = false)
-            List<Difficulty> difficulties,
-        @RequestParam(name = "favoriteCondition", required = false)
-            FavoriteCondition favoriteCondition,
-        @RequestParam(name = "structureIds", required = false)
-            List<Long> structureIds) {
-
-    // user_id(文字列)からUsersを取得
-    Users user = getLoginUser(loginUser);
-    Long userId = user.getId();
-
-    // 出題数を返す
-    return reviewService.countReviewQuestions(
-            userId,
-            languageVariants,
-            evaluations,
-            difficulties,
-            favoriteCondition,
-            structureIds
-    );
-}
-```
-
-これにより、JavaScriptから送信された学習対象言語をServiceへ渡し、問題件数の検索条件として使用できる。
-
-## 4. `ReviewController#getReviewStart`で学習対象言語を受け取る
-
-`/review/start`でも`languageVariants`を受け取るようにする。
-
-```java
-@GetMapping("/review/start")
-public String getReviewStart(
-        HttpSession session,
-        @AuthenticationPrincipal UserDetails loginUser,
-        @RequestParam(name = "languageVariants", required = false)
-            List<LanguageVariant> languageVariants,
-        @RequestParam(name = "evaluations", required = false)
-            List<Evaluation> evaluations,
-        @RequestParam(name = "difficulties", required = false)
-            List<Difficulty> difficulties,
-        @RequestParam(name = "favoriteCondition", required = false)
-            FavoriteCondition favoriteCondition,
-        @RequestParam(name = "structureIds", required = false)
-            List<Long> structureIds,
-        @RequestParam(name = "random", required = false)
-            boolean random) {
-
-    // 既存の学習状態を破棄
-    clearReviewSession(session);
-
-    // 先に宣言
-    List<Question> questions;
-
-    // user_id(文字列)からUsersを取得
-    Users user = getLoginUser(loginUser);
-    Long userId = user.getId();
-
-    // 新しい問題セットを作成
-    questions = reviewService.getQuestion(
-            userId,
-            languageVariants,
-            evaluations,
-            difficulties,
-            favoriteCondition,
-            structureIds,
-            random
-    );
-
-    // 問題が1件もない場合は開始しない
-    if (questions.isEmpty()) {
-        return "redirect:/review/menu";
-    }
-
-    session.setAttribute("reviewQuestions", questions);
-    session.setAttribute("reviewCurrentPage", 0);
-
-    return "redirect:/review/question?page=0";
-}
-```
-
-これにより、問題件数の取得だけでなく、復習開始時にも選択した学習対象言語が検索条件として使用される。
-
-## 5. `ReviewController#getReviewMenu`で初期選択する言語を設定
-
-復習メニューを開いた直後は、ユーザーが現在設定している学習対象言語だけを検索対象として選択する。
-
-```java
-@GetMapping("/review/menu")
-public String getReviewMenu(
-        HttpSession session,
-        Model model) {
-
-    // 言語切替後の戻り先
-    model.addAttribute("languageVariantRedirect", "/review/menu");
-
-    // 学習対象言語を取得
-    LanguageVariant languageVariant =
-            (LanguageVariant) session.getAttribute("languageVariant");
-
-    // 未設定の場合は普通話
-    if (languageVariant == null) {
-        languageVariant = LanguageVariant.MAINLAND;
-    }
-
-    // デフォルトの検索対象言語
-    model.addAttribute(
-            "selectedLanguageVariants",
-            List.of(languageVariant)
-    );
-
-    // セッションから情報を取得
-    List<Question> questions =
-            (List<Question>) session.getAttribute("reviewQuestions");
-
-    Integer currentPage =
-            (Integer) session.getAttribute("reviewCurrentPage");
-
-    // 中断したデータがあるか判定
-    boolean canResume = questions != null && currentPage != null;
-
-    // 中断したデータ情報を返す
-    model.addAttribute("canResume", canResume);
-
-    if (canResume) {
-        model.addAttribute("currentPage", currentPage);
-        model.addAttribute("totalCount", questions.size());
-    }
-
-    // 画面表示用structureを取得
-    model.addAttribute(
-            "structures",
-            reviewService.findStructures()
-    );
-
-    return "review/menu";
-}
-```
-
-セッションの`languageVariant`を取得し、
-
-```java
 model.addAttribute(
         "selectedLanguageVariants",
         List.of(languageVariant)
 );
 ```
 
-として画面へ渡す。
+### JavaScriptの検索パラメータも更新する
 
-これにより、`/review/menu`を開いた時点では現在設定している学習対象言語だけが選択された状態になる。
-
-## 6. `/review/menu.html`に学習対象言語のチェックボックスを追加
-
-検索フォームの一番上に、普通話と國語を選択するチェックボックスを追加する。
-
-```html
-<!-- ========================= -->
-<!-- 学習対象言語 -->
-<!-- ========================= -->
-
-<div class="col-md-12">
-
-    <label class="form-label fw-bold"
-           th:text="#{review.menu.languageVariant}">
-        学習対象言語
-    </label>
-
-    <div class="d-flex align-items-center gap-4">
-
-        <!-- 普通話 -->
-        <div class="form-check">
-
-            <input class="form-check-input"
-                   type="checkbox"
-                   name="languageVariants"
-                   value="MAINLAND"
-                   id="mainland"
-                   th:checked="${selectedLanguageVariants != null
-                       and selectedLanguageVariants.![name()].contains('MAINLAND')}">
-
-            <label class="form-check-label"
-                   for="mainland"
-                   th:classappend="${session.languageVariant == null
-                       or session.languageVariant.name() == 'MAINLAND'}
-                       ? ' fs-5 fw-bold'
-                       : ''">
-
-                🇨🇳普通话
-
-            </label>
-
-        </div>
-
-        <!-- 國語 -->
-        <div class="form-check">
-
-            <input class="form-check-input"
-                   type="checkbox"
-                   name="languageVariants"
-                   value="TAIWAN"
-                   id="taiwan"
-                   th:checked="${selectedLanguageVariants != null
-                       and selectedLanguageVariants.![name()].contains('TAIWAN')}">
-
-            <label class="form-check-label"
-                   for="taiwan"
-                   th:classappend="${session.languageVariant != null
-                       and session.languageVariant.name() == 'TAIWAN'}
-                       ? ' fs-5 fw-bold'
-                       : ''">
-
-                🇹🇼國語
-
-            </label>
-
-        </div>
-
-    </div>
-
-</div>
-```
-
-`selectedLanguageVariants`に含まれている言語だけを`checked`にすることで、現在設定している学習対象言語を初期検索条件として表示する。
-
-## 7. `menu.js`で学習対象言語を検索条件に追加
-
-問題件数を取得するJavaScriptにも`languageVariants`を追加する。
-
-### 検索条件の変更を検知する
-
-`searchConditions`に学習対象言語のチェックボックスを追加する。
+復習対象問題数は`fetch()`で取得しているため、HTMLのチェックボックスを追加するだけではリクエストに反映されない。チェックされた値を`URLSearchParams`に追加した。
 
 ```javascript
-const searchConditions = document.querySelectorAll(
-    "input[name='languageVariants'], " +
-    "input[name='evaluations'], " +
-    "input[name='difficulties'], " +
-    "input[name='conditions'], " +
-    "input[name='favoriteCondition'], " +
-    "input[name='structureIds']"
-);
-```
-
-これにより、普通話・國語のチェック状態を変更した場合にも`updateCount()`が実行される。
-
-### 選択された学習対象言語を`/review/count`へ送信する
-
-`updateCount()`内で、チェックされている`languageVariants`をURLパラメータへ追加する。
-
-```javascript
-// 学習対象言語
 document
     .querySelectorAll("input[name='languageVariants']:checked")
     .forEach(cb => {
@@ -937,38 +254,69 @@ document
     });
 ```
 
-たとえば國語だけが選択されている場合は、`languageVariants=TAIWAN`が`/review/count`へ送信される。
+また、件数再取得の対象となる検索条件のイベント監視にも`languageVariants`を追加した。
 
-これにより、学習対象言語のチェック状態を変更すると、その条件を反映した復習対象問題数が再取得されるようになった。
+### 実装時に発生したNullPointerException
 
-## 8. 実行確認
+実装途中で次のエラーが発生した。
 
-`http://localhost:8080/review/menu`へアクセスすると、検索条件に学習対象言語を選択するチェックボックスが表示された。
+```text
+java.lang.NullPointerException:
+Cannot invoke "java.util.List.iterator()"
+because "languageVariants" is null
+```
 
-現在の学習対象言語は國語のため、初期表示では國語のみにチェックが入った。
+原因はJavaScript側から`languageVariants`を送信していなかったことだった。`@RequestParam(required = false)`はパラメータがなくてもリクエストを受け付ける指定であり、必ず空のListになるわけではない。値が未送信の場合、今回のControllerでは`null`となり、Converterで走査した際に例外が発生した。
+
+通常のフォーム送信ではチェックされた`name`付き入力が送信されるが、今回は`URLSearchParams`を手動で構築しているため、`params.append()`が必要だった。複数回追加すると、次のように同名のパラメータをSpring MVC側でListとして受け取れる。
+
+```text
+languageVariants=MAINLAND&languageVariants=TAIWAN
+```
+
+なお、検索結果が0件で`COUNT(*)`が0を返すこと自体はエラーではない。スタックトレースから例外発生箇所を確認する重要性も再認識した。
+
+### 実行確認
+
+現在の学習対象言語が國語の場合、國語のみが初期選択され、対象問題数が0問と表示された。
 
 ![](../../images/0011-14.png)
 
-現在、國語の復習対象問題は0件のため、國語のみを選択している状態では問題件数も0問と表示された。
-
 ![](../../images/0011-16.png)
 
-学習対象言語を普通話へ切り替えて再度復習メニューを表示すると、初期選択も普通話へ切り替わった。
+普通話へ切り替えると、普通話が初期選択され、対象問題数が8問と表示された。
 
 ![](../../images/0011-15.png)
 
-普通話には復習対象問題が8件存在するため、問題件数も8問と表示された。
-
 ![](../../images/0011-17.png)
 
-以上により、復習メニューの初期検索対象が現在設定している学習対象言語と一致し、さらに普通話・國語を任意に選択して復習対象問題を絞り込めるようになった。
+これにより、現在の学習対象言語を初期値としながら、復習メニューでは任意の言語を選択できるようになった。
 
 ---
 
-## 次回の実装
+# 追加修正：8月29日 — Structure無選択時の挙動を統一
 
-ユーザーメニューの実装を行う。
+```bash
+git commit -m "fix: apply all structures when review filter is empty"
+```
 
-- プロフィール
-- 問題検索
-- 設定
+難易度や理解度では無選択時に全件を対象としていたが、Structureだけはすべてのチェックを外すと無選択のままになっていた。そこで、`structureIds`が`null`または空の場合、全Structure IDへ置き換えるよう`ReviewService#countReviewQuestions()`を修正した。
+
+```java
+if (structureIds == null || structureIds.isEmpty()) {
+    structureIds = structureRepository.findAllStructureIds();
+}
+```
+
+この処理により、問題数取得でStructureを無選択にしても、すべて選択した場合と同じ件数を表示できた。実際の問題取得側でも同じ無選択時の扱いになることが重要である。
+
+**修正前**
+
+![](../../images/0011-18.png)
+
+**修正後**
+
+![](../../images/0011-19.png)
+
+検索条件の操作方法が異なっていても、無選択時の意味を統一することで利用者が迷いにくくなる。
+
